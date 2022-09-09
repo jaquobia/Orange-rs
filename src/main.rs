@@ -88,45 +88,9 @@ fn main() {
     let mut render_time = ElapsedTime::new();
 
     let mut event_helper = WinitInputHelper::new();
-
-    let wireframe_mode = false;
-    let capture_mouse = false;
-    let vsync = true;
-    let key_w = false;
-    let key_s = false;
-    let key_a = false;
-    let key_d = false;
-    let key_space = false;
-    let key_shift = false;
-    let key_v = false;
-    let key_b = false;
-
-    let mut draw_requested = false;
-    let mut do_vsync = false;
     
     event_loop.run(move |event, _, control_flow| {
-        if event_helper.update(&event) {
-            if event_helper.quit() {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-            if event_helper.key_held(VirtualKeyCode::W) {
-                println!("W HELD");
-            }
-            if let Some(size) = event_helper.window_resized() {
-                gpu.resize(size.into());
-            }
 
-            // if do_vsync { window.request_redraw(); }
-            
-            
-        }
-        if let Event::WindowEvent{ event, window_id } = &event {
-            do_inputs(&mut states, &event);
-        }
-        if let Event::RedrawRequested(window_id) = &event {
-            draw_requested = true;
-        }
         if Event::MainEventsCleared == event {
             render_time.tick();
             do_updates(&mut states);
@@ -135,13 +99,27 @@ fn main() {
                 // Reconfigure the surface if lost
                 Err(wgpu::SurfaceError::Lost) => gpu.resize(gpu.size.into()),
                 // The system is out of memory, we should probably quit
-                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                Err(wgpu::SurfaceError::OutOfMemory) => control_flow.set_exit(),
                 // All other errors (Outdated, Timeout) should be resolved by the next frame
                 Err(e) => eprintln!("{:?}", e),
             }
         }
-        
-        
+
+        if event_helper.update(&event) {
+            if event_helper.quit() {
+                control_flow.set_exit();
+                return;
+            }
+            if event_helper.key_held(VirtualKeyCode::W) {
+                println!("W HELD");
+            }
+            if let Some(size) = event_helper.window_resized() {
+                gpu.resize(size.into());
+            }
+        }
+        if let Event::WindowEvent{ event, window_id: _ } = &event {
+            do_inputs(&mut states, &event);
+        }
     });
 
 }
