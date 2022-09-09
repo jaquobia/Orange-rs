@@ -1,0 +1,20 @@
+[package]
+name = "orange_rs"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+winit = "0.27.2"
+wgpu = {version = "0.13.1", features = ["spirv"]}
+pollster = "0.2.5" 
+image = "0.24.3"
+
+egui = "0.19.0"
+egui-winit = "0.19.0"
+egui-wgpu = "0.19.0"
+
+env_logger = "0.9"
+log = "0.4.17"
