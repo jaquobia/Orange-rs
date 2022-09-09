@@ -6,6 +6,7 @@ use image::GenericImageView;
 use wgpu::{RenderPass};
 use winit::{window::{WindowBuilder, Icon, Window}, event_loop::{EventLoop, ControlFlow}, event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState, DeviceEvent}};
 use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime};
+use winit_input_helper::WinitInputHelper;
 
 type StateVecType = Vec<Box<dyn RenderStates>>;
 
@@ -80,12 +81,13 @@ fn main() {
         .with_title("Orange-rs")
         .with_window_icon(icon)
         .build(&event_loop).unwrap();
-
     let mut gpu = WgpuData::new(&window);
 
     let mut states: StateVecType = vec![Box::new(State::new(&gpu)), Box::new(EguiState::new(&gpu, &event_loop))];
 
     let mut render_time = ElapsedTime::new();
+
+    let mut event_helper = WinitInputHelper::new();
 
     let wireframe_mode = false;
     let capture_mouse = false;
@@ -99,69 +101,46 @@ fn main() {
     let key_v = false;
     let key_b = false;
 
+    let mut draw_requested = false;
+    let mut do_vsync = false;
     
     event_loop.run(move |event, _, control_flow| {
+        if event_helper.update(&event) {
+            if event_helper.quit() {
+                *control_flow = ControlFlow::Exit;
+                return;
+            }
+            if event_helper.key_held(VirtualKeyCode::W) {
+                println!("W HELD");
+            }
+            if let Some(size) = event_helper.window_resized() {
+                gpu.resize(size.into());
+            }
 
-        match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.id() 
-            && !do_inputs(&mut states, &event) => 
-                match event {
-                    WindowEvent::CloseRequested => {
-                        *control_flow = ControlFlow::Exit;
-                    },
-                    WindowEvent::Resized(physical_size) => {
-                        gpu.resize((*physical_size).into());
-                    },
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        gpu.resize((**new_inner_size).into());
-                    },
-                    WindowEvent::KeyboardInput 
-                    { device_id: _, input, is_synthetic: _ } => {
-                        
-                    }
-                    _ => ()
-                },
-                Event::DeviceEvent { device_id, event } => {
-                    match event {
-                        DeviceEvent::Key( input ) => {
-                            let test = dbg!(input.state == ElementState::Pressed);
-                        if let Some(keycode) = input.virtual_keycode {
-                            match keycode {
-                                VirtualKeyCode::W => {
-                                    // println!("W");
-                                },
-                                _ => { }
-                            }
-                        }
-                        }
-                        _ => { }
-                    }
-                },
-                Event::RedrawRequested(window_id) if window_id == window.id() => {
-                    render_time.tick();
-                    do_updates(&mut states);
-
-                    match do_render(&mut gpu, &mut states, &mut window, render_time.elasped_time()) {
-                        Ok(_) => {}
-                        // Reconfigure the surface if lost
-                        Err(wgpu::SurfaceError::Lost) => gpu.resize(gpu.size.into()),
-                        // The system is out of memory, we should probably quit
-                        Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                        // All other errors (Outdated, Timeout) should be resolved by the next frame
-                        Err(e) => eprintln!("{:?}", e),
-                    }
-                    
-                }
-                Event::MainEventsCleared => {
-                    // RedrawRequested will only trigger once, unless we manually
-                    // request it.
-                    window.request_redraw();
-                }
-            _ => (),
+            // if do_vsync { window.request_redraw(); }
+            
+            
         }
+        if let Event::WindowEvent{ event, window_id } = &event {
+            do_inputs(&mut states, &event);
+        }
+        if let Event::RedrawRequested(window_id) = &event {
+            draw_requested = true;
+        }
+        if Event::MainEventsCleared == event {
+            render_time.tick();
+            do_updates(&mut states);
+            match do_render(&mut gpu, &mut states, &mut window, render_time.elasped_time()) {
+                Ok(_) => {}
+                // Reconfigure the surface if lost
+                Err(wgpu::SurfaceError::Lost) => gpu.resize(gpu.size.into()),
+                // The system is out of memory, we should probably quit
+                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                // All other errors (Outdated, Timeout) should be resolved by the next frame
+                Err(e) => eprintln!("{:?}", e),
+            }
+        }
+        
         
     });
 
@@ -286,17 +265,19 @@ impl RenderStates for EguiState {
 
     fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, gpu: &mut WgpuData, window: &Window, f_elapsed_time: f64) {
         let input = self.state.take_egui_input(&window);
-        let fps = 1.0 / f_elapsed_time;
+        let fps: i32 = (1.0 / f_elapsed_time) as i32;
         self.context.begin_frame(input);
 
         let ctx = &mut self.context;
         let mut window_style = Style::default();
         window_style.animation_time = 0.0;
+        // window_style.wrap = Some(false);
         let window_frame = Frame::window(&window_style);
         let test_window = egui::Window::new("Test Window")
         .anchor(Align2::LEFT_TOP, [0.0; 2])
         .frame(window_frame);
         test_window.show(ctx, |ui| {
+            // ui.wrap_text();
             ui.label(format!("Draw Time: {f_elapsed_time}"));
             ui.label(format!("FPS: {fps}"));
             ui.add(egui::Slider::new(&mut self.scalar, 0.0..=360.0).suffix("°"));
