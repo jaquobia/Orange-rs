@@ -9,12 +9,19 @@ struct VertexOutput {
     @location(0) weird_colour: vec3<f32>,  
 };
 
+struct CameraUniform {
+    view_proj: mat4x4<f32>,
+};
+
+@group(0) @binding(0)
+var<uniform> camera: CameraUniform;
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     let x = f32(1 - i32(in.in_vertex_index)) * 0.5;
     let y = f32(i32(in.in_vertex_index & 1u) * 2 - 1) * 0.5;
-    out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(x, y, 0.0, 1.0);
     switch in.in_vertex_index {
         case 0u: { out.weird_colour = vec3<f32>(1.0, 0.0, 0.0); }
         case 1u: { out.weird_colour = vec3<f32>(0.0, 1.0, 0.0); }
