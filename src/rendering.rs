@@ -1,5 +1,6 @@
 use instant::Duration;
 use ultraviolet::Mat4;
+use winit::{window::CursorGrabMode};
 
 use crate::camera::{CameraController, Projection, Camera};
 
@@ -20,8 +21,11 @@ pub struct WgpuData {
 impl WgpuData {
     pub fn new(window: &winit::window::Window) -> Self {
         let size = window.inner_size();
-
-        println!("Window Size: {} {}", size.width, size.height);
+        { // Debug window height
+            let width = size.width;
+            let height = size.height;
+            println!("Window Size: {width} {height}");
+        }
 
         let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
         let surface = unsafe { instance.create_surface(window) };
@@ -54,14 +58,15 @@ impl WgpuData {
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::AutoVsync,
+            // alpha_mode: wgpu::CompositeAlphaMode::Auto // 0.14.0
         };
         surface.configure(&device, &config);
 
-        
+
 
         Self {
             surface,
-            device, 
+            device,
             queue,
             config,
             size,
@@ -79,6 +84,7 @@ impl GpuStruct for WgpuData {
             self.config.height = new_size.1;
             self.config.present_mode = self.vsync;
             self.surface.configure(&self.device, &self.config);
+
         }
     }
 }
@@ -86,8 +92,8 @@ impl GpuStruct for WgpuData {
 impl WgpuData {
     pub fn swap_vsync(&mut self) {
         self.vsync = match self.vsync {
-            wgpu::PresentMode::Immediate => { wgpu::PresentMode::AutoVsync }
-            _ => { wgpu::PresentMode::Immediate },
+            wgpu::PresentMode::AutoNoVsync => { wgpu::PresentMode::AutoVsync }
+            _ => { wgpu::PresentMode::AutoNoVsync },
         };
         self.config.present_mode = self.vsync;
         self.surface.configure(&self.device, &self.config);
@@ -108,7 +114,7 @@ pub struct ElapsedTime {
 
 impl ElapsedTime {
     pub fn new() -> Self {
-        let time_now = std::time::Instant::now();
+        let time_now = instant::Instant::now();
         let time_last = time_now;
         Self {
             time_now,
@@ -119,7 +125,7 @@ impl ElapsedTime {
 
     pub fn tick(&mut self) {
         self.time_last = self.time_now;
-        self.time_now = std::time::Instant::now();
+        self.time_now = instant::Instant::now();
         self.dur = self.time_now - self.time_last;
     }
 
@@ -139,26 +145,33 @@ pub struct Client {
     pub camera_controller: CameraController,
     pub projection: Projection,
     pub proj_view: Mat4,
+    pub window_center: (u32, u32),
 
     swap_vsync: bool,
+    cursor_visible: bool,
 }
 
 impl Client {
     pub fn new(window: winit::window::Window, gpu: WgpuData, camera: Camera, camera_controller: CameraController, projection: Projection) -> Self {
+        let size: (u32, u32) = window.inner_size().into();
+        let proj_view = projection.calc_matrix() * camera.calc_matrix();
         Self {
             window,
             gpu,
             camera,
             camera_controller,
             projection,
-            proj_view: Mat4::identity(),
+            proj_view: proj_view,
+            window_center: (size.0 / 2, size.1 / 2),
 
             swap_vsync: false,
+            cursor_visible: true,
         }
     }
     pub fn resize(&mut self, new_size: (u32, u32)) {
         self.gpu.resize(new_size);
         self.projection.resize(new_size.0, new_size.1);
+        self.window_center = (new_size.0 / 2, new_size.1 / 2);
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -167,12 +180,25 @@ impl Client {
             self.gpu.swap_vsync();
             self.swap_vsync = false;
         }
+        if self.cursor_visible {
 
-        self.camera_controller.update_camera(&mut self.camera, dt);
-        self.proj_view = self.projection.calc_matrix() * self.camera.calc_matrix();
+        }
+        else {
+            self.camera_controller.update_camera(&mut self.camera, dt);
+            self.proj_view = self.projection.calc_matrix() * self.camera.calc_matrix();
+        }
     }
 
     pub fn set_swap_vsync(&mut self, swap_vsync: bool) {
         self.swap_vsync = swap_vsync;
+    }
+    pub fn toggle_cursor_visible(&mut self) {
+        self.cursor_visible = !self.cursor_visible;
+        self.window.set_cursor_grab(if self.cursor_visible { CursorGrabMode::None } else { CursorGrabMode::Locked }).unwrap();
+        self.window.set_cursor_visible(self.cursor_visible);
+        self.camera_controller.reset_mouse();
+    }
+    pub fn is_cursor_visible(&mut self) -> bool {
+        self.cursor_visible
     }
 }

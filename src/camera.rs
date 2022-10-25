@@ -1,14 +1,6 @@
-use ultraviolet::{Mat4, Vec4, Vec3, projection::perspective_wgpu_dx};
+use ultraviolet::{Mat4, Vec3, projection::perspective_wgpu_dx};
 
 use crate::math_helper::angle::Rad;
-
-// #[rustfmt::skip]
-// pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
-//     Vec4::new(1.0, 0.0, 0.0, 0.0),
-//     Vec4::new(0.0, 1.0, 0.0, 0.0),
-//     Vec4::new(0.0, 0.0, 0.5, 0.0),
-//     Vec4::new(0.0, 0.0, 0.5, 1.0),
-// );
 
 const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
 
@@ -80,7 +72,7 @@ impl Projection {
     }
 
     pub fn calc_matrix(&self) -> Mat4 {
-        /*OPENGL_TO_WGPU_MATRIX **/perspective_wgpu_dx(self.fovy, self.aspect, self.znear, self.zfar)
+        perspective_wgpu_dx(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
 
@@ -156,8 +148,13 @@ impl CameraController {
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-        self.rotate_horizontal = mouse_dx as f32;
-        self.rotate_vertical = mouse_dy as f32;
+        self.rotate_horizontal += mouse_dx as f32;
+        self.rotate_vertical += mouse_dy as f32;
+    }
+
+    pub fn reset_mouse(&mut self) {
+        self.rotate_horizontal = 0.0;
+        self.rotate_vertical = 0.0;
     }
 
     pub fn process_scroll(&mut self, scroll: f32) {
@@ -194,9 +191,11 @@ impl CameraController {
         // modify the y coordinate directly.
         camera.position.y += (self.amount_up - self.amount_down) * self.speed * dt;
 
+        const SENSITIVITY_CORRECTION: f32 = 0.005_f32;
+
         // Rotate
-        camera.yaw += self.rotate_horizontal * self.sensitivity * dt;
-        camera.pitch += -self.rotate_vertical * self.sensitivity * dt;
+        camera.yaw += self.rotate_horizontal * self.sensitivity * SENSITIVITY_CORRECTION;
+        camera.pitch += self.rotate_vertical * self.sensitivity * SENSITIVITY_CORRECTION;
 
         // If process_mouse isn't called every frame, these values
         // will not get set to zero, and the camera will rotate
