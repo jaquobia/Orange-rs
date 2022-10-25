@@ -27,8 +27,9 @@ impl WgpuData {
             println!("Window Size: {width} {height}");
         }
 
-        let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
+        #[cfg(not(target_arch = "wasm32"))]
         let adapter = pollster::block_on(instance.request_adapter(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -36,6 +37,17 @@ impl WgpuData {
                 force_fallback_adapter: false,
             },
         )).unwrap();
+
+        #[cfg(target_arch = "wasm32")]
+        let adapter = instance
+            .enumerate_adapters(wgpu::Backends::all())
+            .filter(|adapter| {
+                // Check if this adapter supports our surface
+                !surface.get_supported_formats(&adapter).is_empty()
+            })
+            .next()
+            .unwrap();
+
 
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
