@@ -21,11 +21,6 @@ pub struct WgpuData {
 impl WgpuData {
     pub fn new(window: &winit::window::Window) -> Self {
         let size = window.inner_size();
-        { // Debug window height
-            let width = size.width;
-            let height = size.height;
-            println!("Window Size: {width} {height}");
-        }
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
@@ -37,16 +32,7 @@ impl WgpuData {
                 force_fallback_adapter: false,
             },
         )).unwrap();
-
-        // #[cfg(target_arch = "wasm32")]
-        // let adapter = instance
-        //     .enumerate_adapters(wgpu::Backends::all())
-        //     .filter(|adapter| {
-        //         // Check if this adapter supports our surface
-        //         !surface.get_supported_formats(&adapter).is_empty()
-        //     })
-        //     .next()
-        //     .unwrap();
+        log::info!("Selected Adapter: {:?}", adapter.get_info());
 
 
         let (device, queue) = pollster::block_on(adapter.request_device(
@@ -70,7 +56,7 @@ impl WgpuData {
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::AutoVsync,
-            // alpha_mode: wgpu::CompositeAlphaMode::Auto // 0.14.0
+            alpha_mode: wgpu::CompositeAlphaMode::Auto
         };
         surface.configure(&device, &config);
 
@@ -139,10 +125,6 @@ impl ElapsedTime {
         self.time_last = self.time_now;
         self.time_now = instant::Instant::now();
         self.dur = self.time_now - self.time_last;
-    }
-
-    pub fn duration(&self) -> instant::Duration {
-        self.dur
     }
 
     pub fn elasped_time(&self) -> f64 {

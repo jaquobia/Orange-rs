@@ -1,19 +1,22 @@
 mod rendering;
 mod camera;
+mod mc_assets;
+mod mc_resource_handler;
 mod math_helper;
+mod mc_constants;
+
+use std::path::PathBuf;
 
 use camera::CameraControllerMovement;
-#[cfg(not(target_arch = "wasm32"))]
-use egui::{Align2, Frame, Style};
-#[cfg(not(target_arch = "wasm32"))]
-use egui_wgpu::renderer::ScreenDescriptor;
+// use egui::{Align2, Frame, Style};
+// use egui_wgpu::renderer::ScreenDescriptor;
 use image::GenericImageView;
-use lazy_static::lazy_static;
-use wgpu::{RenderPass, PresentMode, util::DeviceExt};
+use ultraviolet::Vec3;
+use wgpu::{RenderPass, util::DeviceExt, vertex_attr_array};
 use winit::{window::{WindowBuilder, Icon}, event_loop::{EventLoop}, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
 use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client};
 use winit_input_helper::WinitInputHelper;
-use crate::math_helper::angle;
+use crate::{math_helper::angle};
 
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
@@ -25,7 +28,17 @@ pub fn handle_args(args: &Vec<String>) {
     std::mem::drop(args);
 }
 
-lazy_static!{
+lazy_static::lazy_static!{
+    static ref MC_HOME : PathBuf = {
+        let win_appdata = std::env::var("APPDATA");
+        let mut dir = if cfg!(windows) && win_appdata.is_ok() {
+            PathBuf::from(win_appdata.unwrap())
+        } else {
+            home::home_dir().unwrap().to_path_buf()
+        };
+        dir.push(".minecraft");
+        dir
+    };
 }
 
 fn get_icon(name: &str) -> Option<Icon> {
@@ -47,7 +60,7 @@ pub fn run() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Orange-rs")
-        .with_window_icon(get_icon("mangadex.png"))
+        .with_window_icon(get_icon("icon.png"))
         .build(&event_loop).unwrap();
 
     #[cfg(target_arch = "wasm32")]
@@ -78,10 +91,13 @@ pub fn run() {
 
     let mut states: StateVecType = vec![Box::new(State::new(&client))];
 
-    #[cfg(not(target_arch = "wasm32"))]
-    states.push(Box::new(EguiState::new(&client.gpu, &event_loop)));
+    mc_assets::check_assets();
+    let _tex_map = mc_resource_handler::load_resources(&client.gpu);
+
+    // states.push(Box::new(EguiState::new(&client.gpu, &event_loop)));
 
     event_loop.run(move |event, _, control_flow| {
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Event::WindowEvent{ event, window_id: _ } = &event {
@@ -125,7 +141,7 @@ pub fn run() {
             if event_helper.key_pressed(VirtualKeyCode::V) {
                 client.set_swap_vsync(true);
             }
-            if event_helper.key_pressed(VirtualKeyCode::B) {
+            if event_helper.key_pressed(VirtualKeyCode::Escape) {
                 client.toggle_cursor_visible();
             }
             if let Some(size) = event_helper.window_resized() {
@@ -193,10 +209,41 @@ pub fn run() {
 
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct CubeVertex {
+    position: Vec3,
+    color: Vec3,
+}
+
+impl CubeVertex {
+    fn new<T: Into<Vec3>>(p: T, c: T) -> Self {
+        Self {
+            position: p.into(),
+            color: c.into(),
+        }
+    }
+
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        const ATTRIBS: [wgpu::VertexAttribute; 2] = vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &ATTRIBS
+        }
+    }
+}
+
 pub struct State {
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
+
+    pub vertex_buffer: wgpu::Buffer,
+    pub num_verticies: u32,
+
+    pub index_buffer: wgpu::Buffer,
+    pub num_indicies: u32,
 }
 
 impl State {
@@ -207,11 +254,55 @@ impl State {
         let device = &gpu.device;
         let config = &gpu.config;
 
+        let vertices: Vec<CubeVertex>  = vec![
+            CubeVertex::new((-0.5, -0.5,  0.5), (0.0, 0.0, 1.0)),
+            CubeVertex::new(( 0.5, -0.5,  0.5), (1.0, 0.0, 1.0)),
+            CubeVertex::new((-0.5,  0.5,  0.5), (0.0, 1.0, 1.0)),
+            CubeVertex::new(( 0.5,  0.5,  0.5), (1.0, 1.0, 1.0)),
+            CubeVertex::new((-0.5, -0.5, -0.5), (0.0, 0.0, 0.0)),
+            CubeVertex::new(( 0.5, -0.5, -0.5), (1.0, 0.0, 0.0)),
+            CubeVertex::new((-0.5,  0.5, -0.5), (0.0, 1.0, 0.0)),
+            CubeVertex::new(( 0.5,  0.5, -0.5), (1.0, 1.0, 0.0)),
+        ];
+        let num_verticies = vertices.len() as u32;
+
+        let indicies: &[u32] = &[
+            3, 0, 1,
+            3, 2, 0,
+            2, 4, 0,
+            2, 6, 4,
+            3, 5, 7,
+            3, 1, 5,
+            6, 2, 3,
+            6, 3, 7,
+            4, 1, 0,
+            4, 5, 1,
+            7, 5, 4,
+            7, 4, 6,
+        ];
+        let num_indicies = indicies.len() as u32;
+
+        let vertex_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(vertices.as_slice()),
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+
+        let index_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(indicies),
+                usage: wgpu::BufferUsages::INDEX,
+            }
+        );
+
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
-        // let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
         let camera_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -262,7 +353,9 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[
+                    CubeVertex::desc(),
+                ],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -298,6 +391,12 @@ impl State {
             render_pipeline,
             camera_buffer,
             camera_bind_group,
+
+
+            vertex_buffer,
+            num_verticies,
+            index_buffer,
+            num_indicies,
         }
     }
 }
@@ -316,97 +415,96 @@ impl RenderStates for State {
         client.gpu.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[client.proj_view]));
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..self.num_indicies, 0, 0..1);
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub struct EguiState {
-    state: egui_winit::State,
-    context: egui_winit::egui::Context,
-    renderpass: egui_wgpu::renderer::RenderPass, // Necessary for updating the egui pipeline
-}
+// pub struct EguiState {
+//     state: egui_winit::State,
+//     context: egui_winit::egui::Context,
+//     renderpass: egui_wgpu::renderer::RenderPass, // Necessary for updating the egui pipeline
+// }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl EguiState {
-    pub fn new<>(gpu: &WgpuData, event_loop: &EventLoop<()>)
-    -> Self {
+// impl EguiState {
+//     pub fn new<>(gpu: &WgpuData, event_loop: &EventLoop<()>)
+//     -> Self {
 
-        let state = egui_winit::State::new(&event_loop);
-        let context = egui_winit::egui::Context::default();
-        let renderpass = egui_wgpu::renderer::RenderPass::new(&gpu.device, gpu.config.format, 1);
+//         let state = egui_winit::State::new(&event_loop);
+//         let context = egui_winit::egui::Context::default();
+//         let renderpass = egui_wgpu::renderer::RenderPass::new(&gpu.device, gpu.config.format, 1);
 
-        Self {
-            state,
-            context,
-            renderpass,
-        }
-    }
-}
+//         Self {
+//             state,
+//             context,
+//             renderpass,
+//         }
+//     }
+// }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl RenderStates for EguiState {
+// impl RenderStates for EguiState {
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        self.state.on_event(&self.context, event)
-    }
+//     fn input(&mut self, event: &WindowEvent) -> bool {
+//         self.state.on_event(&self.context, event)
+//     }
 
-    fn update(&mut self) {
+//     fn update(&mut self) {
 
-    }
+//     }
 
-    fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &mut Client, f_elapsed_time: f64) {
-        if client.is_cursor_visible() {
-        let input = self.state.take_egui_input(&client.window);
+//     fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &mut Client, f_elapsed_time: f64) {
+//         if client.is_cursor_visible() {
+//         let input = self.state.take_egui_input(&client.window);
 
-        self.context.begin_frame(input);
-        let ctx = &mut self.context;
+//         self.context.begin_frame(input);
+//         let ctx = &mut self.context;
 
-        let fps: i32 = (1.0_f64 / f_elapsed_time) as i32;
-        let mut window_style = Style::default();
-        window_style.animation_time = 0.0;
-        // window_style.wrap = Some(false);
-        let window_frame = Frame::window(&window_style);
-        let test_window = egui::Window::new("Test Window")
-        .anchor(Align2::LEFT_TOP, [0.0; 2])
-        .frame(window_frame);
-        test_window.show(ctx, |ui| {
-            // ui.wrap_text();
-            ui.label(format!("Draw Time: {f_elapsed_time}"));
-            ui.label(format!("FPS: {fps}"));
-            let mut vsync = client.gpu.vsync == PresentMode::AutoVsync;
-            let resp = ui.checkbox(&mut vsync, "Vsync");
-            if resp.changed() {
-                client.set_swap_vsync(true);
-            }
-            let mut cursor = client.is_cursor_visible();
-            let resp = ui.checkbox(&mut cursor, "Cursor Visible?");
-            if resp.changed() {
-                client.toggle_cursor_visible();
-            }
-        });
+//         let fps: i32 = (1.0_f64 / f_elapsed_time) as i32;
+//         let mut window_style = Style::default();
+//         window_style.animation_time = 0.0;
+//         // window_style.wrap = Some(false);
+//         let window_frame = Frame::window(&window_style);
+//         let test_window = egui::Window::new("Test Window")
+//         .anchor(Align2::LEFT_TOP, [0.0; 2])
+//         .frame(window_frame);
+//         test_window.show(ctx, |ui| {
+//             // ui.wrap_text();
+//             ui.label(format!("Draw Time: {f_elapsed_time}"));
+//             ui.label(format!("FPS: {fps}"));
+//             let mut vsync = client.gpu.vsync == PresentMode::AutoVsync;
+//             let resp = ui.checkbox(&mut vsync, "Vsync");
+//             if resp.changed() {
+//                 client.set_swap_vsync(true);
+//             }
+//             let mut cursor = client.is_cursor_visible();
+//             let resp = ui.checkbox(&mut cursor, "Cursor Visible?");
+//             if resp.changed() {
+//                 client.toggle_cursor_visible();
+//             }
+//         });
 
-        let full_output = self.context.end_frame();
-        let paint_jobs = self.context.tessellate(full_output.shapes);
-        self.state.handle_platform_output(&client.window, &self.context, full_output.platform_output);
+//         let full_output = self.context.end_frame();
+//         let paint_jobs = self.context.tessellate(full_output.shapes);
+//         self.state.handle_platform_output(&client.window, &self.context, full_output.platform_output);
 
-        let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [ client.gpu.config.width, client.gpu.config.height ],
-            pixels_per_point: self.state.pixels_per_point(),
-        };
+//         let screen_descriptor = ScreenDescriptor {
+//             size_in_pixels: [ client.gpu.config.width, client.gpu.config.height ],
+//             pixels_per_point: self.state.pixels_per_point(),
+//         };
 
-        for (id, image_delta) in &full_output.textures_delta.set {
-            self.renderpass.update_texture(&client.gpu.device, &client.gpu.queue, *id, image_delta);
-        }
-        for id in &full_output.textures_delta.free {
-            self.renderpass.free_texture(id);
-        }
-        self.renderpass.update_buffers(&client.gpu.device, &client.gpu.queue, &paint_jobs, &screen_descriptor);
+//         for (id, image_delta) in &full_output.textures_delta.set {
+//             self.renderpass.update_texture(&client.gpu.device, &client.gpu.queue, *id, image_delta);
+//         }
+//         for id in &full_output.textures_delta.free {
+//             self.renderpass.free_texture(id);
+//         }
+//         self.renderpass.update_buffers(&client.gpu.device, &client.gpu.queue, &paint_jobs, &screen_descriptor);
 
 
-        // Record all render passes.
-        self.renderpass
-        .execute_with_renderpass(render_pass, &paint_jobs, &screen_descriptor);
-    }
-    }
-}
+//         // Record all render passes.
+//         self.renderpass
+//         .execute_with_renderpass(render_pass, &paint_jobs, &screen_descriptor);
+//     }
+//     }
+// }

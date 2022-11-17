@@ -1,4 +1,4 @@
-use ultraviolet::{Mat4, Vec3, projection::perspective_wgpu_dx};
+use ultraviolet::{Mat4, Vec3, projection::{perspective_wgpu_dx}};
 
 use crate::math_helper::angle::Rad;
 
@@ -73,6 +73,7 @@ impl Projection {
 
     pub fn calc_matrix(&self) -> Mat4 {
         perspective_wgpu_dx(self.fovy, self.aspect, self.znear, self.zfar)
+        // projection::perspective_gl(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
 
