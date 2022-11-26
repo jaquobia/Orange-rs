@@ -1,8 +1,16 @@
+use std::collections::HashMap;
+
 use instant::Duration;
 use ultraviolet::Mat4;
+use wgpu::BindGroupLayout;
 use winit::{window::CursorGrabMode};
 
 use crate::camera::{CameraController, Projection, Camera};
+
+pub mod tessellator;
+pub mod mesh;
+pub mod verticies;
+pub mod textures;
 
 pub trait GpuStruct {
     fn resize(&mut self, new_size: (u32, u32));
@@ -100,8 +108,8 @@ impl WgpuData {
 
 pub trait RenderStates {
     fn input(&mut self, event: &winit::event::WindowEvent) -> bool;
-    fn update(&mut self);
-    fn render<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>, client: &mut Client, f_elapsed_time: f64);
+    fn update(&mut self, client: &mut Client);
+    fn render<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>, client: &'a Client, f_elapsed_time: f64);
 }
 
 pub struct ElapsedTime {
@@ -143,6 +151,9 @@ pub struct Client {
 
     swap_vsync: bool,
     cursor_visible: bool,
+
+    pub textures: crate::mc_resource_handler::TexMapType,
+    pub layouts: HashMap<String, BindGroupLayout>,
 }
 
 impl Client {
@@ -160,6 +171,9 @@ impl Client {
 
             swap_vsync: false,
             cursor_visible: true,
+
+            textures: HashMap::new(),
+            layouts: HashMap::new(),
         }
     }
     pub fn resize(&mut self, new_size: (u32, u32)) {

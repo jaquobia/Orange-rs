@@ -4,6 +4,7 @@ mod mc_assets;
 mod mc_resource_handler;
 mod math_helper;
 mod mc_constants;
+mod utils;
 
 use std::path::PathBuf;
 
@@ -12,9 +13,9 @@ use camera::CameraControllerMovement;
 // use egui_wgpu::renderer::ScreenDescriptor;
 use image::GenericImageView;
 use ultraviolet::Vec3;
-use wgpu::{RenderPass, util::DeviceExt, vertex_attr_array};
+use wgpu::{RenderPass, util::DeviceExt};
 use winit::{window::{WindowBuilder, Icon}, event_loop::{EventLoop}, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
-use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client};
+use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator, mesh::Mesh, verticies::TerrainVertex};
 use winit_input_helper::WinitInputHelper;
 use crate::{math_helper::angle};
 
@@ -42,7 +43,7 @@ lazy_static::lazy_static!{
 }
 
 fn get_icon(name: &str) -> Option<Icon> {
-    let icon = image::open(name).unwrap_or_else(|_err| { image::DynamicImage::ImageRgba8(image::RgbaImage::new(10, 10)) });
+    let icon = image::open(name).unwrap_or_else(|_err| { println!("Failed to load {}", name); image::DynamicImage::ImageRgba8(image::RgbaImage::new(10, 10)) });
     let (icon_width, icon_height) = icon.dimensions();
     return Some(Icon::from_rgba(icon.into_bytes(), icon_width, icon_height).unwrap());
 }
@@ -89,10 +90,12 @@ pub fn run() {
     let mut render_time = ElapsedTime::new();
     let mut event_helper = WinitInputHelper::new();
 
+    mc_assets::check_assets();
+    mc_resource_handler::mc_terrain_tex_layout(&mut client);
+    mc_resource_handler::load_resources(&mut client);
+
     let mut states: StateVecType = vec![Box::new(State::new(&client))];
 
-    mc_assets::check_assets();
-    let _tex_map = mc_resource_handler::load_resources(&client.gpu);
 
     // states.push(Box::new(EguiState::new(&client.gpu, &event_loop)));
 
@@ -156,7 +159,7 @@ pub fn run() {
 
             client.update(render_time.elasped_time() as f32);
             for state in &mut states {
-                state.update();
+                state.update(&mut client);
             }
 
             let render_result: Result<(), wgpu::SurfaceError> = {
@@ -185,7 +188,7 @@ pub fn run() {
                 });
 
                 for state in &mut states {
-                    state.render(&mut render_pass, &mut client, render_time.elasped_time());
+                    state.render(&mut render_pass, &client, render_time.elasped_time());
                 }
 
                 std::mem::drop(render_pass);
@@ -209,41 +212,19 @@ pub fn run() {
 
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct CubeVertex {
-    position: Vec3,
-    color: Vec3,
-}
 
-impl CubeVertex {
-    fn new<T: Into<Vec3>>(p: T, c: T) -> Self {
-        Self {
-            position: p.into(),
-            color: c.into(),
-        }
-    }
-
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        const ATTRIBS: [wgpu::VertexAttribute; 2] = vertex_attr_array![0 => Float32x3, 1 => Float32x3];
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &ATTRIBS
-        }
-    }
-}
 
 pub struct State {
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
 
-    pub vertex_buffer: wgpu::Buffer,
-    pub num_verticies: u32,
+    pub test_mesh: Mesh,
+    // pub vertex_buffer: wgpu::Buffer,
+    // pub num_verticies: u32,
 
-    pub index_buffer: wgpu::Buffer,
-    pub num_indicies: u32,
+    // pub index_buffer: wgpu::Buffer,
+    // pub num_indicies: u32,
 }
 
 impl State {
@@ -254,49 +235,9 @@ impl State {
         let device = &gpu.device;
         let config = &gpu.config;
 
-        let vertices: Vec<CubeVertex>  = vec![
-            CubeVertex::new((-0.5, -0.5,  0.5), (0.0, 0.0, 1.0)),
-            CubeVertex::new(( 0.5, -0.5,  0.5), (1.0, 0.0, 1.0)),
-            CubeVertex::new((-0.5,  0.5,  0.5), (0.0, 1.0, 1.0)),
-            CubeVertex::new(( 0.5,  0.5,  0.5), (1.0, 1.0, 1.0)),
-            CubeVertex::new((-0.5, -0.5, -0.5), (0.0, 0.0, 0.0)),
-            CubeVertex::new(( 0.5, -0.5, -0.5), (1.0, 0.0, 0.0)),
-            CubeVertex::new((-0.5,  0.5, -0.5), (0.0, 1.0, 0.0)),
-            CubeVertex::new(( 0.5,  0.5, -0.5), (1.0, 1.0, 0.0)),
-        ];
-        let num_verticies = vertices.len() as u32;
-
-        let indicies: &[u32] = &[
-            3, 0, 1,
-            3, 2, 0,
-            2, 4, 0,
-            2, 6, 4,
-            3, 5, 7,
-            3, 1, 5,
-            6, 2, 3,
-            6, 3, 7,
-            4, 1, 0,
-            4, 5, 1,
-            7, 5, 4,
-            7, 4, 6,
-        ];
-        let num_indicies = indicies.len() as u32;
-
-        let vertex_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(vertices.as_slice()),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
-
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(indicies),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
+        let mut tess = tessellator::TerrainTessellator::new();
+        let test_mesh = tess
+        .cuboid(Vec3::new(-0.5, -0.5, -0.5), Vec3::new(0.0, 1.0, 0.0), [0, 1, 2, 3, 4, 5]).build(device);
 
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -338,12 +279,12 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-
         let render_pipeline_layout =
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[
                 &camera_bind_group_layout,
+                &client.layouts["mc_terrain_tex_layout"],
             ],
             push_constant_ranges: &[],
         });
@@ -354,7 +295,7 @@ impl State {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[
-                    CubeVertex::desc(),
+                    TerrainVertex::desc(),
                 ],
             },
             fragment: Some(wgpu::FragmentState {
@@ -392,11 +333,11 @@ impl State {
             camera_buffer,
             camera_bind_group,
 
-
-            vertex_buffer,
-            num_verticies,
-            index_buffer,
-            num_indicies,
+            test_mesh,
+            // vertex_buffer,
+            // num_verticies,
+            // index_buffer,
+            // num_indicies,
         }
     }
 }
@@ -407,17 +348,15 @@ impl RenderStates for State {
         false
     }
 
-    fn update(&mut self) {
-
+    fn update(&mut self, client: &mut Client) {
+        client.gpu.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[client.proj_view]));
     }
 
-    fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &mut Client, _f_elapsed_time: f64) {
-        client.gpu.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[client.proj_view]));
+    fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &'a Client, _f_elapsed_time: f64) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..self.num_indicies, 0, 0..1);
+        render_pass.set_bind_group(1, &client.textures.get("terrain.png").unwrap().bind_group, &[]);
+        self.test_mesh.draw(render_pass);
     }
 }
 
