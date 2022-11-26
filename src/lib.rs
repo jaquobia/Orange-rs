@@ -32,11 +32,13 @@ pub fn handle_args(args: &Vec<String>) {
 lazy_static::lazy_static!{
     static ref MC_HOME : PathBuf = {
         let win_appdata = std::env::var("APPDATA");
-        let mut dir = if cfg!(windows) && win_appdata.is_ok() {
-            PathBuf::from(win_appdata.unwrap())
-        } else {
-            home::home_dir().unwrap().to_path_buf()
-        };
+        let mut dir = std::env::home_dir().unwrap_or_default();
+        println!("Home directory is {:?}, if this is incorrect, please make an issue on the github!", dir);
+        // let mut dir = if cfg!(windows) && win_appdata.is_ok() {
+        //     PathBuf::from(win_appdata.unwrap())
+        // } else {
+        //     home::home_dir().unwrap().to_path_buf()
+        // };
         dir.push(".minecraft");
         dir
     };
