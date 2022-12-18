@@ -6,7 +6,7 @@ mod math_helper;
 mod mc_constants;
 mod utils;
 
-use std::path::PathBuf;
+use std::{path::PathBuf};
 
 use camera::CameraControllerMovement;
 // use egui::{Align2, Frame, Style};
@@ -15,7 +15,7 @@ use image::GenericImageView;
 use ultraviolet::Vec3;
 use wgpu::{RenderPass, util::DeviceExt};
 use winit::{window::{WindowBuilder, Icon}, event_loop::{EventLoop}, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
-use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator, mesh::Mesh, verticies::TerrainVertex};
+use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator, mesh::Mesh, verticies::TerrainVertex, textures::{TexWrapper, DepthTextureWrapper}};
 use winit_input_helper::WinitInputHelper;
 use crate::{math_helper::angle};
 
@@ -32,13 +32,13 @@ pub fn handle_args(args: &Vec<String>) {
 lazy_static::lazy_static!{
     static ref MC_HOME : PathBuf = {
         let win_appdata = std::env::var("APPDATA");
-        let mut dir = std::env::home_dir().unwrap_or_default();
-        println!("Home directory is {:?}, if this is incorrect, please make an issue on the github!", dir);
-        // let mut dir = if cfg!(windows) && win_appdata.is_ok() {
-        //     PathBuf::from(win_appdata.unwrap())
-        // } else {
-        //     home::home_dir().unwrap().to_path_buf()
-        // };
+        // let mut dir = std::env::home_dir().unwrap_or_default();
+        // println!("Home directory is {:?}, if this is incorrect, please make an issue on the github!", dir);
+        let mut dir = if cfg!(windows) && win_appdata.is_ok() {
+            PathBuf::from(win_appdata.unwrap())
+        } else {
+            home::home_dir().unwrap().to_path_buf()
+        };
         dir.push(".minecraft");
         dir
     };
@@ -186,7 +186,14 @@ pub fn run() {
                             store: true,
                         },
                     })],
-                    depth_stencil_attachment: None,
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &client.depth_texture.view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: true,
+                        }),
+                        stencil_ops: None,
+                    }),
                 });
 
                 for state in &mut states {
@@ -238,8 +245,20 @@ impl State {
         let config = &gpu.config;
 
         let mut tess = tessellator::TerrainTessellator::new();
-        let test_mesh = tess
-        .cuboid(Vec3::new(-0.5, -0.5, -0.5), Vec3::new(0.0, 1.0, 0.0), [0, 1, 2, 3, 4, 5]).build(device);
+        {
+            let test_color = Vec3::new(0.0, 1.0, 0.0);
+            let test_tex_indicies = [4, 4, 4, 4, 4, 4];
+            for x in 0..16 {
+                for y in 0..16 {
+                    for z in 0..16 {
+                        tess.cuboid(Vec3::new(x as f32, y as f32, z as f32), test_color, test_tex_indicies);
+                    }
+                }
+            }
+        }
+
+        let test_mesh = tess.build(device);
+
 
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -280,6 +299,7 @@ impl State {
             ],
             label: Some("camera_bind_group"),
         });
+
 
         let render_pipeline_layout =
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -322,7 +342,13 @@ impl State {
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -357,7 +383,7 @@ impl RenderStates for State {
     fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &'a Client, _f_elapsed_time: f64) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.set_bind_group(1, &client.textures.get("terrain.png").unwrap().bind_group, &[]);
+        render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
         self.test_mesh.draw(render_pass);
     }
 }

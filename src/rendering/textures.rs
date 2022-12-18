@@ -1,5 +1,7 @@
 use ultraviolet::UVec2;
-use wgpu::{Texture, TextureView, Sampler, BindGroup, Device, BindGroupLayout};
+use wgpu::{Texture, TextureView, Sampler, BindGroup, Device, BindGroupLayout, TextureFormat};
+
+use super::WgpuData;
 
 
 pub struct TexWrapper{
@@ -7,7 +9,7 @@ pub struct TexWrapper{
     size: UVec2,
     view: TextureView,
     sampler: Sampler,
-    pub bind_group: BindGroup,
+    bind_group: BindGroup,
 }
 
 impl TexWrapper {
@@ -37,4 +39,80 @@ impl TexWrapper {
         }
     }
 
+    pub fn get_texture(&self) -> &Texture {
+        &self.texture
+    }
+
+    pub fn get_view(&self) -> &TextureView {
+        &self.view
+    }
+
+    pub fn get_sampler(&self) -> &Sampler {
+        &self.sampler
+    }
+
+    pub fn bind_group(&self) -> &BindGroup {
+        &self.bind_group
+    }
+
+    pub fn get_size(&self) -> UVec2 {
+        self.size
+    }
+
+}
+
+// pub const DEPTH_FORMAT: wgpu::TextureFormat = ;
+
+pub struct DepthTextureWrapper {
+    texture: Texture,
+    pub view: TextureView,
+    size: UVec2,
+    sampler: Sampler,
+    pub texture_format: TextureFormat,
+}
+
+impl DepthTextureWrapper {
+    pub fn new(gpu: &WgpuData, depth_tex_format: TextureFormat, label: &str) -> Self {
+        let config = &gpu.config;
+        let device = &gpu.device;
+        let size = wgpu::Extent3d {
+            width: config.width,
+            height: config.height,
+            depth_or_array_layers: 1,
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: Some(label),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: depth_tex_format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING,
+        };
+        let texture = device.create_texture(&desc);
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.create_sampler(
+            &wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                compare: Some(wgpu::CompareFunction::LessEqual),
+                lod_min_clamp: -100.0,
+                lod_max_clamp: 100.0,
+                ..Default::default()
+            }
+        );
+        Self {
+            texture,
+            size: UVec2::new(config.width, config.height),
+            view,
+            sampler,
+            texture_format: depth_tex_format,
+        }
+    }
 }

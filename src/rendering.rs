@@ -7,6 +7,8 @@ use winit::{window::CursorGrabMode};
 
 use crate::camera::{CameraController, Projection, Camera};
 
+use self::textures::{DepthTextureWrapper, TexWrapper};
+
 pub mod tessellator;
 pub mod mesh;
 pub mod verticies;
@@ -154,12 +156,16 @@ pub struct Client {
 
     pub textures: crate::mc_resource_handler::TexMapType,
     pub layouts: HashMap<String, BindGroupLayout>,
+    pub depth_texture: DepthTextureWrapper,
 }
 
 impl Client {
     pub fn new(window: winit::window::Window, gpu: WgpuData, camera: Camera, camera_controller: CameraController, projection: Projection) -> Self {
         let size: (u32, u32) = window.inner_size().into();
         let proj_view = projection.calc_matrix() * camera.calc_matrix();
+
+        let depth_texture = DepthTextureWrapper::new(&gpu, wgpu::TextureFormat::Depth32Float, "DepthTexture");
+
         Self {
             window,
             gpu,
@@ -174,12 +180,19 @@ impl Client {
 
             textures: HashMap::new(),
             layouts: HashMap::new(),
+            depth_texture,
         }
     }
+
+    pub fn get_texture(&self, id: &str) -> &TexWrapper {
+        self.textures.get(id).unwrap()
+    }
+
     pub fn resize(&mut self, new_size: (u32, u32)) {
         self.gpu.resize(new_size);
         self.projection.resize(new_size.0, new_size.1);
         self.window_center = (new_size.0 / 2, new_size.1 / 2);
+        self.depth_texture = DepthTextureWrapper::new(&self.gpu, self.depth_texture.texture_format, "depth_texture");
     }
 
     pub fn update(&mut self, dt: f32) {

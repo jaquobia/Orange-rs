@@ -2,7 +2,7 @@ use ultraviolet::{Mat4, Vec3, projection::{perspective_wgpu_dx}};
 
 use crate::math_helper::angle::Rad;
 
-const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
+const SAFE_FRAC_PI_2: f32 = (std::f32::consts::FRAC_PI_2 - 0.0001) * 0.5;
 
 #[derive(Debug)]
 pub struct Camera {
