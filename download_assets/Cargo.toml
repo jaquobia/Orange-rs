@@ -1,0 +1,17 @@
+[package]
+name = "download_assets"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+orange_rs = { path = "../" }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0.151"
+serde_json = "1.0"
+surf = "2.3.2"
+zip = "0.6"
+tempfile = "3"
+pollster = "0.2"

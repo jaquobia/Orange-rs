@@ -3,7 +3,55 @@ use std::{io::Write, path::{PathBuf}, fs};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
-use crate::{MC_HOME, mc_constants::*};
+use orange_rs::{MC_HOME, mc_constants::*};
+
+/// A struct that represents the whole manifest
+#[derive(Serialize, Deserialize)]
+struct Manifest {
+    versions: Vec<ManifestVersion>,
+
+    #[serde(flatten)]
+    extra: std::collections::HashMap<String, Value>,
+}
+
+/// A struct that represents a version inside the manifest
+#[derive(Serialize, Deserialize)]
+struct ManifestVersion {
+    id: String,
+    r#type: String,
+    url: String,
+    time: String,
+    sha1: String,
+}
+
+fn main() {
+    check_assets();
+}
+
+/// Get the version manifest from mojang's servers
+async fn get_manifest() -> Manifest {
+    let mani: Manifest = surf::get(MANIFEST_URL).recv_json()
+        .await.expect("Couldn't recieve/parse the manifest");
+    return mani;
+}
+
+/// Get the jar version json the manifest's version url, and extract the download url; enforces the id and sha1 matches
+async fn get_jar_from_version(manifest: &Manifest) -> String {
+    let version: &ManifestVersion = match manifest.versions.iter().find(|a| a.id == VERSION_ID) {
+        Some(mv) => mv,
+        _ => &manifest.versions[600]
+    };
+    assert_eq!(version.sha1, VERSION_SHA1);
+
+    let a: Value = surf::get(version.url.clone()).recv_json().await.expect("Couldn't recieve the version json");
+    String::from(a["downloads"]["client"]["url"].as_str().expect("Couldn't get the jar url"))
+}
+
+/// Download a jar from a url as a byte array
+async fn get_jar(uri: &String) -> Vec<u8> {
+    surf::get(uri).recv_bytes().await.expect("Couldn't recieve the jar")
+}
+
 
 /// Returns false if all the necessary images in the provided resources directory exists, and true if any are missing
 fn is_download_necessary(resources_dir: &PathBuf) -> bool {
@@ -25,6 +73,7 @@ pub fn check_assets() -> bool {
     }
     false
 }
+
 /// Downloads the minecraft client and extracts the resources
 fn download_minecraft_client(dir: &PathBuf) {
 
@@ -81,45 +130,6 @@ fn download_minecraft_client(dir: &PathBuf) {
     }
 }
 
-/// Get the version manifest from mojang's servers
-async fn get_manifest() -> Manifest {
-    let mani: Manifest = surf::get(MANIFEST_URL).recv_json()
-        .await.expect("Couldn't recieve/parse the manifest");
-    return mani;
-}
 
-/// Get the jar version json the manifest's version url, and extract the download url; enforces the id and sha1 matches
-async fn get_jar_from_version(manifest: &Manifest) -> String {
-    let version: &ManifestVersion = match manifest.versions.iter().find(|a| a.id == VERSION_ID) {
-        Some(mv) => mv,
-        _ => &manifest.versions[600]
-    };
-    assert_eq!(version.sha1, VERSION_SHA1);
 
-    let a: Value = surf::get(version.url.clone()).recv_json().await.expect("Couldn't recieve the version json");
-    String::from(a["downloads"]["client"]["url"].as_str().expect("Couldn't get the jar url"))
-}
 
-/// Download a jar from a url as a byte array
-async fn get_jar(uri: &String) -> Vec<u8> {
-    surf::get(uri).recv_bytes().await.expect("Couldn't recieve the jar")
-}
-
-/// A struct that represents the whole manifest
-#[derive(Serialize, Deserialize)]
-struct Manifest {
-    versions: Vec<ManifestVersion>,
-
-    #[serde(flatten)]
-    extra: std::collections::HashMap<String, Value>,
-}
-
-/// A struct that represents a version inside the manifest
-#[derive(Serialize, Deserialize)]
-struct ManifestVersion {
-    id: String,
-    r#type: String,
-    url: String,
-    time: String,
-    sha1: String,
-}

@@ -1,10 +1,10 @@
 mod rendering;
 mod camera;
-mod mc_assets;
+// mod mc_assets;
 mod mc_resource_handler;
 mod math_helper;
-mod mc_constants;
-mod utils;
+pub mod mc_constants;
+mod direction;
 
 use std::{path::PathBuf};
 
@@ -19,8 +19,6 @@ use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessella
 use winit_input_helper::WinitInputHelper;
 use crate::{math_helper::angle};
 
-#[cfg(target_arch="wasm32")]
-use wasm_bindgen::prelude::*;
 
 type StateVecType = Vec<Box<dyn RenderStates>>;
 
@@ -30,17 +28,18 @@ pub fn handle_args(args: &Vec<String>) {
 }
 
 lazy_static::lazy_static!{
-    static ref MC_HOME : PathBuf = {
-        let win_appdata = std::env::var("APPDATA");
-        // let mut dir = std::env::home_dir().unwrap_or_default();
-        // println!("Home directory is {:?}, if this is incorrect, please make an issue on the github!", dir);
-        let mut dir = if cfg!(windows) && win_appdata.is_ok() {
-            PathBuf::from(win_appdata.unwrap())
-        } else {
-            home::home_dir().unwrap().to_path_buf()
-        };
-        dir.push(".minecraft");
-        dir
+    pub static ref MC_HOME : PathBuf = {
+        // let win_appdata = std::env::var("APPDATA");
+        // // let mut dir = std::env::home_dir().unwrap_or_default();
+        // // println!("Home directory is {:?}, if this is incorrect, please make an issue on the github!", dir);
+        // let mut dir = if cfg!(windows) && win_appdata.is_ok() {
+        //     PathBuf::from(win_appdata.unwrap())
+        // } else {
+        //     home::home_dir().unwrap().to_path_buf()
+        // };
+        // dir.push(".minecraft");
+        // dir
+        PathBuf::from("./")
     };
 }
 
@@ -50,16 +49,7 @@ fn get_icon(name: &str) -> Option<Icon> {
     return Some(Icon::from_rgba(icon.into_bytes(), icon_width, icon_height).unwrap());
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
-pub fn run() {
-    #[cfg(target_arch = "wasm32")] {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
-    }
-    #[cfg(not(target_arch = "wasm32"))] {
-        env_logger::init();
-    }
-
+pub fn main_loop() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Orange-rs")
@@ -92,7 +82,7 @@ pub fn run() {
     let mut render_time = ElapsedTime::new();
     let mut event_helper = WinitInputHelper::new();
 
-    mc_assets::check_assets();
+    // mc_assets::check_assets();
     mc_resource_handler::mc_terrain_tex_layout(&mut client);
     mc_resource_handler::load_resources(&mut client);
 

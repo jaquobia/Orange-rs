@@ -4,7 +4,7 @@ use std::{ops::Add};
 use ultraviolet::{Vec3, Vec2};
 use wgpu::{Device, util::DeviceExt};
 
-use crate::utils::{Direction, DIRECTIONS};
+use crate::direction::{Direction, DIRECTIONS};
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
 
