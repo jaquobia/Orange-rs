@@ -3,7 +3,8 @@ use std::{io::Write, path::{PathBuf}, fs};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
-use orange_rs::{MC_HOME, mc_constants::*};
+mod mc_constants;
+use mc_constants::*;
 
 /// A struct that represents the whole manifest
 #[derive(Serialize, Deserialize)]
@@ -65,7 +66,7 @@ fn is_download_necessary(resources_dir: &PathBuf) -> bool {
 
 /// Handle checking and downloading images from the official jar
 pub fn check_assets() -> bool {
-    let resources_dir = MC_HOME.join("legacy_resources");
+    let resources_dir = PathBuf::from("./").join("legacy_resources");
     if is_download_necessary(&resources_dir) {
         println!("Downloading Assets...");
         download_minecraft_client(&resources_dir);

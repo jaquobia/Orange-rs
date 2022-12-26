@@ -1,2 +1,4 @@
 /target
 /legacy_resources/*
+# Temporary
+/resources/*

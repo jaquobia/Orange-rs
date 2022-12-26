@@ -116,6 +116,7 @@ dependencies = [
  "env_logger",
  "log",
  "orange_rs",
+ "winit",
 ]
 
 [[package]]
@@ -1405,15 +1406,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "home"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747309b4b440c06d57b0b25f2aee03ee9b5e5397d288c60e21fc709bb98a7408"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "http"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1525,6 +1517,7 @@ checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
 dependencies = [
  "cfg-if",
  "js-sys",
+ "stdweb",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2047,7 +2040,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "env_logger",
- "home",
  "image",
  "instant",
  "lazy_static",
@@ -2754,6 +2746,8 @@ checksum = "d022496b16281348b52d0e30ae99e01a73d737b2f45d38fed4edf79f9325a1d5"
 dependencies = [
  "discard",
  "rustc_version",
+ "serde",
+ "serde_json",
  "stdweb-derive",
  "stdweb-internal-macros",
  "stdweb-internal-runtime",
@@ -3334,9 +3328,12 @@ dependencies = [
  "console_log",
  "env_logger",
  "log",
+ "orange_rs",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

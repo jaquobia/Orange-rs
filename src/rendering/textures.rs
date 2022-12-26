@@ -4,7 +4,7 @@ use wgpu::{Texture, TextureView, Sampler, BindGroup, Device, BindGroupLayout, Te
 use super::WgpuData;
 
 
-pub struct TexWrapper{
+pub struct DiffuseTextureWrapper {
     texture: Texture,
     size: UVec2,
     view: TextureView,
@@ -12,7 +12,7 @@ pub struct TexWrapper{
     bind_group: BindGroup,
 }
 
-impl TexWrapper {
+impl DiffuseTextureWrapper {
     pub fn new(texture: Texture, size: UVec2, view: TextureView, sampler: Sampler, device: &Device, layout: &BindGroupLayout) -> Self {
         let bind_group = device.create_bind_group(
             &wgpu::BindGroupDescriptor {
@@ -65,10 +65,10 @@ impl TexWrapper {
 
 pub struct DepthTextureWrapper {
     texture: Texture,
-    pub view: TextureView,
+    view: TextureView,
     size: UVec2,
     sampler: Sampler,
-    pub texture_format: TextureFormat,
+    texture_format: TextureFormat,
 }
 
 impl DepthTextureWrapper {
@@ -114,5 +114,25 @@ impl DepthTextureWrapper {
             sampler,
             texture_format: depth_tex_format,
         }
+    }
+
+    pub fn get_texture(&self) -> &Texture {
+        &self.texture
+    }
+
+    pub fn get_view(&self) -> &TextureView {
+        &self.view
+    }
+
+    pub fn get_sampler(&self) -> &Sampler {
+        &self.sampler
+    }
+
+    pub fn get_size(&self) -> UVec2 {
+        self.size
+    }
+
+    pub fn get_texture_format(&self) -> TextureFormat {
+        self.texture_format
     }
 }

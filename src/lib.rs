@@ -1,21 +1,18 @@
 mod rendering;
 mod camera;
-// mod mc_assets;
 mod mc_resource_handler;
 mod math_helper;
-pub mod mc_constants;
 mod direction;
+mod world;
 
 use std::{path::PathBuf};
 
 use camera::CameraControllerMovement;
-// use egui::{Align2, Frame, Style};
-// use egui_wgpu::renderer::ScreenDescriptor;
 use image::GenericImageView;
 use ultraviolet::Vec3;
 use wgpu::{RenderPass, util::DeviceExt};
-use winit::{window::{WindowBuilder, Icon}, event_loop::{EventLoop}, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
-use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator, mesh::Mesh, verticies::TerrainVertex, textures::{TexWrapper, DepthTextureWrapper}};
+use winit::{window::{Icon, Window}, event_loop::{EventLoop}, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
+use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator, mesh::Mesh, verticies::TerrainVertex};
 use winit_input_helper::WinitInputHelper;
 use crate::{math_helper::angle};
 
@@ -29,46 +26,17 @@ pub fn handle_args(args: &Vec<String>) {
 
 lazy_static::lazy_static!{
     pub static ref MC_HOME : PathBuf = {
-        // let win_appdata = std::env::var("APPDATA");
-        // // let mut dir = std::env::home_dir().unwrap_or_default();
-        // // println!("Home directory is {:?}, if this is incorrect, please make an issue on the github!", dir);
-        // let mut dir = if cfg!(windows) && win_appdata.is_ok() {
-        //     PathBuf::from(win_appdata.unwrap())
-        // } else {
-        //     home::home_dir().unwrap().to_path_buf()
-        // };
-        // dir.push(".minecraft");
-        // dir
         PathBuf::from("./")
     };
 }
 
-fn get_icon(name: &str) -> Option<Icon> {
+pub fn get_app_icon(name: &str) -> Option<Icon> {
     let icon = image::open(name).unwrap_or_else(|_err| { println!("Failed to load {}", name); image::DynamicImage::ImageRgba8(image::RgbaImage::new(10, 10)) });
     let (icon_width, icon_height) = icon.dimensions();
     return Some(Icon::from_rgba(icon.into_bytes(), icon_width, icon_height).unwrap());
 }
 
-pub fn main_loop() {
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("Orange-rs")
-        .with_window_icon(get_icon("icon.png"))
-        .build(&event_loop).unwrap();
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        use winit::platform::web::WindowExtWebSys;
-        web_sys::window()
-            .and_then(|win| win.document())
-            .and_then(|doc| {
-                let dst = doc.get_element_by_id("wasm-example")?;
-                let canvas = web_sys::Element::from(window.canvas());
-                dst.append_child(&canvas).ok()?;
-                Some(())
-            })
-            .expect("Couldn't append canvas to document body.");
-    }
+pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
 
     let gpu = WgpuData::new(&window);
 
@@ -82,27 +50,12 @@ pub fn main_loop() {
     let mut render_time = ElapsedTime::new();
     let mut event_helper = WinitInputHelper::new();
 
-    // mc_assets::check_assets();
     mc_resource_handler::mc_terrain_tex_layout(&mut client);
-    mc_resource_handler::load_resources(&mut client);
+    mc_resource_handler::load_binary_resources(&mut client);
 
     let mut states: StateVecType = vec![Box::new(State::new(&client))];
 
-
-    // states.push(Box::new(EguiState::new(&client.gpu, &event_loop)));
-
     event_loop.run(move |event, _, control_flow| {
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            if let Event::WindowEvent{ event, window_id: _ } = &event {
-                for state in &mut states {
-                    if state.input(event) {
-                        break;
-                    }
-                }
-            }
-        }
 
         if let Event::DeviceEvent { device_id: _, event } = &event {
             if let DeviceEvent::MouseMotion { delta } = event {
@@ -177,7 +130,7 @@ pub fn main_loop() {
                         },
                     })],
                     depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &client.depth_texture.view,
+                        view: client.depth_texture.get_view(),
                         depth_ops: Some(wgpu::Operations {
                             load: wgpu::LoadOp::Clear(1.0),
                             store: true,
@@ -352,10 +305,6 @@ impl State {
             camera_bind_group,
 
             test_mesh,
-            // vertex_buffer,
-            // num_verticies,
-            // index_buffer,
-            // num_indicies,
         }
     }
 }
@@ -377,91 +326,3 @@ impl RenderStates for State {
         self.test_mesh.draw(render_pass);
     }
 }
-
-// pub struct EguiState {
-//     state: egui_winit::State,
-//     context: egui_winit::egui::Context,
-//     renderpass: egui_wgpu::renderer::RenderPass, // Necessary for updating the egui pipeline
-// }
-
-// impl EguiState {
-//     pub fn new<>(gpu: &WgpuData, event_loop: &EventLoop<()>)
-//     -> Self {
-
-//         let state = egui_winit::State::new(&event_loop);
-//         let context = egui_winit::egui::Context::default();
-//         let renderpass = egui_wgpu::renderer::RenderPass::new(&gpu.device, gpu.config.format, 1);
-
-//         Self {
-//             state,
-//             context,
-//             renderpass,
-//         }
-//     }
-// }
-
-// impl RenderStates for EguiState {
-
-//     fn input(&mut self, event: &WindowEvent) -> bool {
-//         self.state.on_event(&self.context, event)
-//     }
-
-//     fn update(&mut self) {
-
-//     }
-
-//     fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &mut Client, f_elapsed_time: f64) {
-//         if client.is_cursor_visible() {
-//         let input = self.state.take_egui_input(&client.window);
-
-//         self.context.begin_frame(input);
-//         let ctx = &mut self.context;
-
-//         let fps: i32 = (1.0_f64 / f_elapsed_time) as i32;
-//         let mut window_style = Style::default();
-//         window_style.animation_time = 0.0;
-//         // window_style.wrap = Some(false);
-//         let window_frame = Frame::window(&window_style);
-//         let test_window = egui::Window::new("Test Window")
-//         .anchor(Align2::LEFT_TOP, [0.0; 2])
-//         .frame(window_frame);
-//         test_window.show(ctx, |ui| {
-//             // ui.wrap_text();
-//             ui.label(format!("Draw Time: {f_elapsed_time}"));
-//             ui.label(format!("FPS: {fps}"));
-//             let mut vsync = client.gpu.vsync == PresentMode::AutoVsync;
-//             let resp = ui.checkbox(&mut vsync, "Vsync");
-//             if resp.changed() {
-//                 client.set_swap_vsync(true);
-//             }
-//             let mut cursor = client.is_cursor_visible();
-//             let resp = ui.checkbox(&mut cursor, "Cursor Visible?");
-//             if resp.changed() {
-//                 client.toggle_cursor_visible();
-//             }
-//         });
-
-//         let full_output = self.context.end_frame();
-//         let paint_jobs = self.context.tessellate(full_output.shapes);
-//         self.state.handle_platform_output(&client.window, &self.context, full_output.platform_output);
-
-//         let screen_descriptor = ScreenDescriptor {
-//             size_in_pixels: [ client.gpu.config.width, client.gpu.config.height ],
-//             pixels_per_point: self.state.pixels_per_point(),
-//         };
-
-//         for (id, image_delta) in &full_output.textures_delta.set {
-//             self.renderpass.update_texture(&client.gpu.device, &client.gpu.queue, *id, image_delta);
-//         }
-//         for id in &full_output.textures_delta.free {
-//             self.renderpass.free_texture(id);
-//         }
-//         self.renderpass.update_buffers(&client.gpu.device, &client.gpu.queue, &paint_jobs, &screen_descriptor);
-
-
-//         // Record all render passes.
-//         self.renderpass
-//         .execute_with_renderpass(render_pass, &paint_jobs, &screen_descriptor);
-//     }
-//     }
-// }

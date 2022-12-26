@@ -7,7 +7,7 @@ use winit::{window::CursorGrabMode};
 
 use crate::camera::{CameraController, Projection, Camera};
 
-use self::textures::{DepthTextureWrapper, TexWrapper};
+use self::textures::{DepthTextureWrapper, DiffuseTextureWrapper};
 
 pub mod tessellator;
 pub mod mesh;
@@ -184,7 +184,7 @@ impl Client {
         }
     }
 
-    pub fn get_texture(&self, id: &str) -> &TexWrapper {
+    pub fn get_texture(&self, id: &str) -> &DiffuseTextureWrapper {
         self.textures.get(id).unwrap()
     }
 
@@ -192,7 +192,7 @@ impl Client {
         self.gpu.resize(new_size);
         self.projection.resize(new_size.0, new_size.1);
         self.window_center = (new_size.0 / 2, new_size.1 / 2);
-        self.depth_texture = DepthTextureWrapper::new(&self.gpu, self.depth_texture.texture_format, "depth_texture");
+        self.depth_texture = DepthTextureWrapper::new(&self.gpu, self.depth_texture.get_texture_format(), "depth_texture");
     }
 
     pub fn update(&mut self, dt: f32) {
