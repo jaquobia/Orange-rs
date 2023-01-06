@@ -2,7 +2,7 @@
 use std::{ops::Add};
 
 use ultraviolet::{Vec3, Vec2};
-use wgpu::{Device, util::DeviceExt};
+use wgpu::{Device, util::DeviceExt, Queue};
 
 use crate::direction::{Direction, DIRECTIONS};
 
@@ -27,21 +27,20 @@ impl TerrainTessellator {
     /// * `Pos` The position of the cube
     /// * `color` The color of the cube
     /// * `texture_index` An array of 6 texture indices of terrain.png
-    pub fn cuboid(&mut self, pos: Vec3, color: Vec3, texture_index: [u32; 6], ) -> &mut Self {
+    pub fn cuboid(&mut self, pos: Vec3, color: Vec3, texture_index: [u32; 6], occlusions: &[bool; 6]) -> &mut Self {
         let pos_max = pos + Vec3::new(1.0, 1.0, 1.0);
         let lights = &[0_u32; 8];
 
         const TEX_SIZE: f32 = 1.0 / (16.0); // 16 textures * 16 pixels per texture, two-fifty-six_inverse
 
-        let mut index = 0 as usize;
         for dir in &DIRECTIONS {
-            let texture_index = texture_index[index] as u32;
+            if !occlusions[dir.ordinal()] { continue; }
+            let texture_index = texture_index[dir.ordinal()] as u32;
             let texture_x = (texture_index % 16) as f32;
             let texture_y = (texture_index / 16) as f32;
             let uv_min =  Vec2::new(texture_x * TEX_SIZE, texture_y * TEX_SIZE);
             let uv_max = uv_min.add(Vec2::new(TEX_SIZE, TEX_SIZE));
             self.quad(pos, pos_max, color, dir, uv_min, uv_max, lights);
-            index+=1;
         }
         self
     }
@@ -132,4 +131,18 @@ impl TerrainTessellator {
 
         mesh
     }
+
+    pub fn into_mesh(&mut self, queue: &Queue, mesh: &mut Mesh) {
+        let vertex_buffer = &mesh.vertex_buffer;
+        let index_buffer = &mesh.index_buffer;
+
+        queue.write_buffer(vertex_buffer, 0, bytemuck::cast_slice(self.vertex_buffer.as_slice()));
+        queue.write_buffer(index_buffer, 0, bytemuck::cast_slice(self.index_buffer.as_slice()));
+
+        mesh.num_verticies = self.vertex_buffer.len() as u32;
+        mesh.num_indicies = self.index_buffer.len() as u32;
+
+        self.vertex_buffer.clear();
+        self.index_buffer.clear();
+    } 
 }

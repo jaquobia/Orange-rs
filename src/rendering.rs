@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use instant::Duration;
-use ultraviolet::Mat4;
-use wgpu::BindGroupLayout;
+use lazy_static::__Deref;
+use ultraviolet::{Mat4, IVec3, IVec2};
+use wgpu::{BindGroupLayout, CommandEncoder};
 use winit::{window::CursorGrabMode};
 
-use crate::camera::{CameraController, Projection, Camera};
+use crate::{camera::{CameraController, Projection, Camera}, level::{Level, chunk}, State};
 
 use self::textures::{DepthTextureWrapper, DiffuseTextureWrapper};
 
@@ -142,6 +143,8 @@ impl ElapsedTime {
     }
 }
 
+type StateVecType = Vec<Box<dyn RenderStates>>;
+
 pub struct Client {
     pub window: winit::window::Window,
     pub gpu: WgpuData,
@@ -157,6 +160,9 @@ pub struct Client {
     pub textures: crate::mc_resource_handler::TexMapType,
     pub layouts: HashMap<String, BindGroupLayout>,
     pub depth_texture: DepthTextureWrapper,
+    
+    // pub states: StateVecType,
+    pub state: Option<State>,
 }
 
 impl Client {
@@ -166,7 +172,9 @@ impl Client {
 
         let depth_texture = DepthTextureWrapper::new(&gpu, wgpu::TextureFormat::Depth32Float, "DepthTexture");
 
-        Self {
+        // let states = vec![];
+
+        let ret = Self {
             window,
             gpu,
             camera,
@@ -181,7 +189,11 @@ impl Client {
             textures: HashMap::new(),
             layouts: HashMap::new(),
             depth_texture,
-        }
+
+            state: None,
+        };
+        // ret.states.push();
+        ret
     }
 
     pub fn get_texture(&self, id: &str) -> &DiffuseTextureWrapper {
@@ -208,18 +220,80 @@ impl Client {
             self.camera_controller.update_camera(&mut self.camera, dt);
             self.proj_view = self.projection.calc_matrix() * self.camera.calc_matrix();
         }
+
+        // for state in self.states {
+        //     state.update(self);
+        // }
+        
+        let state = self.state.as_mut().unwrap();
+        self.gpu.queue.write_buffer(&state.camera_buffer, 0, bytemuck::cast_slice(&[self.proj_view]));
     }
 
     pub fn set_swap_vsync(&mut self, swap_vsync: bool) {
         self.swap_vsync = swap_vsync;
     }
+
     pub fn toggle_cursor_visible(&mut self) {
         self.cursor_visible = !self.cursor_visible;
         self.window.set_cursor_grab(if self.cursor_visible { CursorGrabMode::None } else { CursorGrabMode::Locked }).unwrap();
         self.window.set_cursor_visible(self.cursor_visible);
         self.camera_controller.reset_mouse();
     }
+
     pub fn is_cursor_visible(&mut self) -> bool {
         self.cursor_visible
+    }
+
+    pub fn draw_level(&mut self, level: &Level, encoder: &mut CommandEncoder, view: &wgpu::TextureView) {
+
+        let render_distance = 4;
+        let player_pos = IVec3::new(0,0,0);
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: self.depth_texture.get_view(),
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+        });
+
+
+        let render_distance_as_vec = IVec2::new(render_distance, render_distance);
+        let player_chunk_pos: IVec2 = Level::get_chunk_pos(player_pos.x, player_pos.z).into();
+        let min_extent = player_chunk_pos - render_distance_as_vec;
+        let max_extent = player_chunk_pos + render_distance_as_vec;
+
+        let state = self.state.as_ref().unwrap();
+
+        render_pass.set_pipeline(&state.render_pipeline);
+        render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
+        render_pass.set_bind_group(1, self.get_texture("terrain.png").bind_group(), &[]);
+
+        for x in min_extent.x..max_extent.x {
+            for z in min_extent.y..max_extent.y {
+                if let Some(chunk) = level.get_chunk_at(x, z) {
+                    chunk.draw(&mut render_pass);
+                }
+            }
+        }
+
+        std::mem::drop(render_pass);
     }
 }

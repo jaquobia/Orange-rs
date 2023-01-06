@@ -2,7 +2,7 @@ use ultraviolet::{Mat4, Vec3, projection::{perspective_wgpu_dx}};
 
 use crate::math_helper::angle::Rad;
 
-const SAFE_FRAC_PI_2: f32 = (std::f32::consts::FRAC_PI_2 - 0.0001) * 0.5;
+const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -31,12 +31,14 @@ impl Camera {
     }
 
     pub fn calc_matrix(&self) -> Mat4 {
+        let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
+        let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
         Mat4::look_at(
             self.position,
             self.position + Vec3::new(
-                self.yaw.cos(),
-                self.pitch.sin(),
-                self.yaw.sin(),
+                cos_pitch * cos_yaw,
+                sin_pitch,
+                cos_pitch * sin_yaw,
             ),
             Vec3::unit_y(),
         )
@@ -96,7 +98,6 @@ pub struct CameraController {
     amount_down: f32,
     rotate_horizontal: f32,
     rotate_vertical: f32,
-    scroll: f32,
     speed: f32,
     sensitivity: f32,
 }
@@ -112,7 +113,6 @@ impl CameraController {
             amount_down: 0.0,
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
-            scroll: 0.0,
             speed,
             sensitivity,
         }
@@ -158,18 +158,6 @@ impl CameraController {
         self.rotate_vertical = 0.0;
     }
 
-    pub fn process_scroll(&mut self, scroll: f32) {
-        // self.scroll = -match delta {
-        //     // I'm assuming a line is about 100 pixels
-        //     MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
-        //     MouseScrollDelta::PixelDelta(PhysicalPosition {
-        //         y: scroll,
-        //         ..
-        //     }) => *scroll as f32,
-        // };
-        self.scroll = -scroll;
-    }
-
     pub fn update_camera(&mut self, camera: &mut Camera, dt: f32) {
 
         // Move forward/backward and left/right
@@ -178,15 +166,6 @@ impl CameraController {
         let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalized();
         camera.position += forward * (self.amount_forward - self.amount_backward) * self.speed * dt;
         camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
-
-        // Move in/out (aka. "zoom")
-        // Note: this isn't an actual zoom. The camera's position
-        // changes when zooming. I've added this to make it easier
-        // to get closer to an object you want to focus on.
-        let (pitch_sin, pitch_cos) = camera.pitch.sin_cos();
-        let scrollward = Vec3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin).normalized();
-        camera.position += scrollward * self.scroll * self.speed * self.sensitivity * dt;
-        self.scroll = 0.0;
 
         // Move up/down. Since we don't use roll, we can just
         // modify the y coordinate directly.

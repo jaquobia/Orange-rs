@@ -3,21 +3,27 @@ mod camera;
 mod mc_resource_handler;
 mod math_helper;
 mod direction;
-mod world;
+mod level;
+mod entity;
+mod identifier;
+mod block;
+mod util;
+mod registry;
 
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
-use camera::CameraControllerMovement;
+use block::block_factory::BlockFactory;
+use camera::{CameraControllerMovement, Projection, Camera};
+use identifier::Identifier;
 use image::GenericImageView;
+use level::Level;
+use registry::Registry;
 use ultraviolet::Vec3;
-use wgpu::{RenderPass, util::DeviceExt};
-use winit::{window::{Icon, Window}, event_loop::{EventLoop}, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
-use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator, mesh::Mesh, verticies::TerrainVertex};
+use wgpu::{RenderPass, util::DeviceExt, SurfaceConfiguration, BindGroupLayout};
+use winit::{window::{Icon, Window}, event_loop::EventLoop, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
+use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator::{self, TerrainTessellator}, mesh::Mesh, verticies::TerrainVertex};
 use winit_input_helper::WinitInputHelper;
-use crate::{math_helper::angle};
-
-
-type StateVecType = Vec<Box<dyn RenderStates>>;
+use crate::math_helper::angle;
 
 
 pub fn handle_args(args: &Vec<String>) {
@@ -44,7 +50,6 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
     let camera = camera::Camera::new((0.0, 0.0, 10.0), angle::Deg(-90.0), angle::Deg(-20.0));
     let projection = camera::Projection::new(width, height, angle::Deg(45.0), 0.1, 100.0);
     let camera_controller = camera::CameraController::new(4.0, 1.0);
-
     let mut client: Client = Client::new(window, gpu, camera, camera_controller, projection);
 
     let mut render_time = ElapsedTime::new();
@@ -53,7 +58,68 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
     mc_resource_handler::mc_terrain_tex_layout(&mut client);
     mc_resource_handler::load_binary_resources(&mut client);
 
-    let mut states: StateVecType = vec![Box::new(State::new(&client))];
+    { 
+        let state = State::new(&client.gpu.device, &client.gpu.config, &client.projection, &client.camera, &client.layouts["mc_terrain_tex_layout"]);
+        client.state.replace(state);
+    }
+    let mut registry = Registry::new();
+    // Quick and dirty registry
+    {
+        let block_register = registry.get_block_register_mut();
+        let block_register_list = vec![
+        BlockFactory::new("air")
+            .hardness(0.0)
+            .resistance(0.0)
+            .texture_index(0)
+            .transparent(true)
+            .build(),
+        BlockFactory::new("stone")
+            .hardness(1.5)
+            .resistance(10.0)
+            .texture_index(1)
+            .build(),
+        BlockFactory::new("grass")
+            .hardness(0.6)
+            .texture_index(3)
+            .build(),
+        BlockFactory::new("dirt")
+            .hardness(0.5)
+            .texture_index(2)
+            .build(),
+        BlockFactory::new("cobblestone")
+            .hardness(2.0)
+            .resistance(10.0)
+            .texture_index(17)
+            .build(),
+        BlockFactory::new("wood")
+            .hardness(2.0)
+            .resistance(5.0)
+            .texture_index(4)
+            .build(),
+        BlockFactory::new("sapling")
+            .hardness(0.0)
+            .texture_index(15)
+            .build(),
+        BlockFactory::new("bedrock")
+            .hardness(-1.0)
+            .resistance(6000000.0)
+            .texture_index(17)
+            .build(),
+        ];
+
+        for block in block_register_list {
+            block_register.insert(block);
+        }
+    }
+    // Test if the registry is working
+    // registry.get_block_register().get_element_from_identifier("bedrock").and_then(|block| { println!("Bedrock: {}", block.get_identifier()); Some(block) });
+
+    let mut tessellator = TerrainTessellator::new();
+
+    // Identifier, id, chunk height, chunk offset
+    let mut level = Level::new(Identifier::from("overworld"), 0, 8, 0);
+    level.generate_chunks();
+    level.tesselate_chunks(&mut tessellator, &client.gpu.queue, &client.gpu.device, registry.get_block_register());
 
     event_loop.run(move |event, _, control_flow| {
 
@@ -96,16 +162,9 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
                 client.resize(size.into());
             }
 
-            if !client.is_cursor_visible() {
-                client.camera_controller.process_scroll(event_helper.scroll_diff());
-            }
-
             render_time.tick();
 
             client.update(render_time.elasped_time() as f32);
-            for state in &mut states {
-                state.update(&mut client);
-            }
 
             let render_result: Result<(), wgpu::SurfaceError> = {
                 let output = client.gpu.surface.get_current_texture().unwrap();
@@ -114,36 +173,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
                     label: Some("Render Encoder"),
                 });
 
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Render Pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.2,
-                                b: 0.3,
-                                a: 1.0,
-                            }),
-                            store: true,
-                        },
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: client.depth_texture.get_view(),
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
-                    }),
-                });
-
-                for state in &mut states {
-                    state.render(&mut render_pass, &client, render_time.elasped_time());
-                }
-
-                std::mem::drop(render_pass);
+                client.draw_level(&level, &mut encoder, &view);                
 
                 client.gpu.queue.submit(std::iter::once(encoder.finish()));
                 output.present();
@@ -170,39 +200,10 @@ pub struct State {
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
-
-    pub test_mesh: Mesh,
-    // pub vertex_buffer: wgpu::Buffer,
-    // pub num_verticies: u32,
-
-    // pub index_buffer: wgpu::Buffer,
-    // pub num_indicies: u32,
 }
 
 impl State {
-    pub fn new(client: &Client) -> Self {
-
-        let gpu = &client.gpu;
-
-        let device = &gpu.device;
-        let config = &gpu.config;
-
-        let mut tess = tessellator::TerrainTessellator::new();
-        {
-            let test_color = Vec3::new(0.0, 1.0, 0.0);
-            let test_tex_indicies = [4, 4, 4, 4, 4, 4];
-            for x in 0..16 {
-                for y in 0..16 {
-                    for z in 0..16 {
-                        tess.cuboid(Vec3::new(x as f32, y as f32, z as f32), test_color, test_tex_indicies);
-                    }
-                }
-            }
-        }
-
-        let test_mesh = tess.build(device);
-
-
+    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, projection: &Projection, camera: &Camera, terrain_tex_layout: &BindGroupLayout) -> Self {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
@@ -212,7 +213,7 @@ impl State {
         let camera_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[client.projection.calc_matrix() * client.camera.calc_matrix()]),
+                contents: bytemuck::cast_slice(&[projection.calc_matrix() * camera.calc_matrix()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
             }
         );
@@ -249,7 +250,7 @@ impl State {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[
                 &camera_bind_group_layout,
-                &client.layouts["mc_terrain_tex_layout"],
+                terrain_tex_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -303,26 +304,23 @@ impl State {
             render_pipeline,
             camera_buffer,
             camera_bind_group,
-
-            test_mesh,
         }
     }
 }
 
-impl RenderStates for State {
-
-    fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
-    }
-
-    fn update(&mut self, client: &mut Client) {
-        client.gpu.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[client.proj_view]));
-    }
-
-    fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &'a Client, _f_elapsed_time: f64) {
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
-        self.test_mesh.draw(render_pass);
-    }
-}
+// impl RenderStates for State {
+//
+//     fn input(&mut self, _event: &WindowEvent) -> bool {
+//         false
+//     }
+//
+//     fn update(&mut self, client: &mut Client) {
+//         client.gpu.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[client.proj_view]));
+//     }
+//
+//     fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &'a Client, _f_elapsed_time: f64) {
+//         render_pass.set_pipeline(&self.render_pipeline);
+//         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+//         render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
+//     }
+// }

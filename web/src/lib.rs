@@ -1,4 +1,4 @@
-#[cfg(target_arch="wasm32")]
+/// Winit will error with wasm stuff because it thinks its compiling for a non-wasm target
 use wasm_bindgen::prelude::*;
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
@@ -6,9 +6,21 @@ pub fn _start() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
     let event_loop = winit::event_loop::EventLoop::new();
+
+    // use winit::platform::web::WindowBuilderExtWebSys;
+    // let canvas = {
+    //     web_sys::window()
+    //         .and_then(|win| win.document())
+    //         .and_then(|doc| {
+    //             doc.get_element_by_id("wasm-example")
+    //         })
+
+    // };
+
     let window = winit::window::WindowBuilder::new()
         .with_title("Orange-rs")
         .with_window_icon(orange_rs::get_app_icon("icon.png"))
+        // .with_canvas(canvas)
         .build(&event_loop).unwrap();
 
     use winit::platform::web::WindowExtWebSys;
