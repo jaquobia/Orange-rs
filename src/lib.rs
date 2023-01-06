@@ -18,10 +18,9 @@ use identifier::Identifier;
 use image::GenericImageView;
 use level::Level;
 use registry::Registry;
-use ultraviolet::Vec3;
-use wgpu::{RenderPass, util::DeviceExt, SurfaceConfiguration, BindGroupLayout};
-use winit::{window::{Icon, Window}, event_loop::EventLoop, event::{WindowEvent, Event, VirtualKeyCode, DeviceEvent}};
-use rendering::{GpuStruct, WgpuData, RenderStates, ElapsedTime, Client, tessellator::{self, TerrainTessellator}, mesh::Mesh, verticies::TerrainVertex};
+use wgpu::{util::DeviceExt, BindGroupLayout};
+use winit::{window::{Icon, Window}, event_loop::EventLoop, event::{Event, VirtualKeyCode, DeviceEvent}};
+use rendering::{GpuStruct, WgpuData, ElapsedTime, Client, tessellator::TerrainTessellator, verticies::TerrainVertex};
 use winit_input_helper::WinitInputHelper;
 use crate::math_helper::angle;
 

@@ -110,16 +110,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
-name = "app"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "log",
- "orange_rs",
- "winit",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -913,7 +903,6 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 name = "download_assets"
 version = "0.1.0"
 dependencies = [
- "orange_rs",
  "pollster",
  "serde",
  "serde_derive",
@@ -2112,6 +2101,32 @@ dependencies = [
  "wgpu",
  "winit",
  "winit_input_helper",
+]
+
+[[package]]
+name = "orange_rs_client"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "log",
+ "orange_rs",
+ "winit",
+]
+
+[[package]]
+name = "orange_rs_web"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "console_log",
+ "env_logger",
+ "log",
+ "orange_rs",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -3425,22 +3440,6 @@ dependencies = [
  "dlib",
  "lazy_static",
  "pkg-config",
-]
-
-[[package]]
-name = "web"
-version = "0.1.0"
-dependencies = [
- "console_error_panic_hook",
- "console_log",
- "env_logger",
- "log",
- "orange_rs",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wgpu",
- "winit",
 ]
 
 [[package]]
