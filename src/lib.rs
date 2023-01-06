@@ -111,6 +111,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
             block_register.insert(block);
         }
     }
+    // A random comment
     // Test if the registry is working
     // registry.get_block_register().get_element_from_identifier("bedrock").and_then(|block| { println!("Bedrock: {}", block.get_identifier()); Some(block) });
 
