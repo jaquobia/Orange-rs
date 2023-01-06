@@ -25,7 +25,7 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn new(identifier: Identifier, id: i32, chunk_height: u32, chunk_offset: i32) -> Self {
+    pub fn new(identifier: Identifier, id: i32, chunk_height: u32, chunk_offset: i32, blocks: &Register<Block>) -> Self {
         Self {
             identifier,
             id,
@@ -33,7 +33,7 @@ impl Level {
             chunks: ChunkMap::new(),
             chunk_offset,
             chunk_height,
-            tg: DefaultTerrainGenerator::new(chunk_height),
+            tg: DefaultTerrainGenerator::new(chunk_height, blocks),
         }
     }
 

@@ -51,7 +51,7 @@ impl ChunkSection {
 
     /// Create and return an empty chunk section
     fn create_empty() -> Self {
-        let data: ChunkSectionDataStorageType = vec![0; CHUNK_SECTION_DIMENSION_SIZE];
+        let data: ChunkSectionDataStorageType = vec![1; CHUNK_SECTION_DIMENSION_SIZE];
         Self {
             data,
             mesh: None,
@@ -185,9 +185,9 @@ impl Chunk {
         for section in &mut self.sections {
             section_index += 1.0;
             let section_position = Vec3::new(chunk_x as f32, section_index * CHUNK_SECTION_AXIS_SIZE as f32, chunk_z as f32);
-            for y in 0..CHUNK_SECTION_AXIS_SIZE_M1 as u32 {
-                for x in 0..CHUNK_SECTION_AXIS_SIZE_M1 as u32 {
-                    for z in 0..CHUNK_SECTION_AXIS_SIZE_M1 as u32 {
+            for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
+                for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
+                    for z in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
                         let pos_vec = UVec3::new(x, y, z);
                         let pos_ivec = IVec3::new(x as i32, y as i32, z as i32);
 
@@ -207,9 +207,9 @@ impl Chunk {
                         for dir in &DIRECTIONS {
                             let dir_index = dir.ordinal();
                             let new_pos = pos_ivec + dir.get_int_vector();
-                            if new_pos.x < 0 || new_pos.x >= CHUNK_SECTION_AXIS_SIZE_M1 as i32 ||
-                                new_pos.y < 0 || new_pos.y >= CHUNK_SECTION_AXIS_SIZE_M1 as i32 ||
-                                new_pos.z < 0 || new_pos.z >= CHUNK_SECTION_AXIS_SIZE_M1 as i32 {
+                            if new_pos.x < 0 || new_pos.x > CHUNK_SECTION_AXIS_SIZE_M1 as i32 ||
+                                new_pos.y < 0 || new_pos.y > CHUNK_SECTION_AXIS_SIZE_M1 as i32 ||
+                                new_pos.z < 0 || new_pos.z > CHUNK_SECTION_AXIS_SIZE_M1 as i32 {
                                 occlusions[dir_index] = true; // Get information from neighbor
                                                                   // chunk
                                 continue;

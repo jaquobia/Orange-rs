@@ -47,7 +47,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
     let gpu = WgpuData::new(&window);
 
     let (width, height) = window.inner_size().into();
-    let camera = camera::Camera::new((0.0, 0.0, 10.0), angle::Deg(-90.0), angle::Deg(-20.0));
+    let camera = camera::Camera::new((0.0, 64.0, 10.0), angle::Deg(-90.0), angle::Deg(-20.0));
     let projection = camera::Projection::new(width, height, angle::Deg(45.0), 0.1, 100.0);
     let camera_controller = camera::CameraController::new(4.0, 1.0);
     let mut client: Client = Client::new(window, gpu, camera, camera_controller, projection);
@@ -117,7 +117,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
     let mut tessellator = TerrainTessellator::new();
 
     // Identifier, id, chunk height, chunk offset
-    let mut level = Level::new(Identifier::from("overworld"), 0, 8, 0);
+    let mut level = Level::new(Identifier::from("overworld"), 0, 8, 0, registry.get_block_register());
     level.generate_chunks();
     level.tesselate_chunks(&mut tessellator, &client.gpu.queue, &client.gpu.device, registry.get_block_register());
 
