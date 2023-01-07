@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use legion::World;
 use ultraviolet::{IVec3, IVec2, UVec2};
 
@@ -47,7 +49,7 @@ impl Level {
 
     pub fn get_chunk_pos(x: i32, z: i32) -> (i32, i32) {
         #[cfg(feature = "large_chunks")]
-        return (x  >> 4 & NORMAL_CHUNK_TO_LARGE_CHUNK_MAGIC_NUMBER, z >> 4 & NORMAL_CHUNK_TO_LARGE_CHUNK_MAGIC_NUMBER);
+        return (x  >> 4 & Self::NORMAL_CHUNK_TO_LARGE_CHUNK_MAGIC_NUMBER, z >> 4 & Self::NORMAL_CHUNK_TO_LARGE_CHUNK_MAGIC_NUMBER);
         #[cfg(not(feature = "large_chunks"))]
         return (x  >> 4, z >> 4);
     }
@@ -87,35 +89,36 @@ impl Level {
 
     pub fn get_chunk_at(&self, x: i32, z: i32) -> Option<&Chunk> {
         let position = IVec2::new(x, z);
-        self.chunks.get_chunk_vec(position).as_ref()
+        self.chunks.get_chunk_vec(position)
     }
 
     pub fn get_chunk_at_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk> {
         let position = IVec2::new(x, z);
-        self.chunks.get_chunk_vec_mut(position).as_mut()
+        self.chunks.get_chunk_vec_mut(position)
     }
 
     pub fn generate_chunks(&mut self) {
-        for i in 0..8 {
-            for k in 0..8 {
-                let position = IVec2::new(i-4, k-4);
+        for i in -4..=4 {
+            for k in -4..=4 {
+                let position = IVec2::new(i, k);
 
                 if self.chunks.get_chunk_vec(position).is_none() { 
+                    // println!("Generating Chunk {} {}", i, k);
                     let mut chunk = Chunk::new(position, self.chunk_height as usize);
                     self.tg.generate_chunk(&mut chunk);
-                    self.chunks.set_chunk(position, chunk);
+                    self.chunks.set_chunk(position, Some(chunk));
                 }
             }
         }
     }
 
     pub fn tesselate_chunks(&mut self, tesselator: &mut TerrainTessellator, queue: &wgpu::Queue, device: &wgpu::Device, blocks: &Register<Block>) {
-        for i in -4..4 {
-            for j in -4..4 {
-                println!("Tessellating chunk: {} {}", i, j);
+        for i in -4..=4 {
+            for j in -4..=4 {
+                // println!("Tessellating chunk: {} {}", i, j);
                 let chunk = self.get_chunk_at_mut(i, j);
                 if let Some(chunk) = chunk {
-                    println!("Chunk Existed");
+                    // println!("Chunk Existed");
                     chunk.tesselate(tesselator, queue, device, blocks);
                 } 
             }
@@ -127,45 +130,95 @@ impl Level {
 /// Dummy Chunk Storage that has an 9x9 map of chunks
 /// Dimensions from -3 -> 
 struct ChunkMap {
-    chunks: Vec<Vec<Option<Chunk>>>,
+    chunks: Vec<Option<Chunk>>,
+    map_pos_to_index: HashMap<i64, usize>,
 }
+
+const CHUNK_ALLOC_MAGIC_NUMBER: usize = 21 * 21;
 
 impl ChunkMap {
 
     pub fn new() -> Self {
-        let mut chunks = Vec::with_capacity(9);
-        for i in 0..8 {
-            chunks.push(vec![]);
-            for _ in 0..8 {
-                chunks[i].push(None);
-            }
-        }
+        let mut chunks = Vec::with_capacity(CHUNK_ALLOC_MAGIC_NUMBER);
         
         Self {
             chunks,
+            map_pos_to_index: HashMap::new(),
         }
     }
 
-    pub fn get_chunk_pos(&self, x: i32, z: i32) -> &Option<Chunk> {
-        let (x, z) = ((x + 4) as usize, (z + 4) as usize);
-        &self.chunks[x][z] 
+    fn inner_chunk_pos_to_hash(x: i32, z: i32) -> i64 {
+        let x = x as i64;
+        let z = z as i64;
+        return x + (z << 32);
     }
 
-    pub fn get_chunk_pos_mut(&mut self, x: i32, z: i32) -> &mut Option<Chunk> {
-        let (x, z) = ((x + 4) as usize, (z + 4) as usize);
-        &mut self.chunks[x][z]
+    fn inner_hash_to_index(&self, hash: i64) -> Option<usize> {
+        self.map_pos_to_index.get(&hash).and_then(|&index| Some(index)) // Make not a reference to
+                                                                        // not continuously borrow
+                                                                        // self.map_pos_to_index
     }
 
-    pub fn get_chunk_vec(&self, pos: IVec2) -> &Option<Chunk> {
+    fn inner_pos_to_index(&self, x: i32, z: i32) -> Option<usize> {
+        self.inner_hash_to_index(Self::inner_chunk_pos_to_hash(x, z))
+    }
+
+    pub fn get_chunk_pos(&self, x: i32, z: i32) -> Option<&Chunk> { 
+        match self.inner_pos_to_index(x, z) {
+            Some(index) => {
+                match self.chunks.get(index) {
+                    Some(chunk) => { chunk.as_ref() },
+                    None => None,
+                }
+            },
+            None => None,
+        }
+    }
+
+    pub fn get_chunk_pos_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk> {
+        match self.inner_pos_to_index(x, z) {
+            Some(index) => {
+                match self.chunks.get_mut(index) {
+                    Some(chunk) => { chunk.as_mut() },
+                    None => None,
+                }
+            },
+            None => None,
+        }
+    }
+
+    pub fn get_chunk_vec(&self, pos: IVec2) -> Option<&Chunk> {
         self.get_chunk_pos(pos.x, pos.y)
     }
 
-    pub fn get_chunk_vec_mut(&mut self, pos: IVec2) -> &mut Option<Chunk> {
+    pub fn get_chunk_vec_mut(&mut self, pos: IVec2) -> Option<&mut Chunk> {
         self.get_chunk_pos_mut(pos.x, pos.y)
     }
 
-    pub fn set_chunk(&mut self, pos: IVec2, chunk: Chunk) {
-        let (x, z) = ((pos.x + 4) as usize, (pos.y + 4) as usize);
-        self.chunks[x][z] = Some(chunk);
+    pub fn set_chunk(&mut self, pos: IVec2, chunk: Option<Chunk>) {
+        let hash = Self::inner_chunk_pos_to_hash(pos.x, pos.y);
+        let index = self.inner_hash_to_index(hash);
+ 
+        // We have no index, there is no chunk as this pos in storage
+        if index.is_none() {
+            // Add chunk to storage
+            if chunk.is_some() {
+                self.chunks.push(chunk);
+                self.map_pos_to_index.insert(hash, self.chunks.len() -1);
+            }
+            
+        } else { // There is a chunk already here
+            let index = index.unwrap();
+            if chunk.is_some() { // Replace the chunk
+                self.chunks[index] = chunk;   
+            } else { // delete the chunk
+                self.map_pos_to_index.remove(&hash);
+                self.chunks.remove(index);
+            }
+        }
+    }
+
+    pub fn delete_chunk(&mut self, pos: IVec2) {
+        self.set_chunk(pos, None);
     }
 }

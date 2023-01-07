@@ -286,8 +286,8 @@ impl Client {
         render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
         render_pass.set_bind_group(1, self.get_texture("terrain.png").bind_group(), &[]);
 
-        for x in min_extent.x..max_extent.x {
-            for z in min_extent.y..max_extent.y {
+        for x in min_extent.x..=max_extent.x {
+            for z in min_extent.y..=max_extent.y {
                 if let Some(chunk) = level.get_chunk_at(x, z) {
                     chunk.draw(&mut render_pass);
                 }

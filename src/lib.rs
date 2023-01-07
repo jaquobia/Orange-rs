@@ -48,7 +48,7 @@ pub fn main_loop(event_loop: EventLoop<()>, window: Window) {
     let (width, height) = window.inner_size().into();
     let camera = camera::Camera::new((0.0, 64.0, 10.0), angle::Deg(-90.0), angle::Deg(-20.0));
     let projection = camera::Projection::new(width, height, angle::Deg(45.0), 0.1, 100.0);
-    let camera_controller = camera::CameraController::new(4.0, 1.0);
+    let camera_controller = camera::CameraController::new(10.0, 1.0);
     let mut client: Client = Client::new(window, gpu, camera, camera_controller, projection);
 
     let mut render_time = ElapsedTime::new();
@@ -307,20 +307,3 @@ impl State {
         }
     }
 }
-
-// impl RenderStates for State {
-//
-//     fn input(&mut self, _event: &WindowEvent) -> bool {
-//         false
-//     }
-//
-//     fn update(&mut self, client: &mut Client) {
-//         client.gpu.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[client.proj_view]));
-//     }
-//
-//     fn render<'a>(&'a mut self, render_pass: &mut RenderPass<'a>, client: &'a Client, _f_elapsed_time: f64) {
-//         render_pass.set_pipeline(&self.render_pipeline);
-//         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-//         render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
-//     }
-// }

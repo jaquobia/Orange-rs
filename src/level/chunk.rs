@@ -179,7 +179,10 @@ impl Chunk {
     }
 
     pub fn tesselate(&mut self, tesselator: &mut TerrainTessellator, queue: &wgpu::Queue, device: &wgpu::Device, blocks: &Register<Block>) {
+        #[cfg(not(feature="large_chunks"))]
         let (chunk_x, chunk_z) = (self.position.x << 4, self.position.y << 4);
+        #[cfg(feature="large_chunks")]
+        let (chunk_x, chunk_z) = (self.position.x << 5, self.position.y << 5);
         let air_id = blocks.get_index_from_identifier("air");
         let mut section_index: f32 = -1.0;
         for section in &mut self.sections {
