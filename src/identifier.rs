@@ -14,7 +14,7 @@ pub struct Identifier {
 
 impl Identifier {
     pub fn new(namespace: String, name: String) -> Self {
-        let total_id =  format!("{}:{}", namespace, name);
+        let total_id = format!("{}:{}", namespace, name);
         Self {
             namespace,
             name,
@@ -38,24 +38,24 @@ impl Identifier {
     }
 
     pub fn get_total_identifier(&self) -> &String {
-       &self.total_id
+        &self.total_id
     }
 }
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-       f.write_str(self.total_id.as_str())
+        f.write_str(self.total_id.as_str())
     }
 }
 
 impl From<&str> for Identifier {
     fn from(t: &str) -> Self {
-       Self::from_str(t) 
+        Self::from_str(t)
     }
 }
 
 impl From<String> for Identifier {
     fn from(t: String) -> Self {
-       Self::from_str(t.as_str()) 
+        Self::from_str(t.as_str())
     }
 }

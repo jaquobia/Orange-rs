@@ -1,4 +1,5 @@
-pub const MANIFEST_URL: &'static str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+pub const MANIFEST_URL: &'static str =
+    "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 pub const VERSION_ID: &'static str = "b1.7.3";
 pub const VERSION_SHA1: &'static str = "44f6969326bd45aa00dcd3c4ca3a7c05ebb24c04";
 

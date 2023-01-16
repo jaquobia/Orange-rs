@@ -1,9 +1,8 @@
-use ultraviolet::UVec3;
+use ultraviolet::{UVec3, UVec2};
 
 use crate::{block::Block, registry::Register};
 
-use super::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE_M1, CHUNK_SECTION_AXIS_SIZE};
-
+use super::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkHeightmapType};
 
 pub struct DefaultTerrainGenerator {
     chunk_height: u32,
@@ -31,19 +30,26 @@ impl DefaultTerrainGenerator {
         }
     }
 
-    fn inner_iter<F: FnMut(UVec3)>(&self, mut f: F) {
+    fn inner_iter_3d<F: FnMut(UVec3)>(&self, mut f: F) {
         for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for z in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
                 for y in 0..self.chunk_height {
-                    f(UVec3::new(x, y, z))
+                    f(UVec3::new(x, y, z));
                 }
             }
         }
     }
 
-    //TODO: find way to reduce this to an iterator
+    fn inner_iter_2d<F: FnMut(UVec2)>(&self, mut f: F) {
+        for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
+            for z in 0..CHUNK_SECTION_AXIS_SIZE as u32  {
+                f(UVec2::new(x, z));
+            }
+        }
+    }
+
     pub fn generate_chunk(&self, chunk: &mut Chunk) {
-        self.inner_iter(|pos| {
+        self.inner_iter_3d(|pos| {
             let y = pos.y;
             let block = if y > 60 {
                 0
@@ -56,7 +62,18 @@ impl DefaultTerrainGenerator {
             } else {
                 self.bedrock
             };
-            chunk.set_block_at_vec(block as u64, pos) 
+            chunk.set_block_at_vec(block as u64, pos)
         });
+
+        self.inner_iter_2d(|pos| {
+            let heightmap_value: ChunkHeightmapType = (15, 15);
+            for y in self.chunk_height as i32 -1..0 {
+                if chunk.get_block_at_pos(pos.x, y as u32, pos.y) != 0 {
+                    heightmap_value.0 = y;
+                    break;
+                }
+            }
+            
+        })
     }
 }

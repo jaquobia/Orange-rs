@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "web", "download_assets"]
+members = ["client", "client-app", "web-client-app", "download_assets", "server", "server-app"]
 
 [package]
 name = "orange_rs"
@@ -13,8 +13,8 @@ path = "src/lib.rs"
 
 [dependencies]
 winit = "0.27"
-winit_input_helper = "0.13"
-wgpu = "0.14.2"
+# winit_input_helper = "0.13"
+# wgpu = "0.14.2"
 pollster = "0.2"
 image = "0.24"
 lazy_static = "1.4"

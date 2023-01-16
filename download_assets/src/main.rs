@@ -1,6 +1,6 @@
-use std::{io::Write, path::{PathBuf}, fs};
+use std::{fs, io::Write, path::PathBuf};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 mod mc_constants;
@@ -31,8 +31,10 @@ fn main() {
 
 /// Get the version manifest from mojang's servers
 async fn get_manifest() -> Manifest {
-    let mani: Manifest = surf::get(MANIFEST_URL).recv_json()
-        .await.expect("Couldn't recieve/parse the manifest");
+    let mani: Manifest = surf::get(MANIFEST_URL)
+        .recv_json()
+        .await
+        .expect("Couldn't recieve/parse the manifest");
     return mani;
 }
 
@@ -40,19 +42,28 @@ async fn get_manifest() -> Manifest {
 async fn get_jar_from_version(manifest: &Manifest) -> String {
     let version: &ManifestVersion = match manifest.versions.iter().find(|a| a.id == VERSION_ID) {
         Some(mv) => mv,
-        _ => &manifest.versions[600]
+        _ => &manifest.versions[600],
     };
     assert_eq!(version.sha1, VERSION_SHA1);
 
-    let a: Value = surf::get(version.url.clone()).recv_json().await.expect("Couldn't recieve the version json");
-    String::from(a["downloads"]["client"]["url"].as_str().expect("Couldn't get the jar url"))
+    let a: Value = surf::get(version.url.clone())
+        .recv_json()
+        .await
+        .expect("Couldn't recieve the version json");
+    String::from(
+        a["downloads"]["client"]["url"]
+            .as_str()
+            .expect("Couldn't get the jar url"),
+    )
 }
 
 /// Download a jar from a url as a byte array
 async fn get_jar(uri: &String) -> Vec<u8> {
-    surf::get(uri).recv_bytes().await.expect("Couldn't recieve the jar")
+    surf::get(uri)
+        .recv_bytes()
+        .await
+        .expect("Couldn't recieve the jar")
 }
-
 
 /// Returns false if all the necessary images in the provided resources directory exists, and true if any are missing
 fn is_download_necessary(resources_dir: &PathBuf) -> bool {
@@ -77,7 +88,6 @@ pub fn check_assets() -> bool {
 
 /// Downloads the minecraft client and extracts the resources
 fn download_minecraft_client(dir: &PathBuf) {
-
     let dir = PathBuf::from(dir); // Copy the dir
     let manifest = pollster::block_on(get_manifest());
 
@@ -88,7 +98,6 @@ fn download_minecraft_client(dir: &PathBuf) {
     let mut temp_jar_zip_handle = tempfile::tempfile().unwrap();
     temp_jar_zip_handle.write(jar_data.as_slice()).unwrap();
     let mut jar_zip = zip::ZipArchive::new(temp_jar_zip_handle).unwrap();
-
 
     fs::create_dir_all(&dir).unwrap();
 
@@ -108,7 +117,7 @@ fn download_minecraft_client(dir: &PathBuf) {
             let mut file_path = dir.clone();
             file_path.push(&outpath);
             let name = if name.contains('/') {
-                 &name[name.rfind('/').unwrap()+1..]
+                &name[name.rfind('/').unwrap() + 1..]
             } else {
                 name
             };
@@ -127,10 +136,5 @@ fn download_minecraft_client(dir: &PathBuf) {
             let mut outfile = fs::File::create(&file_path).unwrap();
             std::io::copy(&mut entry, &mut outfile).unwrap();
         }
-
     }
 }
-
-
-
-

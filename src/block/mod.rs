@@ -1,6 +1,6 @@
 pub mod block_factory;
 
-use crate::{registry::Registerable, identifier::Identifier};
+use crate::{identifier::Identifier, registry::Registerable};
 
 use self::block_factory::BlockSettings;
 
@@ -21,8 +21,8 @@ impl Block {
         let hardness = settings.hardness.unwrap_or(0.0);
         let hardness_5 = hardness * 5.0;
         let resistance = match settings.resistance {
-            Some(res) => { 3.0 * res },
-            None => { hardness_5 },
+            Some(res) => 3.0 * res,
+            None => hardness_5,
         };
         // For minecraft b1.7.3 functional parity, but seems to never really be used?
         let resistance = resistance.max(hardness_5);
@@ -30,7 +30,7 @@ impl Block {
         let slipperiness = settings.slipperiness.unwrap_or(0.0);
 
         let transparent = settings.transparent.unwrap_or(false);
-        
+
         let texture_index = settings.texture_index.unwrap_or(0);
         Self {
             identifier,
@@ -41,7 +41,7 @@ impl Block {
             texture_index,
         }
     }
-    
+
     pub fn get_hardness(&self) -> f32 {
         self.hardness
     }
@@ -77,12 +77,6 @@ impl Default for Block {
     }
 }
 
-pub struct BlockState {
+pub struct BlockState {}
 
-}
-
-impl BlockState {
-
-}
-
-
+impl BlockState {}

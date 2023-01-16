@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{block::Block, identifier::Identifier};
-
+use crate::{block::Block, identifier::Identifier, game_version::GameVersion};
 
 /** Represents the total registered blocks, items, [tile]entities, dimensions, and any other object
  * that needs to be referenced.
@@ -15,14 +14,27 @@ pub struct Registry {
 }
 
 impl Registry {
-    /** Creates a new registery with set default capacities to prevent constant reallocation
+    /** Creates a new registery
+     * Automatically 256 elements to the register
      *
      */
     pub fn new() -> Self {
         let blocks = Register::<Block>::new(256);
-        Self {
-            blocks,
-        }
+        Self { blocks }
+    }
+
+    pub fn load_from(version: GameVersion) -> Self {
+        let registry = Self::new();
+        
+        version.load_registry(&mut registry);
+
+        registry
+    }
+
+    pub fn load_custom<F: FnOnce(&mut Registry)>(funct: F) -> Self {
+        let mut registry = Self::new();
+        funct(&mut registry);
+        registry
     }
 
     pub fn get_block_register(&self) -> &Register<Block> {
@@ -31,6 +43,10 @@ impl Registry {
 
     pub fn get_block_register_mut(&mut self) -> &mut Register<Block> {
         return &mut self.blocks;
+    }
+
+    pub fn reset(&mut self) {
+        self.blocks.reset();
     }
 }
 
@@ -70,7 +86,7 @@ impl<T: Registerable> Register<T> {
     pub fn insert(&mut self, registerable: T) {
         let index = self.current_id;
         let identifier = registerable.get_identifier().to_string();
-        self.current_id +=1;
+        self.current_id += 1;
         self.collection.push(registerable);
         self.id_map.insert(identifier, index);
     }
@@ -88,7 +104,11 @@ impl<T: Registerable> Register<T> {
     pub fn get_element_from_identifier(&self, ident: impl Into<Identifier>) -> Option<&T> {
         let identifier: Identifier = ident.into();
         let default_index = 0;
-        let index: usize = self.id_map.get(&identifier.to_string()).unwrap_or(&default_index) + 0;
+        let index: usize = self
+            .id_map
+            .get(&identifier.to_string())
+            .unwrap_or(&default_index)
+            + 0;
         self.collection.get(index)
     }
 
@@ -99,6 +119,9 @@ impl<T: Registerable> Register<T> {
     pub fn get_index_from_identifier(&self, ident: impl Into<Identifier>) -> usize {
         let identifier = ident.into();
         let default_index = 0;
-        self.id_map.get(&identifier.to_string()).unwrap_or(&default_index) + 0
+        self.id_map
+            .get(&identifier.to_string())
+            .unwrap_or(&default_index)
+            + 0
     }
 }

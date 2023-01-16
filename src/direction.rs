@@ -1,6 +1,5 @@
 use ultraviolet::{IVec3, Vec3};
 
-
 pub enum Direction {
     North,
     South,
@@ -10,7 +9,14 @@ pub enum Direction {
     Down,
 }
 
-pub static DIRECTIONS: [Direction; 6] = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
+pub static DIRECTIONS: [Direction; 6] = [
+    Direction::North,
+    Direction::South,
+    Direction::East,
+    Direction::West,
+    Direction::Up,
+    Direction::Down,
+];
 
 impl Direction {
     pub fn get_int_vector(&self) -> IVec3 {

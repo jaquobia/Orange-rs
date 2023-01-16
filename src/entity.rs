@@ -1,4 +1,3 @@
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Position {
     x: f32,
@@ -13,7 +12,5 @@ pub struct Velocity {
 
 pub mod entity_camera {
     #[derive(Clone, Copy, Debug, PartialEq)]
-    pub struct Camera {
-
-    }
+    pub struct Camera {}
 }
