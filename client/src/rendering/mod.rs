@@ -11,6 +11,7 @@ pub mod tessellator;
 pub mod textures;
 pub mod verticies;
 pub mod wgpu_struct;
+pub mod world_renders;
 
 pub struct ElapsedTime {
     time_now: instant::Instant,

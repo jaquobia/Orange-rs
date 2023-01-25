@@ -1,7 +1,7 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc}};
 
-use client::{client_world::{ClientWorld, ClientChunkStorage}, rendering::{wgpu_struct::WgpuData, ElapsedTime, State, tessellator::TerrainTessellator}, camera::{self, CameraControllerMovement}, Client, mc_resource_handler};
-use orange_rs::{math_helper::angle, registry::Registry, block::block_factory::BlockFactory, level::dimension::{Dimension, DimensionChunkDescriptor}, identifier::Identifier};
+use client::{client_world::{ClientWorld, ClientChunkStorage}, rendering::{wgpu_struct::WgpuData, ElapsedTime, State, tessellator::{TerrainTessellator, self}}, camera::{self, CameraControllerMovement}, Client, mc_resource_handler};
+use orange_rs::{math_helper::angle, registry::Registry, block::block_factory::BlockFactory, level::{dimension::{Dimension, DimensionChunkDescriptor}, chunk::Chunk}, identifier::Identifier, MCThread};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
 
@@ -37,33 +37,61 @@ fn main() {
         );
         client.state.replace(state);
     }
-    let mut registry = Registry::load_from(orange_rs::game_version::GameVersion::B173);
+    let mut registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
 
-    let mut tessellator = TerrainTessellator::new();
+    let mut shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
 
-    let chunk_generate_queue = VecDeque::<DimensionChunkDescriptor>::new();
-    let chunk_tesselate_queue = VecDeque::<DimensionChunkDescriptor>::new();
+    let mut chunk_generate_queue = VecDeque::<DimensionChunkDescriptor>::new();
+    let mut chunk_tesselate_queue = VecDeque::<DimensionChunkDescriptor>::new();
 
-    let mut client_world = ClientWorld::new();
+    // let (tx_gen, rx_gen) = mpsc::channel();
+    // let (tx_main_to_tes, rx_main_to_tes) = mpsc::channel();
+    // let (tx_tes_to_main, rx_tes_to_main) = mpsc::channel();
+
+    let mut client_world = Arc::new(RwLock::new(ClientWorld::new(8)));
 
     // Identifier, id, chunk height, chunk offset
-    let mut level = Dimension::<ClientChunkStorage>::new(
+    let chunk_height = 8;
+    let mut level = Dimension::new(
         Identifier::from("overworld"),
         0,
-        8,
+        chunk_height,
         0,
-        registry.get_block_register(),
-    );
+        registry.read().unwrap().get_block_register(),
+        );
 
-    client_world.add_dimension(level);
+    client_world.write().unwrap().add_dimension(level);
 
     use std::thread;
     let mut server_thread_handle = Some(thread::spawn(move || {
-        
-    }));
-    let mut mesher_thread_handle = Some(thread::spawn(move || {
 
     }));
+    // let mut mesher_thread_handle = Some(thread::spawn(move || {
+    //     let tessellator = shared_tessellator.clone();
+    //     let client_world = client_world.clone();
+    //
+    //     loop {
+    //         let some_job = rx_main_to_tes.recv();
+    //         match some_job {
+    //             Ok(job) => {
+    //                 match job {
+    //                     MCThread::Shutdown => { break; },
+    //                     MCThread::Work(chunk_pos) => {
+    //                         let (section_index, chunk_pos) = chunk_pos;
+    //                         tessellator.tesselate_chunk_section(section, section_position, blocks);
+    //
+    //                     },
+    //                 } 
+    //             },
+    //             Err(_) => {
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //
+    // }));
+
+    // client_world.tesselate_chunks(tesselator, tesselation_queue, device, blocks);
 
     event_loop.run(move |event, _, control_flow| {
         if let winit::event::Event::DeviceEvent {
@@ -84,7 +112,8 @@ fn main() {
                     .take()
                     .unwrap()
                     .join()
-                    .expect("Couldn't properly rejoin main thread");
+                    .expect("Couldn't properly rejoin server to main thread");
+                // mesher_thread_handle.take().unwrap().join().expect("Couldn't properly rejoin mesher to main thread");
                 return;
             }
             if event_helper.key_held(VirtualKeyCode::W) {
@@ -143,8 +172,27 @@ fn main() {
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("Render Encoder"),
                         });
+                {
+                    let client_world = client_world.read().unwrap();
+                    let render_distance = 10;
+                    client.draw_world(&client_world, &mut encoder, &view, client.camera.position, render_distance, &mut chunk_tesselate_queue); 
+                }
 
-                client.draw_world(&client_world, &mut encoder, &view, client.camera.position, 0);
+                {
+                    let mut client_world = client_world.write().unwrap();
+                    client_world.process_chunks();
+
+                    while let Some(pos) = chunk_tesselate_queue.pop_front() {
+                        let dim = client_world.get_player_dimension_mut().unwrap();
+                        if dim.get_chunk_at_vec(pos.1).is_none() {
+                            dim.generate_chunk(pos.1);
+                        }
+                        let mut tessellator = shared_tessellator.write().unwrap();
+                        let registry = registry.read().unwrap();
+                        let blocks = registry.get_block_register();
+                        client_world.tesselate_chunk(pos.1, &mut tessellator, &client.gpu.device, &blocks);
+                    }
+                }
 
                 client.gpu.queue.submit(std::iter::once(encoder.finish()));
                 output.present();

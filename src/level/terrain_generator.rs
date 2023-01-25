@@ -66,7 +66,7 @@ impl DefaultTerrainGenerator {
         });
 
         self.inner_iter_2d(|pos| {
-            let heightmap_value: ChunkHeightmapType = (15, 15);
+            let mut heightmap_value: ChunkHeightmapType = (15, 15);
             for y in self.chunk_height as i32 -1..0 {
                 if chunk.get_block_at_pos(pos.x, y as u32, pos.y) != 0 {
                     heightmap_value.0 = y;

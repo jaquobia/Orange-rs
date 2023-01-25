@@ -105,7 +105,7 @@ impl Dimension {
 
     /// Get the block at an arbitrary point in the world, can be have negative axis and transpire the full extent of
     /// the world
-    fn get_block_at_pos(&self, x: i32, y: i32, z: i32) -> Option<u64> {
+    pub fn get_block_at_pos(&self, x: i32, y: i32, z: i32) -> Option<u64> {
         let chunk_pos = Self::get_chunk_pos(x, z);
         let chunk = self.get_chunks().get_chunk_pos(chunk_pos.0, chunk_pos.1);
         let (x, z) = Self::get_chunk_inner_pos(x, z);
@@ -143,5 +143,11 @@ impl Dimension {
     pub fn get_chunk_at_vec_mut(&mut self, pos: IVec2) -> Option<&mut Chunk> {
         let position = IVec2::new(pos.x, pos.y);
         self.get_chunks_mut().get_chunk_vec_mut(position)
+    }
+
+    pub fn generate_chunk(&mut self, pos: IVec2) {
+        let mut chunk = Chunk::new(pos, self.chunk_height as usize);
+        self.tg.generate_chunk(&mut chunk);
+        self.chunks.set_chunk(pos, Some(chunk));
     }
 }

@@ -19,6 +19,14 @@ impl<T> ChunkMap<T> {
         }
     }
 
+    pub fn chunks(&self) -> &Vec<T> {
+        return &self.chunks;
+    }
+
+    pub fn chunks_mut(&mut self) -> &mut Vec<T> {
+        return &mut self.chunks;
+    }
+
     fn inner_chunk_pos_to_hash(x: i32, z: i32) -> i64 {
         let x = x as i64;
         let z = z as i64;
@@ -86,5 +94,10 @@ impl<T> ChunkMap<T> {
 
     pub fn delete_chunk(&mut self, pos: IVec2) {
         self.set_chunk(pos, None);
+    }
+
+    pub fn clear(&mut self) {
+        self.chunks.clear();
+        self.map_pos_to_index.clear();
     }
 }

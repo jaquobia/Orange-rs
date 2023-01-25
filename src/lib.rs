@@ -26,3 +26,8 @@ pub fn get_app_icon(name: &str) -> Option<Icon> {
     let (icon_width, icon_height) = icon.dimensions();
     return Some(Icon::from_rgba(icon.into_bytes(), icon_width, icon_height).unwrap());
 }
+
+pub enum MCThread<T> {
+    Shutdown,
+    Work(T),
+}

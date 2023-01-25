@@ -1,4 +1,4 @@
-use crate::registry::Registry;
+use crate::{registry::Registry, block::block_factory::BlockFactory};
 
 pub enum GameVersion {
     B173,
@@ -9,7 +9,7 @@ pub enum GameVersion {
 impl GameVersion {
     pub fn load_registry(&self, registry: &mut Registry) {
         match self {
-            B173 => load_b173(registry),
+            Self::B173 => load_b173(registry),
             _ => {},
         }
     }

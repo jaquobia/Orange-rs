@@ -1,9 +1,9 @@
 use std::ops::Add;
 
-use ultraviolet::{Vec2, Vec3};
+use ultraviolet::{Vec2, Vec3, UVec3, IVec3};
 use wgpu::{util::DeviceExt, Device, Queue};
 
-use orange_rs::direction::{Direction, DIRECTIONS};
+use orange_rs::{direction::{Direction, DIRECTIONS}, level::chunk::{CHUNK_SECTION_AXIS_SIZE, CHUNK_SECTION_AXIS_SIZE_M1, Chunk, ChunkSection}, registry::Register, block::Block};
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
 
@@ -197,5 +197,67 @@ impl TerrainTessellator {
 
         self.vertex_buffer.clear();
         self.index_buffer.clear();
+    }
+
+
+    pub fn tesselate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>) {
+
+        for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
+            for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
+                for z in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
+                    let pos_vec = UVec3::new(x, y, z);
+                    let pos_ivec = IVec3::new(x as i32, y as i32, z as i32);
+
+                    let position = Vec3::new(x as f32, y as f32, z as f32);
+                    let chunk_data = section.get_vec(pos_vec);
+
+                    let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
+                    if block_id == 0 {
+                        // Air, stop
+                        continue;
+                    }
+
+                    let block = blocks.get_element_from_index(block_id);
+                    let mut occlusions: [bool; 6] = [false; 6];
+                    let textures: [u32; 6] = if let Some(block) = block.as_ref() {
+                        [block.texture_index() as u32; 6]
+                    } else {
+                        [0; 6]
+                    };
+
+                    for dir in &DIRECTIONS {
+                        let dir_index = dir.ordinal();
+                        let new_pos = pos_ivec + dir.get_int_vector();
+                        if new_pos.x < 0
+                            || new_pos.x > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                                || new_pos.y < 0
+                                || new_pos.y > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                                || new_pos.z < 0
+                                || new_pos.z > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                                {
+                                    occlusions[dir_index] = true; // Get information from neighbor
+                                                                  // chunk
+                                    continue;
+                                }
+                        let chunk_data = section.get_vec(UVec3::new(
+                                new_pos.x as u32,
+                                new_pos.y as u32,
+                                new_pos.z as u32,
+                                ));
+                        let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
+                        if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
+                            occlusions[dir_index] = block.is_transparent();
+                        }
+                    }
+
+                    self.cuboid(
+                        position + section_position,
+                        Vec3::one(),
+                        textures,
+                        &occlusions,
+                        );
+                }
+            }
+        }
     }
 }

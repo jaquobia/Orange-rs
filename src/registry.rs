@@ -24,7 +24,7 @@ impl Registry {
     }
 
     pub fn load_from(version: GameVersion) -> Self {
-        let registry = Self::new();
+        let mut registry = Self::new();
         
         version.load_registry(&mut registry);
 

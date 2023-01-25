@@ -23,7 +23,7 @@ impl BlockFactory {
     /** Build the block from the stored data
      *
      */
-    pub fn build(mut self) -> Block {
+    pub fn build(self) -> Block {
         Block::new(self.identifier, self.settings)
     }
 
