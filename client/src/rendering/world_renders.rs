@@ -70,11 +70,10 @@ impl WorldRenderer {
             for mesh in chunk.get_sections() {
                 match mesh {
                     Some(mesh) => mesh.draw(render_pass),
-                    None => { println!("no mesh, queueing"); tessellation_queue.push_back((0, pos)); },
+                    None => { if !chunk.is_marked_for_meshing() { tessellation_queue.push_back((0, pos)); chunk.mark_for_meshing(); }},
                 };
             }
         } else {
-            // println!("no chunk, queueing");
             tessellation_queue.push_back((0, pos));
         }
     }

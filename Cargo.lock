@@ -2125,6 +2125,7 @@ dependencies = [
  "env_logger",
  "log",
  "orange_rs",
+ "ultraviolet",
  "wgpu",
  "winit",
  "winit_input_helper",

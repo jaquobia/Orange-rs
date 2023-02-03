@@ -5,11 +5,11 @@ use orange_rs::{
     block::Block,
     level::{
         chunk::CHUNK_SECTION_AXIS_SIZE,
-        dimension::{Dimension, DimensionChunkDescriptor}, World, 
+        dimension::{Dimension, DimensionChunkDescriptor}, 
     },
     registry::Register,
 };
-use ultraviolet::{IVec2, Vec3, Vec2};
+use ultraviolet::{IVec2, Vec3};
 use wgpu::RenderPass;
 
 pub type ClientChunkStorage = Option<Mesh>;
@@ -18,21 +18,17 @@ pub struct ClientWorld {
     dimensions: Vec<Dimension>,
     player_level_id: usize,
     world_render: WorldRenderer,
-    chunk_height: u32,
-}
-
-impl World for ClientWorld {
-
+    num_sections: u32,
 }
 
 impl ClientWorld {
 
-    pub fn new(chunk_height: u32) -> Self {
+    pub fn new(num_sections: u32) -> Self {
         Self {
             dimensions: Vec::new(),
             player_level_id: 0,
-            world_render: WorldRenderer::new(chunk_height),
-            chunk_height,
+            world_render: WorldRenderer::new(num_sections),
+            num_sections,
         }
     }
 
@@ -121,7 +117,7 @@ impl ClientWorld {
             meshes.push(mesh);
             section_index += 1;
         }
-        self.world_render.construct_chunk(meshes, chunk_pos, self.chunk_height as usize);
+        self.world_render.construct_chunk(meshes, chunk_pos, self.num_sections as usize);
     }
 
     pub fn tesselate_chunks(

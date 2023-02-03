@@ -1,7 +1,8 @@
 use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc}};
 
-use client::{client_world::{ClientWorld, ClientChunkStorage}, rendering::{wgpu_struct::WgpuData, ElapsedTime, State, tessellator::{TerrainTessellator, self}}, camera::{self, CameraControllerMovement}, Client, mc_resource_handler};
-use orange_rs::{math_helper::angle, registry::Registry, block::block_factory::BlockFactory, level::{dimension::{Dimension, DimensionChunkDescriptor}, chunk::Chunk}, identifier::Identifier, MCThread};
+use client::{client_world::ClientWorld, rendering::{ElapsedTime, State, tessellator::TerrainTessellator}, camera::CameraControllerMovement, Client, mc_resource_handler};
+use orange_rs::{registry::Registry, identifier::Identifier, MCThread, level::dimension::{DimensionChunkDescriptor, Dimension}};
+use ultraviolet::{DVec3, IVec2};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
 
@@ -28,21 +29,21 @@ fn main() {
 
     // Layouts is created after state, but state should be part of client
     {
-        let state = State::new(
+        let world_render_state = State::new(
             &client.gpu.device,
             &client.gpu.config,
             &client.projection,
             &client.camera,
             &client.layouts["mc_terrain_tex_layout"],
         );
-        client.state.replace(state);
+        client.state.replace(world_render_state);
     }
-    let mut registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
+    let registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
 
     let mut shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
 
-    let mut chunk_generate_queue = VecDeque::<DimensionChunkDescriptor>::new();
-    let mut chunk_tesselate_queue = VecDeque::<DimensionChunkDescriptor>::new();
+    let mut generate_queue = VecDeque::<DimensionChunkDescriptor>::new();
+    let mut tessellate_queue = VecDeque::<DimensionChunkDescriptor>::new();
 
     // let (tx_gen, rx_gen) = mpsc::channel();
     // let (tx_main_to_tes, rx_main_to_tes) = mpsc::channel();
@@ -52,7 +53,7 @@ fn main() {
 
     // Identifier, id, chunk height, chunk offset
     let chunk_height = 8;
-    let mut level = Dimension::new(
+    let mut level = orange_rs::level::dimension::Dimension::new(
         Identifier::from("overworld"),
         0,
         chunk_height,
@@ -64,35 +65,11 @@ fn main() {
 
     use std::thread;
     let mut server_thread_handle = Some(thread::spawn(move || {
+        while true {
 
+        }
     }));
-    // let mut mesher_thread_handle = Some(thread::spawn(move || {
-    //     let tessellator = shared_tessellator.clone();
-    //     let client_world = client_world.clone();
-    //
-    //     loop {
-    //         let some_job = rx_main_to_tes.recv();
-    //         match some_job {
-    //             Ok(job) => {
-    //                 match job {
-    //                     MCThread::Shutdown => { break; },
-    //                     MCThread::Work(chunk_pos) => {
-    //                         let (section_index, chunk_pos) = chunk_pos;
-    //                         tessellator.tesselate_chunk_section(section, section_position, blocks);
-    //
-    //                     },
-    //                 } 
-    //             },
-    //             Err(_) => {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //
-    // }));
-
-    // client_world.tesselate_chunks(tesselator, tesselation_queue, device, blocks);
-
+    
     event_loop.run(move |event, _, control_flow| {
         if let winit::event::Event::DeviceEvent {
             device_id: _,
@@ -108,12 +85,7 @@ fn main() {
             if event_helper.quit() {
                 control_flow.set_exit();
                 // Rejoin thread to
-                server_thread_handle
-                    .take()
-                    .unwrap()
-                    .join()
-                    .expect("Couldn't properly rejoin server to main thread");
-                // mesher_thread_handle.take().unwrap().join().expect("Couldn't properly rejoin mesher to main thread");
+                server_thread_handle.take().unwrap().join().expect("Couldn't properly rejoin server to main thread");
                 return;
             }
             if event_helper.key_held(VirtualKeyCode::W) {
@@ -161,6 +133,9 @@ fn main() {
             client.update(render_time.elasped_time() as f32);
 
             let render_result: Result<(), wgpu::SurfaceError> = {
+    
+                let player_pos = client.camera.position;
+
                 let output = client.gpu.surface.get_current_texture().unwrap();
                 let view = output
                     .texture
@@ -175,14 +150,64 @@ fn main() {
                 {
                     let client_world = client_world.read().unwrap();
                     let render_distance = 10;
-                    client.draw_world(&client_world, &mut encoder, &view, client.camera.position, render_distance, &mut chunk_tesselate_queue); 
+
+                    let sky_color = DVec3::new(0.1, 0.2, 0.3);
+
+
+                    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: Some("Render Pass"),
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color {
+                                    r: sky_color.x,
+                                    g: sky_color.y,
+                                    b: sky_color.z,
+                                    a: 1.0,
+                                }),
+                                store: true,
+                            },
+                        })],
+                        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                            view: client.depth_texture.get_view(),
+                            depth_ops: Some(wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(1.0),
+                                store: true,
+                            }),
+                            stencil_ops: None,
+                        }),
+                    });
+
+                    // Not sure how this would happen, but a possibility exists
+                    if client_world.get_player_dimension().is_none() {
+                        panic!("A world with no dimension?!");
+                    }
+
+                    let render_distance_as_vec = IVec2::new(render_distance as i32, render_distance as i32);
+                    let player_chunk_pos: IVec2 = Dimension::get_chunk_pos(player_pos.x as i32, player_pos.z as i32).into();
+                    let min_extent = player_chunk_pos - render_distance_as_vec;
+                    let max_extent = player_chunk_pos + render_distance_as_vec;
+
+                    let state = client.state.as_ref().unwrap();
+
+                    render_pass.set_pipeline(&state.render_pipeline);
+                    render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
+                    render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
+
+                    // AABB in frustrum culling?
+                    // self.draw_chunks_in_range(&mut render_pass, world, min_extent, max_extent);
+                    client_world.draw_chunks(min_extent.clone(), max_extent.clone(), &mut render_pass, &mut tessellate_queue);
+
+                    std::mem::drop(render_pass);
                 }
 
                 {
                     let mut client_world = client_world.write().unwrap();
                     client_world.process_chunks();
 
-                    while let Some(pos) = chunk_tesselate_queue.pop_front() {
+                    println!("Chunks To Tessellate/Generate: {}", tessellate_queue.len());
+                    if let Some(pos) = tessellate_queue.pop_front() {
                         let dim = client_world.get_player_dimension_mut().unwrap();
                         if dim.get_chunk_at_vec(pos.1).is_none() {
                             dim.generate_chunk(pos.1);

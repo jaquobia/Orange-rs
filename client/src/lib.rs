@@ -5,18 +5,17 @@ pub mod mc_resource_handler;
 pub mod rendering;
 pub mod gui;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::rendering::wgpu_struct::WgpuData;
 use camera::{Camera, CameraController, Projection};
-use client_world::ClientWorld;
-use orange_rs::{level::dimension::{Dimension, DimensionChunkDescriptor}, math_helper::angle};
+use orange_rs::math_helper::angle;
 use rendering::{
     textures::{DepthTextureWrapper, DiffuseTextureWrapper},
     State,
 };
-use ultraviolet::{IVec2,Mat4, Vec3, DVec3};
-use wgpu::{BindGroupLayout, CommandEncoder, RenderPass};
+use ultraviolet::Mat4;
+use wgpu::BindGroupLayout;
 use winit::window::CursorGrabMode;
 
 pub struct Client {
@@ -126,65 +125,5 @@ impl Client {
 
     pub fn is_cursor_visible(&mut self) -> bool {
         self.cursor_visible
-    }
-
-    pub fn draw_world(
-        &mut self,
-        world: &ClientWorld,
-        encoder: &mut CommandEncoder,
-        view: &wgpu::TextureView,
-        player_pos: Vec3,
-        render_distance: u32,
-        tesselation_queue: &mut VecDeque<DimensionChunkDescriptor>,
-    ) {
-        let sky_color = DVec3::new(0.1, 0.2, 0.3);
-
-
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: sky_color.x,
-                        g: sky_color.y,
-                        b: sky_color.z,
-                        a: 1.0,
-                    }),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: self.depth_texture.get_view(),
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-        });
-
-        // Not sure how this would happen, but a possibility exists
-        if world.get_player_dimension().is_none() {
-            panic!("A world with no dimension?!");
-        }
-
-        let render_distance_as_vec = IVec2::new(render_distance as i32, render_distance as i32);
-        let player_chunk_pos: IVec2 = Dimension::get_chunk_pos(player_pos.x as i32, player_pos.z as i32).into();
-        let min_extent = player_chunk_pos - render_distance_as_vec;
-        let max_extent = player_chunk_pos + render_distance_as_vec;
-
-        let state = self.state.as_ref().unwrap();
-
-        render_pass.set_pipeline(&state.render_pipeline);
-        render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
-        render_pass.set_bind_group(1, self.get_texture("terrain.png").bind_group(), &[]);
-
-        // AABB in frustrum culling?
-        // self.draw_chunks_in_range(&mut render_pass, world, min_extent, max_extent);
-        world.draw_chunks(min_extent.clone(), max_extent.clone(), &mut render_pass, tesselation_queue);
-        
-        std::mem::drop(render_pass);
     } 
 }
