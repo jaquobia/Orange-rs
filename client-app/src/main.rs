@@ -1,7 +1,25 @@
 use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc}};
 
-use client::{client_world::ClientWorld, rendering::{ElapsedTime, State, tessellator::TerrainTessellator}, camera::CameraControllerMovement, Client, mc_resource_handler};
-use orange_rs::{registry::Registry, identifier::Identifier, MCThread, level::dimension::{DimensionChunkDescriptor, Dimension}};
+use orange_rs::{
+    registry::Registry, 
+    identifier::Identifier, 
+    MCThread, 
+    level::dimension::{
+        DimensionChunkDescriptor, 
+        Dimension
+    }, 
+    client::{
+        client_world::ClientWorld, 
+        rendering::{
+            ElapsedTime, 
+            State, 
+            tessellator::TerrainTessellator
+        }, 
+        camera::CameraControllerMovement, 
+        Client, 
+        mc_resource_handler
+    }, util::pos::{ChunkPos, Position}
+};
 use ultraviolet::{DVec3, IVec2};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
@@ -40,7 +58,7 @@ fn main() {
     }
     let registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
 
-    let mut shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
+    let shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
 
     let mut generate_queue = VecDeque::<DimensionChunkDescriptor>::new();
     let mut tessellate_queue = VecDeque::<DimensionChunkDescriptor>::new();
@@ -49,11 +67,11 @@ fn main() {
     // let (tx_main_to_tes, rx_main_to_tes) = mpsc::channel();
     // let (tx_tes_to_main, rx_tes_to_main) = mpsc::channel();
 
-    let mut client_world = Arc::new(RwLock::new(ClientWorld::new(8)));
+    let client_world = Arc::new(RwLock::new(ClientWorld::new(8)));
 
     // Identifier, id, chunk height, chunk offset
     let chunk_height = 8;
-    let mut level = orange_rs::level::dimension::Dimension::new(
+    let level = orange_rs::level::dimension::Dimension::new(
         Identifier::from("overworld"),
         0,
         chunk_height,
@@ -65,7 +83,7 @@ fn main() {
 
     use std::thread;
     let mut server_thread_handle = Some(thread::spawn(move || {
-        while true {
+        loop {
 
         }
     }));
@@ -84,7 +102,7 @@ fn main() {
         if event_helper.update(&event) {
             if event_helper.quit() {
                 control_flow.set_exit();
-                // Rejoin thread to
+                // Rejoin thread to main thread
                 server_thread_handle.take().unwrap().join().expect("Couldn't properly rejoin server to main thread");
                 return;
             }
@@ -184,8 +202,8 @@ fn main() {
                         panic!("A world with no dimension?!");
                     }
 
-                    let render_distance_as_vec = IVec2::new(render_distance as i32, render_distance as i32);
-                    let player_chunk_pos: IVec2 = Dimension::get_chunk_pos(player_pos.x as i32, player_pos.z as i32).into();
+                    let render_distance_as_vec = ChunkPos::new(render_distance as i32, render_distance as i32);
+                    let player_chunk_pos: ChunkPos = player_pos.to_chunk_pos();
                     let min_extent = player_chunk_pos - render_distance_as_vec;
                     let max_extent = player_chunk_pos + render_distance_as_vec;
 

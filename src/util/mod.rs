@@ -1,4 +1,5 @@
 use ultraviolet::IVec3;
+pub mod pos;
 
 pub struct IteratorYZX(IVec3, IVec3, u32);
 

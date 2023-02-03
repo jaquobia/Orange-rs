@@ -1,5 +1,5 @@
 [workspace]
-members = ["client", "client-app", "web-client-app", "download_assets", "server", "server-app"]
+members = ["client-app", "web-client-app", "download_assets", "server-app"]
 
 [package]
 name = "orange_rs"
@@ -13,18 +13,16 @@ path = "src/lib.rs"
 
 [dependencies]
 winit = "0.27"
-# winit_input_helper = "0.13"
-# wgpu = "0.14.2"
+wgpu = { version = "0.14.2", optional = true }
 pollster = "0.2"
 image = "0.24"
 lazy_static = "1.4"
 instant = { version = "0.1", features = ["stdweb"] }
-# instant = "0.1"
 
 env_logger = "0.10.0"
 log = "0.4"
 
-ultraviolet = {version = "0.9.0", features = ["bytemuck", "int"]}
+ultraviolet = {version = "0.9.0", features = ["bytemuck", "int", "f64"]}
 bytemuck = { version = "1.12", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0.151"
@@ -34,6 +32,12 @@ serde_json = "1.0"
 legion = "0.4.0"
 
 [features]
+default = ["client", "integrated"]
+# Expand chunks to occupy the space of 4 chunks, highly expiramental
 large_chunks = []
+# Client available, enables connecting to servers
+client = ["wgpu"]
+# Client and Server together, direct communication, enables singleplayer
+integrated = ["client"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

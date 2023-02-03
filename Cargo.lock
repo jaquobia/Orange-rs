@@ -468,22 +468,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "client"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "image",
- "instant",
- "legion",
- "log",
- "orange_rs",
- "pollster",
- "ultraviolet",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "cmake"
 version = "0.1.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2114,6 +2098,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "ultraviolet",
+ "wgpu",
  "winit",
 ]
 
@@ -2121,7 +2106,6 @@ dependencies = [
 name = "orange_rs_client"
 version = "0.1.0"
 dependencies = [
- "client",
  "env_logger",
  "log",
  "orange_rs",
@@ -2689,10 +2673,6 @@ dependencies = [
  "ryu",
  "serde",
 ]
-
-[[package]]
-name = "server"
-version = "0.1.0"
 
 [[package]]
 name = "server-app"

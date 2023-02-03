@@ -1,15 +1,16 @@
 use std::collections::VecDeque;
 
-use crate::rendering::{mesh::Mesh, tessellator::TerrainTessellator, world_renders::WorldRenderer};
-use orange_rs::{
+use super::rendering::{mesh::Mesh, tessellator::TerrainTessellator, world_renders::WorldRenderer};
+use crate::{
     block::Block,
     level::{
         chunk::CHUNK_SECTION_AXIS_SIZE,
         dimension::{Dimension, DimensionChunkDescriptor}, 
     },
     registry::Register,
+    util::pos::ChunkPos,
 };
-use ultraviolet::{IVec2, Vec3};
+use ultraviolet::Vec3;
 use wgpu::RenderPass;
 
 pub type ClientChunkStorage = Option<Mesh>;
@@ -61,7 +62,7 @@ impl ClientWorld {
         world_render.draw_chunk_mesh((x, z).into(), render_pass, tesselation_queue);
     }
 
-    pub fn draw_chunks<'a>(&'a self, min_extent: IVec2, max_extent: IVec2, render_pass: &mut RenderPass<'a>, tesselation_queue: &mut VecDeque<DimensionChunkDescriptor>) {
+    pub fn draw_chunks<'a>(&'a self, min_extent: ChunkPos, max_extent: ChunkPos, render_pass: &mut RenderPass<'a>, tesselation_queue: &mut VecDeque<DimensionChunkDescriptor>) {
         for chunk in self.world_render.get_chunks() {
             let chunk_in_range = chunk.in_range(min_extent, max_extent);
             if !chunk_in_range {
@@ -79,13 +80,13 @@ impl ClientWorld {
 
     pub fn tesselate_chunk(
         &mut self,
-        chunk_pos: IVec2,
+        chunk_pos: ChunkPos,
         tessellator: &mut TerrainTessellator,
         device: &wgpu::Device,
         blocks: &Register<Block>,
         ) {
         
-        let (chunk_x, chunk_z) = (chunk_pos * IVec2::new(CHUNK_SECTION_AXIS_SIZE as i32, CHUNK_SECTION_AXIS_SIZE as i32)).into();
+        let (chunk_x, chunk_z) = (chunk_pos * ChunkPos::new(CHUNK_SECTION_AXIS_SIZE as i32, CHUNK_SECTION_AXIS_SIZE as i32)).into();
 
         let chunk = {
             let level = self.get_player_dimension();
@@ -123,7 +124,7 @@ impl ClientWorld {
     pub fn tesselate_chunks(
         &mut self,
         tesselator: &mut TerrainTessellator,
-        tesselation_queue: &mut VecDeque<IVec2>,
+        tesselation_queue: &mut VecDeque<ChunkPos>,
         device: &wgpu::Device,
         blocks: &Register<Block>,
         ) {

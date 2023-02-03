@@ -1,6 +1,6 @@
 use ultraviolet::{UVec3, UVec2};
 
-use crate::{block::Block, registry::Register};
+use crate::{block::Block, registry::Register, util::pos::{InnerChunkPos, InnerChunkPosTrait}};
 
 use super::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkHeightmapType};
 
@@ -68,7 +68,7 @@ impl DefaultTerrainGenerator {
         self.inner_iter_2d(|pos| {
             let mut heightmap_value: ChunkHeightmapType = (15, 15);
             for y in self.chunk_height as i32 -1..0 {
-                if chunk.get_block_at_pos(pos.x, y as u32, pos.y) != 0 {
+                if chunk.get_block_at_vec(InnerChunkPos::from_full_y(pos.x, y.try_into().unwrap(), pos.y)) != 0 {
                     heightmap_value.0 = y;
                     break;
                 }

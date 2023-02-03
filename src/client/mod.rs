@@ -7,9 +7,9 @@ pub mod gui;
 
 use std::collections::HashMap;
 
-use crate::rendering::wgpu_struct::WgpuData;
+use crate::client::rendering::wgpu_struct::WgpuData;
 use camera::{Camera, CameraController, Projection};
-use orange_rs::math_helper::angle;
+use crate::math_helper::angle;
 use rendering::{
     textures::{DepthTextureWrapper, DiffuseTextureWrapper},
     State,
@@ -30,7 +30,7 @@ pub struct Client {
     swap_vsync: bool,
     cursor_visible: bool,
 
-    pub textures: crate::mc_resource_handler::TexMapType,
+    pub textures: crate::client::mc_resource_handler::TexMapType,
     pub layouts: HashMap<String, BindGroupLayout>,
     pub depth_texture: DepthTextureWrapper,
 

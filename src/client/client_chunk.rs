@@ -1,12 +1,12 @@
 use std::cell::Cell;
 
-use ultraviolet::IVec2;
+use crate::util::pos::ChunkPos;
 
-use crate::rendering::mesh::Mesh;
+use super::rendering::mesh::Mesh;
 
 pub struct ClientChunk {
     sections: Vec<Option<Mesh>>,
-    position: IVec2,
+    position: ChunkPos,
     /// Used to indicate when a chunk should be removed next time client chunks are processed
     marked_for_removal: Cell<bool>,
     /// Used to indicate whether a chunk has been queued to be meshed, and to not constantly ask for one   
@@ -18,7 +18,7 @@ pub struct ClientChunk {
 }
 
 impl ClientChunk {
-    pub fn new(position: IVec2, chunk_height: usize) -> Self {
+    pub fn new(position: ChunkPos, chunk_height: usize) -> Self {
         let mut sections = Vec::with_capacity(chunk_height);
         for _ in 0..chunk_height {
             sections.push(None);
@@ -32,7 +32,7 @@ impl ClientChunk {
         }
     } 
 
-    pub fn in_range(&self, min_extent: IVec2, max_extent: IVec2) -> bool {
+    pub fn in_range(&self, min_extent: ChunkPos, max_extent: ChunkPos) -> bool {
         return self.position.x <= max_extent.x
             && self.position.y <= max_extent.y
             && self.position.x >= min_extent.x

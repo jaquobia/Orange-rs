@@ -8,6 +8,9 @@ pub mod math_helper;
 pub mod registry;
 pub mod util;
 
+#[cfg(feature = "client")]
+pub mod client;
+
 use std::path::PathBuf;
 use winit::window::Icon;
 

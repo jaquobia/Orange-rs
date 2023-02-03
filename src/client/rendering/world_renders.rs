@@ -1,9 +1,9 @@
 use std::{collections::VecDeque, cell::RefCell, borrow::BorrowMut};
 
-use orange_rs::level::{chunk_map::ChunkMap, dimension::DimensionChunkDescriptor};
+use crate::level::{chunk_map::ChunkMap, dimension::DimensionChunkDescriptor};
 use ultraviolet::IVec2;
 
-use crate::client_chunk::ClientChunk;
+use crate::client::client_chunk::ClientChunk;
 
 use super::mesh::Mesh;
 

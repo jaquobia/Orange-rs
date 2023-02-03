@@ -10,6 +10,8 @@
 /// 0..chunk_sections*ChunkSectionAxisSize for Y with no concept of negative positions
 use ultraviolet::{IVec2, UVec3};
 
+use crate::util::pos::{ChunkPos, InnerChunkPos, InnerChunkPosTrait};
+
 /// These constants defines the overall size of a chunk section, and to keep in line with minecraft, it will
 /// be 16 or a power of 2
 
@@ -148,13 +150,13 @@ pub struct Chunk {
     /// The Sections of a chunk, stored as a stack of CHUNK_SECTION_AXIS_SIZE^3 regions of blocks
     sections: Vec<ChunkSection>,
     /// The signed 3d vector of the chunks position
-    position: IVec2,
+    position: ChunkPos,
     /// The heightmap of the chunk, tells where the topmost transparent and opaque blocks of the world are located.
     heightmap: ChunkHeightmapStorageType,
 }
 
 impl Chunk {
-    pub fn new(position: IVec2, num_section: usize) -> Self {
+    pub fn new(position: ChunkPos, num_section: usize) -> Self {
         let mut sections = Vec::with_capacity(num_section);
         for _ in 0..num_section {
             sections.push(ChunkSection::create_empty());
@@ -165,20 +167,19 @@ impl Chunk {
 
     /// Get the data of the chunk at an unsigned 3d position
     /// Returns the data if the chunksection is present, or 0 (air) if not
-    pub fn get_block_at_pos(&self, x: u32, y: u32, z: u32) -> ChunkDataType {
-        let section_index = y as usize / CHUNK_SECTION_AXIS_SIZE;
-        let section = self.sections.get(section_index);
+    pub fn get_block_at_pos(&self, x: u32, y: u32, z: u32, section_index: u32) -> ChunkDataType {
+        let section = self.sections.get(section_index as usize);
         // fancy ternery + unwrap operation
         return if let Some(section) = section {
-            section.get_pos(x, y % (CHUNK_SECTION_AXIS_SIZE as u32), z)
+            section.get_pos(x, y, z)
         } else {
             0
         };
     }
 
     /// Get the data of the chunk as an unsigned 3d vector
-    pub fn get_block_at_vec(&self, pos: UVec3) -> ChunkDataType {
-        self.get_block_at_pos(pos.x, pos.y, pos.z)
+    pub fn get_block_at_vec(&self, pos: InnerChunkPos) -> ChunkDataType {
+        self.get_block_at_pos(pos.x(), pos.y(), pos.z(), pos.1)
     }
 
     /// Set the data of the chunk at an unsigned 3d position

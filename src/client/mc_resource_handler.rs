@@ -4,8 +4,7 @@ use std::path::PathBuf;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgb32FImage};
 
-use crate::rendering::textures::DiffuseTextureWrapper;
-use crate::Client;
+use super::{rendering::textures::DiffuseTextureWrapper, Client};
 
 pub type TexMapType = HashMap<String, DiffuseTextureWrapper>;
 
