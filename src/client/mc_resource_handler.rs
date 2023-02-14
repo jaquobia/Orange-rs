@@ -62,12 +62,14 @@ pub fn load_binary_resources(client: &mut Client) {
             height,
             depth_or_array_layers: 1,
         };
+        let tex_format = wgpu::TextureFormat::Rgba8UnormSrgb;
         let diffuse_texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             size: tex_dims,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: tex_format,
+            view_formats: &[tex_format],
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("diffuse_texture"),
         });

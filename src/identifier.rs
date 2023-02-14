@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 /// Identitifer construct, a commonly seen concept in modern modded minecraft, also known as ResourceLocation in some earlier versions
 /// Used easily reference specific objects and arbitrarily locate resources based on context
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Identifier {
     namespace: String,
     name: String,
@@ -22,7 +22,7 @@ impl Identifier {
         }
     }
 
-    fn from_str(identifier: &str) -> Self {
+    pub fn from_str(identifier: &str) -> Self {
         let nn: Vec<&str> = identifier.split(":").collect();
         let (namespace, name) = if nn.len() == 2 {
             (String::from(nn[0]), String::from(nn[1]))
@@ -47,6 +47,12 @@ impl Display for Identifier {
         f.write_str(self.total_id.as_str())
     }
 }
+
+// impl Eq for Identifier {
+//     fn assert_receiver_is_total_eq(&self) {
+//         
+//     }
+// }
 
 impl From<&str> for Identifier {
     fn from(t: &str) -> Self {

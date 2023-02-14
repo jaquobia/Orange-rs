@@ -1,10 +1,10 @@
-use crate::{level::{
-    chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE},
+use crate::{world::{
+    chunk::Chunk,
     chunk_map::ChunkMap,
     terrain_generator::DefaultTerrainGenerator,
 }, util::pos::{ChunkPos, BlockPos, Position}};
 use crate::{block::Block, identifier::Identifier, registry::Register};
-use ultraviolet::{IVec3, UVec2};
+use ultraviolet::IVec3;
 
 pub type DimensionChunkDescriptor = (usize, ChunkPos);
 
@@ -21,7 +21,7 @@ pub struct Dimension {
     pub chunk_offset: i32,
     /// Represents how tall the world is in chunks
     pub chunk_height: u32,
-    pub tg: DefaultTerrainGenerator,
+    pub terrain_generator: DefaultTerrainGenerator,
 }
 
 impl Dimension {
@@ -39,7 +39,7 @@ impl Dimension {
             chunks: ChunkMap::new(),
             chunk_offset,
             chunk_height,
-            tg: DefaultTerrainGenerator::new(chunk_height, blocks),
+            terrain_generator: DefaultTerrainGenerator::new(chunk_height, blocks),
         }
     }
     pub fn get_identifier(&self) -> &Identifier {
@@ -61,7 +61,7 @@ impl Dimension {
         self.chunk_height
     }
     pub fn get_terrain_generator(&self) -> &DefaultTerrainGenerator {
-        &self.tg
+        &self.terrain_generator
     }
 
     /// A number used to remove the 1's place by and'ing with the position for feature `large_chunks`
@@ -70,39 +70,7 @@ impl Dimension {
 
     const CHUNK_POS_SHIFT_AMOUNT: i32 = if cfg!(feature="large_chunks") { 5 } else { 4 };
     const CHUNK_POS_BLOCK_INDEX_TRUNCATE: u32 = if cfg!(feature="large_chunks") { 31 } else { 15 };
-
-    // pub fn get_chunk_pos(x: i32, z: i32) -> (i32, i32) {
-    //     #[cfg(feature = "large_chunks")]
-    //     return (
-    //         x >> 4 & Self::NORMAL_CHUNK_TO_LARGE_CHUNK_MAGIC_NUMBER,
-    //         z >> 4 & Self::NORMAL_CHUNK_TO_LARGE_CHUNK_MAGIC_NUMBER,
-    //     );
-    //     #[cfg(not(feature = "large_chunks"))]
-    //     return (x >> 4, z >> 4);
-    // }
-    //
-    // pub fn get_chunk_pos2(x: i32, z: i32) -> (i32, i32) {
-    //     #[cfg(not(feature = "large_chunks"))]
-    //     return (x << 4, z << 4);
-    //     #[cfg(feature = "large_chunks")]
-    //     return (x << 5, z << 5);
-    // }
-    //
-    // pub fn get_chunk_vec(pos: ChunkPos) -> ChunkPos {
-    //     Self::get_chunk_pos(pos.x, pos.y).into()
-    // }
-    //
-    // fn get_chunk_inner_pos(x: i32, z: i32) -> (u32, u32) {
-    //     #[cfg(feature = "large_chunks")]
-    //     return ((x & 31) as u32, (z & 31) as u32);
-    //     #[cfg(not(feature = "large_chunks"))]
-    //     return ((x & 15) as u32, (z & 15) as u32);
-    // }
-    //
-    // fn get_chunk_inner_vec(pos: ChunkPos) -> UVec2 {
-    //     UVec2::from(Self::get_chunk_inner_pos(pos.x, pos.y))
-    // }
-
+ 
     /// Get the block at an arbitrary point in the world, can be have negative axis and transpire the full extent of
     /// the world
     pub fn get_block_at_pos(&self, x: i32, y: i32, z: i32) -> Option<u64> {
@@ -133,8 +101,7 @@ impl Dimension {
     }
 
     pub fn get_chunk_at_vec(&self, pos: ChunkPos) -> Option<&Chunk> {
-        let position = ChunkPos::new(pos.x, pos.y);
-        self.get_chunks().get_chunk_vec(position)
+        self.get_chunks().get_chunk_vec(pos)
     }
 
     pub fn get_chunk_at_vec_mut(&mut self, pos: ChunkPos) -> Option<&mut Chunk> {
@@ -144,7 +111,11 @@ impl Dimension {
 
     pub fn generate_chunk(&mut self, pos: ChunkPos) {
         let mut chunk = Chunk::new(pos, self.chunk_height as usize);
-        self.tg.generate_chunk(&mut chunk);
+        self.terrain_generator.generate_chunk(&mut chunk);
         self.chunks.set_chunk(pos, Some(chunk));
+    }
+
+    pub fn tick(&mut self) {
+
     }
 }

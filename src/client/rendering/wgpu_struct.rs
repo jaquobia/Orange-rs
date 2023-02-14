@@ -12,8 +12,8 @@ impl WgpuData {
     pub fn new(window: &winit::window::Window) -> Self {
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(window) };
+        let instance = wgpu::Instance::default();
+        let surface = unsafe { instance.create_surface(window).expect("No Surface") };
 
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
@@ -39,9 +39,13 @@ impl WgpuData {
         ))
         .unwrap();
 
+        let caps = surface.get_capabilities(&adapter); 
+        let format = caps.formats[0].clone();
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_supported_formats(&adapter)[0],
+            view_formats: caps.formats,
+            format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::AutoVsync,

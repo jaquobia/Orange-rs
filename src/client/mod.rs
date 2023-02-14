@@ -1,5 +1,5 @@
 pub mod camera;
-pub mod client_world;
+pub mod minecraft_client;
 pub mod client_chunk;
 pub mod mc_resource_handler;
 pub mod rendering;

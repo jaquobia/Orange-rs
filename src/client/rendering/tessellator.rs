@@ -3,7 +3,7 @@ use std::ops::Add;
 use ultraviolet::{Vec2, Vec3, UVec3, IVec3};
 use wgpu::{util::DeviceExt, Device, Queue};
 
-use crate::{direction::{Direction, DIRECTIONS}, level::chunk::{CHUNK_SECTION_AXIS_SIZE, CHUNK_SECTION_AXIS_SIZE_M1, Chunk, ChunkSection}, registry::Register, block::Block};
+use crate::{direction::{Direction, DIRECTIONS}, world::chunk::{CHUNK_SECTION_AXIS_SIZE, CHUNK_SECTION_AXIS_SIZE_M1, Chunk, ChunkSection}, registry::Register, block::Block};
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
 

@@ -1,6 +1,6 @@
-use std::{collections::VecDeque, cell::RefCell, borrow::BorrowMut};
+use std::{collections::VecDeque, cell::RefCell};
 
-use crate::level::{chunk_map::ChunkMap, dimension::DimensionChunkDescriptor};
+use crate::world::chunk_map::ChunkMap;
 use ultraviolet::IVec2;
 
 use crate::client::client_chunk::ClientChunk;
@@ -26,13 +26,21 @@ impl WorldRenderer {
         }
     }
 
-    pub fn construct_chunk(&mut self, mut meshes: Vec<Mesh>, pos: IVec2, chunk_height: usize) {
-        let mut chunk = ClientChunk::new(pos, chunk_height);
+    pub fn construct_chunk(&mut self, mut meshes: Vec<Mesh>, pos: IVec2) {
+        let mut chunk = ClientChunk::new(pos, self.chunk_height as usize);
         for i in 0..meshes.len() {
             chunk.set_section(i, meshes.pop());
         }
         chunk.mark_meshed();
         chunk.unmark_for_meshing();
+        self.mesh_cache.set_chunk(pos, Some(chunk));
+    }
+
+    pub fn construct_chunk_empty(&mut self, pos: IVec2) {
+        let mut chunk = ClientChunk::new(pos, self.chunk_height as usize);
+        for i in 0..self.chunk_height as usize {
+            chunk.set_section(i, None);
+        } 
         self.mesh_cache.set_chunk(pos, Some(chunk));
     }
 
@@ -42,6 +50,10 @@ impl WorldRenderer {
 
     pub fn get_chunks_mut(&mut self) -> &mut Vec<WorldRenderChunkType> {
         self.mesh_cache.chunks_mut()
+    }
+
+    pub fn get_cache(&self) -> &ChunkMap<WorldRenderChunkType> {
+        &self.mesh_cache
     }
 
     pub fn set_section_mesh(&mut self, mesh: Mesh, pos: IVec2, section: usize) {
@@ -63,20 +75,7 @@ impl WorldRenderer {
                 mesh.draw(render_pass);
             } 
         }
-    }
-
-    pub fn draw_chunk_mesh<'a>(&'a self, pos: IVec2, render_pass: &mut wgpu::RenderPass<'a>, tessellation_queue: &mut VecDeque<DimensionChunkDescriptor>) {
-        if let Some(chunk) = self.mesh_cache.get_chunk_pos(pos.x, pos.y) {
-            for mesh in chunk.get_sections() {
-                match mesh {
-                    Some(mesh) => mesh.draw(render_pass),
-                    None => { if !chunk.is_marked_for_meshing() { tessellation_queue.push_back((0, pos)); chunk.mark_for_meshing(); }},
-                };
-            }
-        } else {
-            tessellation_queue.push_back((0, pos));
-        }
-    }
+    } 
 
     pub fn mark_chunk_for_removal(&self, pos: IVec2) {
         self.removal_queue.borrow_mut().push_back(pos)

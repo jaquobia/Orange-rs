@@ -90,6 +90,7 @@ impl DepthTextureWrapper {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: depth_tex_format,
+            view_formats: &[depth_tex_format],
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         };
         let texture = device.create_texture(&desc);

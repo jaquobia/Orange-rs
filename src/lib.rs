@@ -3,10 +3,12 @@ pub mod direction;
 pub mod entity;
 pub mod game_version;
 pub mod identifier;
-pub mod level;
+pub mod world;
 pub mod math_helper;
 pub mod registry;
 pub mod util;
+pub mod server;
+pub mod entities;
 
 #[cfg(feature = "client")]
 pub mod client;

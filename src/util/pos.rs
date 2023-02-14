@@ -1,6 +1,6 @@
 use ultraviolet::{UVec3, IVec3, Vec3, IVec2};
 
-use crate::level::chunk::CHUNK_SECTION_AXIS_SIZE;
+use crate::world::chunk::CHUNK_SECTION_AXIS_SIZE;
 
 pub trait Position {
     fn to_entity_pos(&self) -> EntityPos;
