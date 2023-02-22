@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc, atomic::AtomicBool, Mutex}, borrow::BorrowMut, ops::{DerefMut, Deref} };
 use env_logger::Builder;
-use log::{info, LevelFilter};
+use log::{info, LevelFilter, warn};
 use orange_rs::{
     registry::Registry, 
     identifier::Identifier, 
@@ -23,10 +23,14 @@ use orange_rs::{
         ChunkPos, 
         Position
     }, workers::WorkerThread}, 
-    server::{MinecraftServer, server_player::ServerPlayer},
+    server::{
+        MinecraftServer,
+        server_player::ServerPlayer
+    }, packets::prot14::Packet,
 };
+use orange_networking::network_interface::NetworkThread;
 use ultraviolet::DVec3;
-use winit::event::{DeviceEvent, VirtualKeyCode};
+use winit::event::{DeviceEvent, VirtualKeyCode, WindowEvent, Event};
 use winit_input_helper::WinitInputHelper;
 
 fn prepare_client(client: &mut Client) {
@@ -120,32 +124,110 @@ fn main() {
             Err(_) => {  },
         }; 
     }
+    
+    let username = String::from("TT");
+    let mut network_thread = NetworkThread::connect_to_server("127.0.0.0".to_string(), 25565).expect("Failed to create a network thread");
 
 
+    let handshake_packet = Packet::Handshake { handshake_data: username.clone()};
 
+    network_thread.send_packet(handshake_packet);
+                
     let mut tick_time = instant::Instant::now();
     let one_twentieth = instant::Duration::from_secs_f64(1.0 / 20.0);
     let server_world_copy = server_world.clone();
     let mut server_thread = WorkerThread::new();
-    server_thread.spawn(move || {
+    server_thread.spawn(move |running| {
         let tick_time_now = instant::Instant::now(); 
 
-        if (tick_time_now - tick_time) >= one_twentieth {
-            // info!("Time now: {:?}", tick_time_now);
-            match server_world_copy.write() {
-                Ok(mut guard) => { 
-                    match guard.as_mut() {
-                        Some(server_world) => { 
-                            server_world.tick();
-                        },
-                        _ => { },
-                    }
-                },
-                Err(_) => { },
-            };
-            // tick_time += one_twentieth;
-            tick_time = tick_time_now;
+        if !running {
+            network_thread.stop();
+            return;
         }
+
+        if (tick_time_now - tick_time) < one_twentieth {
+            return;
+        }
+
+        if let Ok(mut a) = server_world_copy.write() {
+            if let Some(server_world) = a.as_mut() {
+                server_world.tick();
+                for packet in network_thread.get_packets() {
+                    match packet {
+                        Packet::KeepAlive => { warn!("Keep Alive"); },
+                        Packet::Handshake { handshake_data } => {
+                            let login_packet = Packet::Login{ protocol: 14, username: username.clone(), seed: 0, dimension: 0 };
+                            network_thread.send_packet(login_packet); 
+                            warn!("Handshake Packet Recieved! {handshake_data}, sending login request as {username}."); 
+                        },
+                        Packet::Login { protocol, username, seed, dimension } => { 
+                            warn!("Login successful!"); 
+                            network_thread.send_packet(Packet::PlayerPosition { x: 0.0, y: 64.0, stance: 0.0, z: 0.0, on_ground: true }); 
+                            // network_thread.send_packet(Packet::Respawn { world: 0 });
+                        },
+                        Packet::Chat { chat_data } => { warn!("[Chat]{chat_data}"); },
+                        Packet::TimeUpdate { time } => {  },
+                        Packet::EntityChangeEquipment { entity_id, equipment_slot, item_id, item_damage } => {  },
+                        Packet::SpawnPosition { x, y, z } => { warn!("Spawn Position"); },
+                        Packet::InteractWithEntity { user, entity, is_left_click } => {  },
+                        Packet::UpdateHealth { health } => { warn!("Update Health"); },
+                        Packet::Respawn { world } => { warn!("Respawn"); },
+                        Packet::PlayerOnGround { on_ground } => { warn!("Player On Ground"); },
+                        Packet::PlayerPosition { x, y, stance, z, on_ground } => { warn!("Recieved a position packet"); },
+                        Packet::PlayerLook { yaw, pitch, on_ground } => { warn!("Player L"); },
+                        Packet::PlayerPositionAndLook { x, y_c_stance_s, stance_c_y_s, z, yaw, pitch, on_ground } => { warn!{"Player M&L"}; },
+                        Packet::PlayerDigging { status, x, y, z, face } => { warn!("Player Digging: {status}"); },
+                        Packet::PlayerUse { x, y, z, direction, item_data } => { warn!("Player Use"); },
+                        Packet::PlayerChangeSlot { slot } => { warn!("Player Change Slot"); },
+                        Packet::PlayerUseBed { entity, in_bed, x, y, z } => { warn!("Player Use Bed"); },
+                        Packet::Animation { entity, animat } => { },
+                        Packet::EntityAction { entity, action } => {  },
+                        Packet::NamedEntitySpawn { entity, name, x, y, z, rotation, pitch, held_item } => { warn!("{name} spawned"); },
+                        Packet::PickupSpawn { entity, item, count, damage_meta, x, y, z, rotation, pitch, roll } => {  },
+                        Packet::CollectItem { item_entity, collector_entity } => {  },
+                        Packet::CreateNonMobEntity { entity, entity_type, x, y, z, unknown } => {  },
+                        Packet::SpawnMob { entity, entity_type, x, y, z, yaw, pitch, meta } => { warn!("Spawn Mob"); },
+                        Packet::EntityPaintings { entity, title, x, y, z, direction } => {  },
+                        Packet::UpdatePosition { strafe, forward, pitch, yaw, unk, is_jumping } => { warn!("UpdatePosition"); },
+                        Packet::EntityVelocity { entity, vel_x, vel_y, vel_z } => {  },
+                        Packet::DestroyEntity { entity } => {  },
+                        Packet::Entity { entity } => { warn!("Spawn {entity}"); },
+                        Packet::EntityMoveRelative { entity, dx, dy, dz } => {  },
+                        Packet::EntityLook { entity, yaw, pitch } => { },
+                        Packet::EntityLookMoveRelative { entity, dx, dy, dz, yaw, pitch } => {  },
+                        Packet::EntityTeleport { entity, x, y, z, yaw, pitch } => {  },
+                        Packet::EntityStatus { entity, status } => {  },
+                        Packet::AttachEntity { entity, vehicle_entity } => {  },
+                        Packet::EntityMeta { entity, meta } => {  },
+                        Packet::PreChunk { x, z, mode } => { warn!("PreChunk {x},{z}"); },
+                        Packet::MapChunk { x, y, z, size_x, size_y, size_z, compressed_data } => { warn!("Chunk Update: {x},{y},{z}"); },
+                        Packet::MultiBlockChange { chunk_x, chunk_z, num_blocks, coords_type_metadata_array } => { warn!("Multi Block Change"); },
+                        Packet::BlockChange { x, y, z, block_type, metadata } => { warn!("Block Change"); },
+                        Packet::BlockAction { x, y, z, instrument_or_state, pitch_or_direction } => {  },
+                        Packet::Explosion { x, y, z, radius, explosion_data } => {  },
+                        Packet::SoundEffect { effect_id, x, y, z, data } => {  },
+                        Packet::BedWeatherState { state_reason } => {  },
+                        Packet::ThunderBolt { entity, unk_flag, x, y, z } => {  },
+                        Packet::OpenContainerWindow { window_id, inventory_type, title, slot_count } => {  },
+                        Packet::CloseContainerWindow { window_id } => {  },
+                        Packet::ClickContainerWindow { window_id, slot, right_click, action, shift, item_id, item_count, item_uses } => {  },
+                        Packet::SetContainerSlot { window_id, slot, item_data } => {  },
+                        Packet::SetWindowItems { window_id, window_data } => {  },
+                        Packet::UpdateProgressBar { window_id, progress_bar, value } => {  },
+                        Packet::Transaction { window_id, action_id, accepted } => {  },
+                        Packet::UpdateSign { x, y, z, line_1, line_2, line_3, line_4 } => {  },
+                        Packet::ItemData { item_type, item_id, item_data } => {  },
+                        Packet::IncrementStatistic { statistic_id, amount } => {  },
+                        Packet::DisconnectKick { reason } => { warn!("Disconnected: {reason}, stopping connection.");}
+                        _ => {  }
+                    }
+                }
+            }
+        }
+        network_thread.send_packet(Packet::KeepAlive);
+        // info!("Time now: {:?}", tick_time_now);            // tick_time += one_twentieth;
+        tick_time = tick_time_now;
+        
     });
     
     event_loop.run(move |event, _, control_flow| {
@@ -157,54 +239,69 @@ fn main() {
             if let DeviceEvent::MouseMotion { delta } = event {
                 client.camera_controller.process_mouse(delta.0, -delta.1);
             }
-        }
+        } 
 
-        if event_helper.update(&event) {
-            if event_helper.quit() {
+        if /*event_helper.update(&event)*/ let winit::event::Event::WindowEvent { window_id, event } = &event {
+            let mut close_req = false;
+            match event {
+                winit::event::WindowEvent::CloseRequested => { close_req = true; },
+                _ => {  },
+            }
+            if /*event_helper.quit()*/ close_req {
+                warn!("Stopping!");
                 control_flow.set_exit();
                 server_thread.stop();
                 return;
             }
-            if event_helper.key_held(VirtualKeyCode::W) {
-                client
-                    .camera_controller
-                    .process_keyboard(CameraControllerMovement::Forward, true);
-            }
-            if event_helper.key_held(VirtualKeyCode::S) {
-                client
-                    .camera_controller
-                    .process_keyboard(CameraControllerMovement::Backward, true);
-            }
-            if event_helper.key_held(VirtualKeyCode::A) {
-                client
-                    .camera_controller
-                    .process_keyboard(CameraControllerMovement::Left, true);
-            }
-            if event_helper.key_held(VirtualKeyCode::D) {
-                client
-                    .camera_controller
-                    .process_keyboard(CameraControllerMovement::Right, true);
-            }
-            if event_helper.key_held(VirtualKeyCode::Space) {
-                client
-                    .camera_controller
-                    .process_keyboard(CameraControllerMovement::Up, true);
-            }
-            if event_helper.key_held(VirtualKeyCode::LShift) {
-                client
-                    .camera_controller
-                    .process_keyboard(CameraControllerMovement::Down, true);
-            }
-            if event_helper.key_pressed(VirtualKeyCode::V) {
-                client.set_swap_vsync(true);
-            }
-            if event_helper.key_pressed(VirtualKeyCode::Escape) {
-                client.toggle_cursor_visible();
-            }
+            // if event_helper.key_held(VirtualKeyCode::W) {
+            //     client
+            //         .camera_controller
+            //         .process_keyboard(CameraControllerMovement::Forward, true);
+            // }
+            // if event_helper.key_held(VirtualKeyCode::S) {
+            //     client
+            //         .camera_controller
+            //         .process_keyboard(CameraControllerMovement::Backward, true);
+            // }
+            // if event_helper.key_held(VirtualKeyCode::A) {
+            //     client
+            //         .camera_controller
+            //         .process_keyboard(CameraControllerMovement::Left, true);
+            // }
+            // if event_helper.key_held(VirtualKeyCode::D) {
+            //     client
+            //         .camera_controller
+            //         .process_keyboard(CameraControllerMovement::Right, true);
+            // }
+            // if event_helper.key_held(VirtualKeyCode::Space) {
+            //     client
+            //         .camera_controller
+            //         .process_keyboard(CameraControllerMovement::Up, true);
+            // }
+            // if event_helper.key_held(VirtualKeyCode::LShift) {
+            //     client
+            //         .camera_controller
+            //         .process_keyboard(CameraControllerMovement::Down, true);
+            // }
+            // if event_helper.key_pressed(VirtualKeyCode::V) {
+            //     client.set_swap_vsync(true);
+            // }
+            // if event_helper.key_pressed(VirtualKeyCode::Escape) {
+            //     client.toggle_cursor_visible();
+            // }
             if let Some(size) = event_helper.window_resized() {
                 client.resize(size.into());
             }
 
+            if let WindowEvent::Resized(size) = event {
+                client.resize((*size).into());
+            }
+
+
+
+        }
+        if let Event::MainEventsCleared = event {
+ 
             render_time.tick();
 
             client.update(render_time.elasped_time() as f32);
@@ -274,7 +371,7 @@ fn main() {
                 {
                     minecraft.process_chunks(min_extent.clone(), max_extent.clone(), &mut tessellate_queue);
                     if tessellate_queue.len() != 0 {
-                        info!("Chunks To Tessellate/Generate: {}", tessellate_queue.len());
+                        // info!("Chunks To Tessellate/Generate: {}", tessellate_queue.len());
                     }
 
                     let max_tesselations = 5.min(tessellate_queue.len());

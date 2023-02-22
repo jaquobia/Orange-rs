@@ -44,7 +44,7 @@ impl WgpuData {
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: caps.formats,
+            view_formats: vec![],
             format,
             width: size.width,
             height: size.height,

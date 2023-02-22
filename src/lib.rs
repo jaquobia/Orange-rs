@@ -8,6 +8,7 @@ pub mod math_helper;
 pub mod registry;
 pub mod util;
 pub mod server;
+pub mod packets;
 pub mod entities;
 
 #[cfg(feature = "client")]
@@ -36,3 +37,5 @@ pub enum MCThread<T> {
     Shutdown,
     Work(T),
 }
+
+

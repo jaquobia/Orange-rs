@@ -28,9 +28,13 @@ serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0.151"
 serde_json = "1.0"
 tungstenite = "0.18.0"
+byteorder = "1"
+
+orange_networking = { path = "../orange_networking" }
 # surf = "2.3.2"
 
 legion = "0.4.0"
+
 
 [features]
 default = ["client", "integrated"]
