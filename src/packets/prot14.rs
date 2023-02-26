@@ -53,7 +53,7 @@ pub enum Packet {
     // Variable data, coords_array, type_array, and metadata_array should all be arrays of length
     // num_blocks - all stored in coords_type_metadata_array
     MultiBlockChange { chunk_x: i32, chunk_z: i32, num_blocks: i16, coords_type_metadata_array: MultiBlockChangeData } = 0x34,
-    BlockChange { x: i32, y: i32, z: i32, block_type: i8, metadata: i8 } = 0x35,
+    BlockChange { x: i32, y: i8, z: i32, block_type: i8, metadata: i8 } = 0x35,
     BlockAction { x: i32, y: i16, z: i32, instrument_or_state: i8, pitch_or_direction: i8 } = 0x36,
     // Variable data, blocks is an array of set of positions in (byte byte byte) as (x y z) offset
     Explosion { x: f64, y: f64, z: f64, radius: f32, explosion_data: ExplosionData } = 0x3C,
@@ -125,6 +125,7 @@ impl PacketParseable for WindowItemsData {
     }
     fn from_packet_bytes(bytes: &[u8]) -> Result<(Self, usize), PacketParseError> where Self: Sized {
         warn!("WindowItemData");
+        eprintln!("Something A");
         let mut consumed = 0usize;
         let inv_size = match i16::from_packet_bytes(bytes) {
             Ok((value, size)) => { consumed += size; value },
@@ -142,6 +143,7 @@ impl PacketParseable for WindowItemsData {
                 if id == -1 {
                     None
                 } else {
+                    warn!("A non -1 item id");
                     let amount = match i8::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, size)) => { consumed += size; value },
                         Err(e) => { return Err(e); },
@@ -155,6 +157,7 @@ impl PacketParseable for WindowItemsData {
             };
             items.push(item);
         }
+        warn!("There were {} items", items.len());
         Ok((Self { payload: items }, consumed))
     }
 }
@@ -198,6 +201,7 @@ pub struct NonMobUnknownData {
 
 #[derive(Debug, Clone)]
 pub struct InnerMobUnknownData {
+    flag_value: i32,
     ukn_x: i16,
     ukn_y: i16,
     ukn_z: i16,
@@ -222,12 +226,12 @@ impl PacketParseable for NonMobUnknownData {
     fn from_packet_bytes(bytes: &[u8]) -> Result<(Self, usize), PacketParseError> where Self: Sized {
         warn!("NonMobUnknownData");
         let mut consumed = 0usize;
-        let flag = match bool::from_packet_bytes(bytes) {
+        let flag = match i32::from_packet_bytes(bytes) {
             Ok((value, size)) => { consumed += size; value },
             Err(e) => { return Err(e); },
         };
 
-        if !flag {
+        if !(flag > 0) {
             return Ok((Self { unknown: None }, consumed));
         }
 
@@ -243,7 +247,7 @@ impl PacketParseable for NonMobUnknownData {
             Ok((value, size)) => { consumed += size; value },
             Err(e) => { return Err(e); },
         };
-        Ok((Self { unknown: Some( InnerMobUnknownData { ukn_x: x, ukn_y: y, ukn_z: z }) }, consumed))
+        Ok((Self { unknown: Some( InnerMobUnknownData { flag_value: flag, ukn_x: x, ukn_y: y, ukn_z: z }) }, consumed))
     }
 }
 
@@ -269,6 +273,9 @@ impl PacketParseable for ItemPacketData {
             Ok((value, size)) => { consumed += size; value },
             Err(e) => { return Err(e); },
         };
+        if id == -1 {
+            return Ok((Self { id: -1, amount: 0, damage: 0 }, consumed))
+        }
         let amount = match i8::from_packet_bytes(&bytes[consumed..]) {
             Ok((value, size)) => { consumed += size; value },
             Err(e) => { return Err(e); },
@@ -401,6 +408,7 @@ impl PacketParseable for EntityMeta {
     fn from_packet_bytes(bytes: &[u8]) -> Result<(Self, usize), orange_networking::packet::PacketParseError> where Self: Sized {
         let mut data_list = vec![];
         let mut consumed = 0usize;
+        warn!("Reading entity meta");
        
         loop {
 
@@ -415,6 +423,7 @@ impl PacketParseable for EntityMeta {
 
             let meta = match metaid >> 5 {
                 0 => { 
+                    warn!("Reading byte meta");
                     let b = match i8::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -422,6 +431,7 @@ impl PacketParseable for EntityMeta {
                     EntityMetaType::Byte(b)
                 },
                 1 => { 
+                    warn!("Reading Short meta");
                     let b = match i16::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -429,6 +439,7 @@ impl PacketParseable for EntityMeta {
                     EntityMetaType::Short(b)
                 },
                 2 => { 
+                    warn!("Reading Int meta");
                     let b = match i32::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -436,6 +447,7 @@ impl PacketParseable for EntityMeta {
                     EntityMetaType::Int(b)
                 },
                 3 => { 
+                    warn!("Reading Float meta");
                     let b = match f32::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -443,6 +455,7 @@ impl PacketParseable for EntityMeta {
                     EntityMetaType::Float(b)
                 },
                 4 => { 
+                    warn!("Reading String meta");
                     let b = match String::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -450,10 +463,12 @@ impl PacketParseable for EntityMeta {
                     EntityMetaType::Str(b)
                 },
                 5 => { 
+                    warn!("Reading Item meta");
                     let b = match i16::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
                     };
+                    warn!("Read Item Packet, item id is {b}");
                     let b1 = match i8::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -464,7 +479,8 @@ impl PacketParseable for EntityMeta {
                     };
                     EntityMetaType::Item(b, b1, b2)
                 },
-                6 => {  
+                6 => {
+                    warn!("Reading Position Meta");
                     let b = match i32::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, used)) => { consumed += used; value },
                         Err(e) => { return Err(PacketParseError::NotEnoughData); }
@@ -479,7 +495,7 @@ impl PacketParseable for EntityMeta {
                     };
                     EntityMetaType::Position(b, b1, b2)
                 },
-                7 => { continue; },
+                7 => { warn!("There should not be any meta byte id of 7!"); return Err(PacketParseError::NotAPacket); },
                 _ => {
                     warn!("Unknown Meta Type {metaid}");
                     return Err(PacketParseError::NotAPacket);
