@@ -14,12 +14,13 @@ impl WorkerThread {
             handle: None,
         }
     }
-    pub fn spawn<F: FnMut() -> () + Send + 'static>(&mut self, mut f: F) {
+    pub fn spawn<F: FnMut(bool) -> () + Send + 'static>(&mut self, mut f: F) {
         let stop = self.stop.clone(); 
         self.handle = Some(thread::spawn(move || {
             while !stop.load(std::sync::atomic::Ordering::Acquire) {
-                f();
+                f(true);
             }
+            f(false);
         }));
     }
     pub fn stop(&mut self) {

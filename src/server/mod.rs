@@ -4,10 +4,8 @@ use crate::{world::dimension::Dimension, identifier::Identifier};
 
 use self::{player_handler::PlayerConnectionHandler, server_player::ServerPlayer};
 
-pub mod packet;
 pub mod player_handler;
 pub mod server_player;
-pub mod network_interface;
 
 pub enum ServerType {
     // Standalone server without a client

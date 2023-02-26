@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc, atomic::AtomicBool, Mutex}, borrow::BorrowMut, ops::{DerefMut, Deref} };
 use env_logger::Builder;
-use log::{info, LevelFilter};
+use log::{info, LevelFilter, warn};
 use orange_rs::{
     registry::Registry, 
     identifier::Identifier, 
@@ -21,12 +21,16 @@ use orange_rs::{
     }, 
     util::{pos::{
         ChunkPos, 
-        Position
+        Position, EntityPos, BlockPos
     }, workers::WorkerThread}, 
-    server::{MinecraftServer, server_player::ServerPlayer},
+    server::{
+        MinecraftServer,
+        server_player::ServerPlayer
+    }, packets::prot14::Packet,
 };
+use orange_networking::{network_interface::NetworkThread, packet::PacketEnumHolder};
 use ultraviolet::DVec3;
-use winit::event::{DeviceEvent, VirtualKeyCode};
+use winit::event::{DeviceEvent, VirtualKeyCode, WindowEvent, Event};
 use winit_input_helper::WinitInputHelper;
 
 fn prepare_client(client: &mut Client) {
@@ -48,10 +52,82 @@ fn prepare_client(client: &mut Client) {
     }
 }
 
+#[derive(Debug)]
+enum ServerConnectError {
+    InvalidAddress,
+    Kick(String),
+}
+
+fn join_server(username: String, protocol_id: i32, address: String, port: u32) -> Result<(NetworkThread<Packet>, u64, BlockPos, EntityPos, f64, f32, f32, bool), ServerConnectError> {
+    let network_thread = match NetworkThread::connect_to_server(address, port) {
+        Ok(nt) => { nt },
+        Err(_) => { return Err(ServerConnectError::InvalidAddress); }
+    };
+
+    network_thread.send_packet(Packet::Handshake { handshake_data: username.clone() });
+    let mut ttime = 0;
+    let mut spawn_position = BlockPos::new(0, 0, 0);
+    let mut player_position = EntityPos::new(0.0, 0.0, 0.0);
+    let mut player_stance = 0.0;
+    let mut player_pitch = 0.0;
+    let mut player_yaw = 0.0;
+    let mut player_on_ground = false;
+
+    let mut do_login = true;
+
+    while do_login {
+    for packet in network_thread.get_packets() {
+        match packet {
+            Packet::KeepAlive => { network_thread.send_packet(Packet::KeepAlive {}); },
+            Packet::Handshake { handshake_data } => {
+                let login_packet = Packet::Login{ protocol: protocol_id, username: username.clone(), seed: 0, dimension: 0 };
+                network_thread.send_packet(login_packet); 
+                warn!("Handshake Packet Recieved! {handshake_data}, sending login request as {username}."); 
+            },
+            Packet::Login { protocol, username, seed, dimension } => { 
+                warn!("Login successful!");
+            },
+            Packet::TimeUpdate { time } => { ttime = time; },
+            Packet::SpawnPosition { x, y, z } => { spawn_position = BlockPos::new(x, y, z); },
+            Packet::UpdateHealth { health } => { warn!("Update Health"); },
+            Packet::PlayerPositionAndLook { x, y_c_stance_s, stance_c_y_s, z, yaw, pitch, on_ground } => { 
+                player_position = EntityPos::new(x as f32, y_c_stance_s as f32, z as f32);
+                player_stance = stance_c_y_s;
+                player_on_ground = on_ground;
+                player_yaw = yaw;
+                player_pitch = pitch;
+                network_thread.send_packet(Packet::PlayerPositionAndLook { x, y_c_stance_s: stance_c_y_s, stance_c_y_s: y_c_stance_s, z, yaw, pitch, on_ground });
+
+                do_login = false;
+            },
+            Packet::NamedEntitySpawn { entity, name, x, y, z, rotation, pitch, held_item } => { warn!("{name} spawned"); },
+            Packet::SpawnMob { entity, entity_type, x, y, z, yaw, pitch, meta } => { warn!("Spawn Mob"); },
+            Packet::EntityVelocity { entity, vel_x, vel_y, vel_z } => { warn!("Entity Velocity"); },
+            Packet::Entity { entity } => { warn!("Spawn {entity}"); },
+            Packet::EntityMoveRelative { entity, dx, dy, dz } => { warn!("Entity Move Rel"); },
+            Packet::EntityLook { entity, yaw, pitch } => { warn!("Entitiy Look"); },
+            Packet::EntityLookMoveRelative { entity, dx, dy, dz, yaw, pitch } => { warn!("Entity Move Look"); },
+            Packet::EntityStatus { entity, status } => { warn!("Entity Status"); },
+            Packet::EntityMeta { entity, meta } => { warn!("Entity Meta"); },
+            Packet::PreChunk { x, z, mode } => { warn!("PreChunk {x},{z}"); },
+            Packet::MapChunk { x, y, z, size_x, size_y, size_z, compressed_data } => { warn!("Chunk Update: {x},{y},{z}"); },
+            Packet::BedWeatherState { state_reason } => {  },
+            Packet::SetContainerSlot { window_id, slot, item_data } => { warn!("Set Slot Item"); },
+            Packet::SetWindowItems { window_id, window_data } => { warn!("Set Window Item"); },
+            Packet::ItemData { item_type, item_id, item_data } => { warn!("Item Data"); },
+            Packet::DisconnectKick { reason } => { return Err(ServerConnectError::Kick(reason)); }
+            _ => { warn!("Unexpected packet during login: {packet:?}"); }
+        }
+    }
+    }
+    warn!("Logged in, leaving the login sequence.");
+    Ok((network_thread, ttime, spawn_position, player_position, player_stance, player_pitch, player_yaw, player_on_ground))
+}
+
 fn main() {
 
     // env_logger::init();
-    Builder::new().filter_level(LevelFilter::Info).init();
+    Builder::new().filter_level(LevelFilter::Off).init();
 
     // Eventually parse these for username and stuff
     let _args: Vec<String> = std::env::args().collect();
@@ -121,31 +197,123 @@ fn main() {
         }; 
     }
 
-
-
+    let mut on_ground_real = true;
+    let mut stance = 0.0;
+    
+    let username = String::from("TT");
+    let address = "127.0.0.0".to_string();
+    let port = 25565;
+    let mut network_thread = match join_server(username, 14, address, port) {
+        Ok((network_thread, time, spawn_position, player_position, player_stance, player_pitch, player_yaw, player_on_ground)) => {
+            client.camera.position = player_position;
+            client.camera.pitch = player_pitch;
+            client.camera.yaw = player_yaw;
+            on_ground_real = player_on_ground;
+            stance = player_stance;
+            network_thread
+        },
+        Err(e) => {
+            warn!("Failed to connect to server: {:?}", e);
+            return;
+        },
+    };
     let mut tick_time = instant::Instant::now();
     let one_twentieth = instant::Duration::from_secs_f64(1.0 / 20.0);
     let server_world_copy = server_world.clone();
     let mut server_thread = WorkerThread::new();
-    server_thread.spawn(move || {
+    server_thread.spawn(move |running| {
         let tick_time_now = instant::Instant::now(); 
 
-        if (tick_time_now - tick_time) >= one_twentieth {
-            // info!("Time now: {:?}", tick_time_now);
-            match server_world_copy.write() {
-                Ok(mut guard) => { 
-                    match guard.as_mut() {
-                        Some(server_world) => { 
-                            server_world.tick();
-                        },
-                        _ => { },
-                    }
-                },
-                Err(_) => { },
-            };
-            // tick_time += one_twentieth;
-            tick_time = tick_time_now;
+        if !running {
+            network_thread.stop();
+            return;
         }
+
+        if (tick_time_now - tick_time) < one_twentieth {
+            return;
+        }
+
+        if let Ok(mut a) = server_world_copy.write() {
+            if let Some(server_world) = a.as_mut() {
+                server_world.tick();
+                client.camera.position += (0.0, -0.04, 0.0).into();
+                println!("{:?}", client.camera.position);
+                let (x, y, z) = client.camera.position.into();
+                let (yaw, pitch) = (client.camera.yaw, client.camera.pitch);
+                network_thread.send_packet(Packet::PlayerPositionAndLook { x: x as f64, y_c_stance_s: y as f64, stance_c_y_s: (y as f64 + 1.6), z: z as f64, yaw: yaw as f32, pitch: pitch as f32, on_ground: false });
+                network_thread.send_packet(Packet::KeepAlive);
+                for packet in network_thread.get_packets() {
+                    match packet {
+                        Packet::KeepAlive => { warn!("Keep Alive"); },
+                        Packet::Handshake { handshake_data } => { warn!("Unexpectedly received a handshake packet! This is not supposed to happen after login!"); },
+                        Packet::Login { protocol, username, seed, dimension } => { warn!("Unexpectedly received a login packet! This is not supposed to happen after login!"); },
+                        Packet::Chat { chat_data } => { warn!("[Chat]{chat_data}"); },
+                        Packet::TimeUpdate { time } => { warn!("Time Update"); },
+                        Packet::EntityChangeEquipment { entity_id, equipment_slot, item_id, item_damage } => { warn!("Entity Change Equipment"); },
+                        Packet::SpawnPosition { x, y, z } => { warn!("Spawn Position"); },
+                        Packet::InteractWithEntity { user, entity, is_left_click } => { warn!("Interact with entity"); },
+                        Packet::UpdateHealth { health } => { warn!("Update Health"); },
+                        Packet::Respawn { world } => { warn!("Respawn"); },
+                        Packet::PlayerOnGround { on_ground } => { warn!("Player On Ground"); },
+                        Packet::PlayerPosition { x, y, stance, z, on_ground } => { warn!("Recieved a position packet"); },
+                        Packet::PlayerLook { yaw, pitch, on_ground } => { warn!("Player L"); },
+                        Packet::PlayerPositionAndLook { x, y_c_stance_s, stance_c_y_s, z, yaw, pitch, on_ground } => { 
+                            client.camera.position = (x as f32, y_c_stance_s as f32, z as f32).into();
+                            client.camera.pitch = pitch;
+                            client.camera.yaw = yaw;
+                            on_ground_real = on_ground;
+                            stance = stance_c_y_s;
+                        },
+                        Packet::PlayerDigging { status, x, y, z, face } => { warn!("Player Digging: {status}"); },
+                        Packet::PlayerUse { x, y, z, direction, item_data } => { warn!("Player Use"); },
+                        Packet::PlayerChangeSlot { slot } => { warn!("Player Change Slot"); },
+                        Packet::PlayerUseBed { entity, in_bed, x, y, z } => { warn!("Player Use Bed"); },
+                        Packet::Animation { entity, animat } => { warn!("Animation"); },
+                        Packet::EntityAction { entity, action } => { warn!("Entity Action"); },
+                        Packet::NamedEntitySpawn { entity, name, x, y, z, rotation, pitch, held_item } => { warn!("{name} spawned"); },
+                        Packet::PickupSpawn { entity, item, count, damage_meta, x, y, z, rotation, pitch, roll } => { warn!("Pickup Spawned"); },
+                        Packet::CollectItem { item_entity, collector_entity } => { warn!("Collect Item"); },
+                        Packet::CreateNonMobEntity { entity, entity_type, x, y, z, unknown } => { warn!("Create NonMob Entity"); },
+                        Packet::SpawnMob { entity, entity_type, x, y, z, yaw, pitch, meta } => { warn!("Spawn Mob"); },
+                        Packet::EntityPaintings { entity, title, x, y, z, direction } => { warn!("Entity Painting {title}"); },
+                        Packet::UpdatePosition { strafe, forward, pitch, yaw, unk, is_jumping } => { warn!("UpdatePosition"); },
+                        Packet::EntityVelocity { entity, vel_x, vel_y, vel_z } => { warn!("Entity Velocity"); },
+                        Packet::DestroyEntity { entity } => { warn!("Destroy Entity"); },
+                        Packet::Entity { entity } => { warn!("Spawn {entity}"); },
+                        Packet::EntityMoveRelative { entity, dx, dy, dz } => { warn!("Entity Move Rel"); },
+                        Packet::EntityLook { entity, yaw, pitch } => { warn!("Entitiy Look"); },
+                        Packet::EntityLookMoveRelative { entity, dx, dy, dz, yaw, pitch } => { warn!("Entity Move Look"); },
+                        Packet::EntityTeleport { entity, x, y, z, yaw, pitch } => { warn!("Entity Teleport"); },
+                        Packet::EntityStatus { entity, status } => { warn!("Entity Status"); },
+                        Packet::AttachEntity { entity, vehicle_entity } => { warn!("Attch Entity"); },
+                        Packet::EntityMeta { entity, meta } => { warn!("Entity Meta"); },
+                        Packet::PreChunk { x, z, mode } => { warn!("PreChunk {x},{z}"); },
+                        Packet::MapChunk { x, y, z, size_x, size_y, size_z, compressed_data } => { warn!("Chunk Update: {x},{y},{z}"); },
+                        Packet::MultiBlockChange { chunk_x, chunk_z, num_blocks, coords_type_metadata_array } => { warn!("Multi Block Change"); },
+                        Packet::BlockChange { x, y, z, block_type, metadata } => { warn!("Block Change"); },
+                        Packet::BlockAction { x, y, z, instrument_or_state, pitch_or_direction } => { warn!("Block Action"); },
+                        Packet::Explosion { x, y, z, radius, explosion_data } => { warn!("Explosion"); },
+                        Packet::SoundEffect { effect_id, x, y, z, data } => { warn!("Sound effect"); },
+                        Packet::BedWeatherState { state_reason } => { warn!("Weather State or Bed"); },
+                        Packet::ThunderBolt { entity, unk_flag, x, y, z } => { warn!("Thunder Bolt"); },
+                        Packet::OpenContainerWindow { window_id, inventory_type, title, slot_count } => {  },
+                        Packet::CloseContainerWindow { window_id } => {  },
+                        Packet::ClickContainerWindow { window_id, slot, right_click, action, shift, item_id, item_count, item_uses } => {  },
+                        Packet::SetContainerSlot { window_id, slot, item_data } => { warn!("Set Slot Item"); },
+                        Packet::SetWindowItems { window_id, window_data } => { warn!("Set Window Item"); },
+                        Packet::UpdateProgressBar { window_id, progress_bar, value } => {  },
+                        Packet::Transaction { window_id, action_id, accepted } => {  },
+                        Packet::UpdateSign { x, y, z, line_1, line_2, line_3, line_4 } => {  },
+                        Packet::ItemData { item_type, item_id, item_data } => { warn!("Item Data"); },
+                        Packet::IncrementStatistic { statistic_id, amount } => { warn!("Updating Statistic"); },
+                        Packet::DisconnectKick { reason } => { warn!("Disconnected: {reason}, stopping connection.");}
+                    }
+                } // Packet parsing
+            }
+        }
+        // info!("Time now: {:?}", tick_time_now);            // tick_time += one_twentieth;
+        tick_time = tick_time_now;
+        
     });
     
     event_loop.run(move |event, _, control_flow| {
@@ -157,10 +325,11 @@ fn main() {
             if let DeviceEvent::MouseMotion { delta } = event {
                 client.camera_controller.process_mouse(delta.0, -delta.1);
             }
-        }
+        } 
 
-        if event_helper.update(&event) {
+        if event_helper.update(&event)  {
             if event_helper.quit() {
+                warn!("Stopping!");
                 control_flow.set_exit();
                 server_thread.stop();
                 return;
@@ -205,6 +374,15 @@ fn main() {
                 client.resize(size.into());
             }
 
+            // if let WindowEvent::Resized(size) = event {
+            //     client.resize((*size).into());
+            // }
+
+
+
+        // }
+        // if let Event::MainEventsCleared = event {
+ 
             render_time.tick();
 
             client.update(render_time.elasped_time() as f32);
@@ -274,7 +452,7 @@ fn main() {
                 {
                     minecraft.process_chunks(min_extent.clone(), max_extent.clone(), &mut tessellate_queue);
                     if tessellate_queue.len() != 0 {
-                        info!("Chunks To Tessellate/Generate: {}", tessellate_queue.len());
+                        // info!("Chunks To Tessellate/Generate: {}", tessellate_queue.len());
                     }
 
                     let max_tesselations = 5.min(tessellate_queue.len());
