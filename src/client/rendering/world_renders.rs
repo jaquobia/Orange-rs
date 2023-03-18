@@ -57,9 +57,18 @@ impl WorldRenderer {
     }
 
     pub fn set_section_mesh(&mut self, mesh: Mesh, pos: IVec2, section: usize) {
+
         if let Some(chunk) = self.mesh_cache.get_chunk_pos_mut(pos.x, pos.y) {
            chunk.set_section(section, Some(mesh));
+            return;
+        } else {
+            self.construct_chunk_empty(pos);
+            if let Some(chunk) = self.mesh_cache.get_chunk_pos_mut(pos.x, pos.y) {
+                chunk.set_section(section, Some(mesh));
+                return;
+            }
         }
+
     }
 
     pub fn remove_section_mesh(&mut self, pos: IVec2, section: usize) {

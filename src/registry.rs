@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{block::Block, identifier::Identifier, game_version::GameVersion};
+use crate::{block::Block, minecraft::identifier::Identifier, game_version::GameVersion};
 
 /** Represents the total registered blocks, items, [tile]entities, dimensions, and any other object
  * that needs to be referenced.

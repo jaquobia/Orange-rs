@@ -4,20 +4,21 @@ use super::{rendering::{mesh::Mesh, tessellator::TerrainTessellator, world_rende
 use crate::{
     block::Block,
     world::{
-        chunk::CHUNK_SECTION_AXIS_SIZE,
-        dimension::{Dimension, DimensionChunkDescriptor}, 
+        chunk::{CHUNK_SECTION_AXIS_SIZE, Chunk},
     },
     registry::Register,
-    util::pos::ChunkPos,
+    util::pos::{ChunkPos, Position},
 };
 use ultraviolet::Vec3;
 use wgpu::RenderPass;
+use crate::util::pos::NewChunkPosition;
+use crate::world::chunk::ChunkSection;
 
 pub type ClientChunkStorage = Option<Mesh>;
 
 pub struct MinecraftClient {
     player_level_id: usize,
-    world_render: WorldRenderer,
+    pub world_render: WorldRenderer,
 
     active_screen : RefCell<Option<Box<dyn Screen>>>,
 }
@@ -89,72 +90,33 @@ impl MinecraftClient {
                 self.draw_chunk(x, z, render_pass);
             }
         }
-    } 
-
-    pub fn tesselate_chunk(
-        &mut self,
-        chunk_pos: ChunkPos,
-        tessellator: &mut TerrainTessellator,
-        device: &wgpu::Device,
-        blocks: &Register<Block>,
-        level: &Dimension,
-        ) -> Result<(), ()> {
-        
-        let (chunk_x, chunk_z) = (chunk_pos * ChunkPos::new(CHUNK_SECTION_AXIS_SIZE as i32, CHUNK_SECTION_AXIS_SIZE as i32)).into();
-
-        let chunk = {
-            // let level = self.get_player_dimension();
-            // Level can't be obtained? Put back on queue, and try again later
-            // if level.is_none() {
-            //     return Err(());
-            // }
-            // let level = level.unwrap();
-
-            let chunk = level.get_chunk_at_vec(chunk_pos);
-
-            // If chunk is none, nothing to build, skip
-            if chunk.is_none() {
-                return Ok(());
-            }
-            chunk.unwrap()
-        };
-
-        let mut section_index: usize = 0;
-
-        let mut meshes: Vec<Mesh> = vec![];
-        for section in chunk.get_sections() {
-            let section_position = Vec3::new(
-                chunk_x as f32,
-                (section_index * CHUNK_SECTION_AXIS_SIZE) as f32,
-                chunk_z as f32,
-                );
-            tessellator.tesselate_chunk_section(section, section_position, blocks);
-            let mesh = tessellator.build(device);
-            meshes.push(mesh);
-            section_index += 1;
-        }
-        self.world_render.construct_chunk(meshes, chunk_pos);
-        return Ok(());
     }
 
-    pub fn process_chunks(&mut self, min_extent: ChunkPos, max_extent: ChunkPos, tessellation_queue: &mut VecDeque::<DimensionChunkDescriptor>) {
+    pub fn direct_tessellate_chunk(&mut self,
+                                   tessellator: &mut TerrainTessellator,
+                                   device: &wgpu::Device,
+                                   blocks: &Register<Block>,
+                                   chunk_pos: NewChunkPosition,
+                                   chunk: &ChunkSection,
+                                    // chunk_pos: ChunkPos,
+) -> Result<(), ()> {
+        let chunk_block_pos = chunk_pos.to_block_pos();
+        let section_position = chunk_block_pos.to_entity_pos();
+        let section_index = chunk_pos.vec.y as usize;
+        tessellator.tessellate_chunk_section(chunk, section_position, blocks);
+        let mesh = tessellator.build(device);
+        self.world_render.set_section_mesh(mesh, chunk_pos.to_chunk_pos(), section_index);
+
+        Ok(())
+    }
+
+    pub fn process_chunks(&mut self, min_extent: ChunkPos, max_extent: ChunkPos) {
         for chunk in self.world_render.get_chunks() {
-            let chunk_in_range = chunk.in_range(min_extent, max_extent);
-            if !chunk_in_range {
-                // println!("Chunk not in range!");
+            if !chunk.in_range(min_extent, max_extent) {
                 chunk.mark_for_removal();
             }
         }
         self.world_render.remove_marked_chunks();
-        for x in min_extent.x..=max_extent.x {
-            for z in min_extent.y..=max_extent.y {
-                let pos = ChunkPos::new(x, z);
-                if self.world_render.get_cache().get_chunk_vec(pos).is_none() {
-                    self.world_render.construct_chunk_empty(pos);
-                    tessellation_queue.push_back((0, pos));
-                }
-            }
-        }
     }
 
 }

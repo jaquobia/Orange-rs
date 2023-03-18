@@ -2322,6 +2322,7 @@ dependencies = [
  "bytemuck",
  "byteorder",
  "env_logger",
+ "flate2",
  "image",
  "instant",
  "lazy_static",
@@ -2343,7 +2344,9 @@ name = "orange_rs_client"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "flate2",
  "instant",
+ "legion",
  "log",
  "orange_networking",
  "orange_rs",

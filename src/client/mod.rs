@@ -1,9 +1,11 @@
 pub mod camera;
 pub mod minecraft_client;
 pub mod client_chunk;
-pub mod mc_resource_handler;
 pub mod rendering;
 pub mod gui;
+pub mod models;
+pub mod resource_manager;
+pub mod textures;
 
 use std::collections::HashMap;
 
@@ -30,7 +32,7 @@ pub struct Client {
     swap_vsync: bool,
     cursor_visible: bool,
 
-    pub textures: crate::client::mc_resource_handler::TexMapType,
+    pub textures: crate::minecraft::mc_resource_handler::TexMapType,
     pub layouts: HashMap<String, BindGroupLayout>,
     pub depth_texture: DepthTextureWrapper,
 

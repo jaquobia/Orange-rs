@@ -200,7 +200,7 @@ impl TerrainTessellator {
     }
 
 
-    pub fn tesselate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>) {
+    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>) {
 
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
@@ -222,7 +222,7 @@ impl TerrainTessellator {
                     let textures: [u32; 6] = if let Some(block) = block.as_ref() {
                         [block.texture_index() as u32; 6]
                     } else {
-                        [0; 6]
+                        [10; 6]
                     };
 
                     for dir in &DIRECTIONS {

@@ -1,4 +1,4 @@
-use crate::identifier::Identifier;
+use crate::minecraft::identifier::Identifier;
 
 use super::Block;
 
@@ -61,15 +61,3 @@ pub struct BlockSettings {
     pub transparent: Option<bool>,
     pub texture_index: Option<usize>,
 }
-
-// impl Default for BlockSettings {
-//     fn default() -> Self {
-//         Self {
-//             hardness: None,
-//             resistance: None,
-//             slipperiness: None,
-//             transparent: None,
-//             texture_index: None,
-//         }
-//     }
-// }

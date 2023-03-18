@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgb32FImage};
 
-use super::{rendering::textures::DiffuseTextureWrapper, Client};
+use crate::client::{rendering::textures::DiffuseTextureWrapper, Client};
 
 pub type TexMapType = HashMap<String, DiffuseTextureWrapper>;
 
@@ -107,57 +107,6 @@ pub fn load_binary_resources(client: &mut Client) {
         );
     }
 }
-
-// pub fn load_resources(client: &mut Client) {
-//     let gpu = &client.gpu;
-//     let tex_map = &mut client.textures;
-//     let resource_dir = MC_HOME.join("legacy_resources");
-//     let texture_layout = &client.layouts["mc_terrain_tex_layout"];
-//     for file_path in mc_constants::VEC_ASSETS2 {
-
-//         if file_path.ends_with(".txt") { continue }; // Only handle images
-
-//         let dir = resource_dir.join(file_path);
-//         let tex = load_mc_tex(&dir);
-//         let dims = tex.dimensions();
-//         let tex_dims = wgpu::Extent3d {
-//             width: dims.0,
-//             height: dims.1,
-//             depth_or_array_layers: 1,
-//         };
-//         let diffuse_texture = gpu.device.create_texture(
-//             &wgpu::TextureDescriptor {
-//                 size: tex_dims,
-//                 mip_level_count: 1,
-//                 sample_count: 1,
-//                 dimension: wgpu::TextureDimension::D2,
-//                 format: wgpu::TextureFormat::Rgba8UnormSrgb,
-//                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-//                 label: Some("diffuse_texture"),
-//             }
-//         );
-//         gpu.queue.write_texture(
-//             diffuse_texture.as_image_copy(),
-//             tex.to_rgba8().as_bytes(),
-//             wgpu::ImageDataLayout {
-//                 offset: 0,
-//                 bytes_per_row: std::num::NonZeroU32::new(4 * dims.0),
-//                 rows_per_image: std::num::NonZeroU32::new(dims.1),
-//             },
-//             tex_dims);
-//         let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-//         let diffuse_sampler = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
-//             address_mode_u: wgpu::AddressMode::ClampToEdge,
-//             address_mode_v: wgpu::AddressMode::ClampToEdge,
-//             address_mode_w: wgpu::AddressMode::ClampToEdge,
-//             mag_filter: wgpu::FilterMode::Nearest,
-//             min_filter: wgpu::FilterMode::Nearest,
-//             mipmap_filter: wgpu::FilterMode::Nearest,
-//             ..Default::default()
-//         });
-//         tex_map.insert(String::from(file_path), DiffuseTextureWrapper::new(diffuse_texture, dims.into(), diffuse_texture_view, diffuse_sampler, &gpu.device, &texture_layout));
-//     }
-// }
 
 fn create_missing_tex(_a: image::ImageError) -> DynamicImage {
     let mut rgb_tex = Rgb32FImage::new(2, 2);

@@ -28,9 +28,14 @@ impl<T> ChunkMap<T> {
     }
 
     fn inner_chunk_pos_to_hash(x: i32, z: i32) -> i64 {
+        let x: u32 = bytemuck::cast(x);
+        let z: u32 = bytemuck::cast(z);
         let x = x as i64;
         let z = z as i64;
-        return x + (z << 32);
+        return x | (z << 32);
+        // Why the fuck does this work with + but not |,
+        // how did I even do this right the first time around?!
+        // Is this some black-magic fuckery with signed integers?
     }
 
     fn inner_hash_to_index(&self, hash: i64) -> Option<usize> {

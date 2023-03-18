@@ -1,6 +1,6 @@
 pub mod block_factory;
 
-use crate::{identifier::Identifier, registry::Registerable};
+use crate::{minecraft::identifier::Identifier, registry::Registerable};
 
 use self::block_factory::BlockSettings;
 
@@ -9,10 +9,15 @@ use self::block_factory::BlockSettings;
 
 pub struct Block {
     identifier: Identifier,
+    /// Hardness, determines the mining speed of the block
     hardness: f32,
+    /// Blast Resistance, determines how effective explosions are against this block
     resistance: f32,
+    /// Slipperiness, determines if the player will slide on this block and how fast (or slow)
     slipperiness: f32,
+    /// Transparent, determines if this block should be on the transparency layer
     transparent: bool,
+    /// To be removed in favor of models
     texture_index: usize,
 }
 
@@ -32,6 +37,7 @@ impl Block {
         let transparent = settings.transparent.unwrap_or(false);
 
         let texture_index = settings.texture_index.unwrap_or(0);
+
         Self {
             identifier,
             hardness,

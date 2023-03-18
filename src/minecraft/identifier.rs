@@ -2,14 +2,27 @@
 // creating new Indentifiers all the time to save on performance, and rather reuse them
 
 use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
 /// Identitifer construct, a commonly seen concept in modern modded minecraft, also known as ResourceLocation in some earlier versions
-/// Used easily reference specific objects and arbitrarily locate resources based on context
-#[derive(Clone, PartialEq)]
+/// Used to easily reference specific objects and arbitrarily locate resources based on context
+#[derive(Clone, Eq)]
 pub struct Identifier {
     namespace: String,
     name: String,
     total_id: String,
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.total_id == other.total_id
+    }
+}
+
+impl Hash for Identifier {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.total_id.hash(state)
+    }
 }
 
 impl Identifier {
@@ -47,12 +60,6 @@ impl Display for Identifier {
         f.write_str(self.total_id.as_str())
     }
 }
-
-// impl Eq for Identifier {
-//     fn assert_receiver_is_total_eq(&self) {
-//         
-//     }
-// }
 
 impl From<&str> for Identifier {
     fn from(t: &str) -> Self {

@@ -1,3 +1,5 @@
+use wgpu::{Backends, InstanceDescriptor};
+
 pub struct WgpuData {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
@@ -13,6 +15,10 @@ impl WgpuData {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::default();
+        // let instance = wgpu::Instance::new(InstanceDescriptor {
+        //     backends: Backends::GL,
+        //     ..Default::default()
+        // });
         let surface = unsafe { instance.create_surface(window).expect("No Surface") };
 
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {

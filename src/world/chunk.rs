@@ -1,3 +1,6 @@
+use std::cell::{Cell, RefCell};
+use std::sync::{Arc, Mutex};
+
 /// This module represents the data types for a chunk, which is defined as a column of 'chunk sections',
 /// each of which stores the data for blocks, light, and metadata in an array of 16^3 elements, and
 /// chunks are a stack of 16* sections (8 for legacy versions, and I believe 32 for most modern
@@ -41,7 +44,6 @@ const CHUNK_SECTION_DIMENSION_SIZE: usize =
 type ChunkDataType = u64;
 
 /// The chunk sections will be stored as vectors to be managed on the heap, but never be resized
-// type ChunkSectionDataStorageType = [ChunkDataType; ChunkSectionDimension];
 type ChunkSectionDataStorageType = Vec<ChunkDataType>;
 type LightmapType = u8;
 type ChunkSectionLightmapStorageType = Vec<LightmapType>;
@@ -57,19 +59,23 @@ pub struct ChunkSection {
     /// only be able to be a maximum of 2, the stored value would be 13, and be calculated as
     /// (skylight(15) - lightmap_value(13)) = 2 | 14 - 13 = 1 | 13 - 13 = 0 | [0, 12] < 13 = 0.
     lightmap: ChunkSectionLightmapStorageType,
+    dirty: Mutex<bool>,
 }
 
 impl ChunkSection {
+    pub fn is_dirty(&self) -> bool { *self.dirty.lock().unwrap() }
+    pub fn set_dirty(&self, dirty: bool) { *self.dirty.lock().unwrap() = dirty; }
+
     /// Create and return an empty chunk section for generation
-    fn create_empty() -> Self {
-        let data: ChunkSectionDataStorageType = vec![1; CHUNK_SECTION_DIMENSION_SIZE];
+    pub fn create_empty() -> Self {
+        let data: ChunkSectionDataStorageType = vec![0; CHUNK_SECTION_DIMENSION_SIZE];
         let lightmap = vec![0; CHUNK_SECTION_DIMENSION_SIZE];
-        Self { data, lightmap }
+        Self { data, lightmap, dirty: Mutex::new(false) }
     }
 
     /// Create and return a chunk section from existing data
     fn from_data(data: ChunkSectionDataStorageType, lightmap: ChunkSectionLightmapStorageType) -> Self {
-        Self { data, lightmap }
+        Self { data, lightmap, dirty: Mutex::new(true) }
     }
 
     /// Get the index of block in storage from a 3d position
@@ -153,6 +159,8 @@ pub struct Chunk {
     position: ChunkPos,
     /// The heightmap of the chunk, tells where the topmost transparent and opaque blocks of the world are located.
     heightmap: ChunkHeightmapStorageType,
+
+    dirty: bool,
 }
 
 impl Chunk {
@@ -162,7 +170,7 @@ impl Chunk {
             sections.push(ChunkSection::create_empty());
         }
         let heightmap = vec![(0, 0); CHUNK_SECTION_PLANE_SIZE];
-        Self { sections, position, heightmap, }
+        Self { sections, position, heightmap, dirty: false }
     }
 
     /// Get the data of the chunk at an unsigned 3d position
@@ -250,7 +258,25 @@ impl Chunk {
         (chunk_block, metadata)
     }
 
+    pub fn data_set_block(block_data: u64, block: usize) -> u64 {
+        const block_magic_number: u64 = 0b111111111111;
+        (block_data & !block_magic_number) | (block as u64 & block_magic_number)
+    }
+
+    pub fn data_set_meta(block_data: u64, meta: u64) -> u64 {
+        const block_magic_number: u64 = 0b111111111111;
+        (block_data & block_magic_number) | (meta << 12)
+    }
+
     pub fn get_sections(&self) -> &Vec<ChunkSection> {
         &self.sections
+    }
+
+    pub fn get_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub fn set_dirty(&mut self, dirty: bool) {
+        self.dirty = dirty;
     }
 }
