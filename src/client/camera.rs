@@ -38,10 +38,10 @@ impl Camera {
 }
 
 pub struct Projection {
-    aspect: f32,
-    fovy: f32,
-    znear: f32,
-    zfar: f32,
+    pub aspect: f32,
+    pub fovy: f32,
+    pub znear: f32,
+    pub zfar: f32,
 }
 
 impl Projection {
@@ -143,6 +143,13 @@ impl CameraController {
     pub fn reset_mouse(&mut self) {
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
+    }
+
+    pub fn get_directions(yaw: f32) -> (Vec3, Vec3, Vec3) {
+        let (yaw_sin, yaw_cos) = yaw.sin_cos();
+        let forward = Vec3::new(yaw_cos, 0.0, yaw_sin).normalized();
+        let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalized();
+        (forward, right, Vec3::new(0.0, 1.0, 0.0))
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, dt: f32) {

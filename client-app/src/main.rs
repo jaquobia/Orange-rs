@@ -34,6 +34,8 @@ use orange_networking::{network_interface::NetworkThread};
 use ultraviolet::{DVec3, IVec3, Vec3};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
+use orange_rs::client::camera::CameraController;
+use orange_rs::util::frustrum::Frustrum;
 use orange_rs::util::pos::NewChunkPosition;
 use orange_rs::world::{ChunkStorageTrait};
 use crate::test_world::TestWorld;
@@ -436,7 +438,6 @@ fn main() {
                 let min_extent = player_chunk_pos - render_distance_as_vec;
                 let max_extent = player_chunk_pos + render_distance_as_vec;
                 {
-
                     let sky_color = DVec3::new(0.1, 0.2, 0.3);
                     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Render Pass"),
@@ -469,8 +470,34 @@ fn main() {
                     render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
                     render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
 
+                    let directions = CameraController::get_directions(client.camera.yaw);
+                    let aspect = client.projection.aspect;
+                    let fovy = client.projection.fovy;
+                    let znear = client.projection.znear;
+                    let zfar = client.projection.zfar;
+                    let frustrum = Frustrum::new(client.camera.position, directions.0, directions.1, directions.2, aspect, fovy, znear, zfar);
+
                     // AABB in frustrum culling?
-                    minecraft.draw_chunks(min_extent.clone(), max_extent.clone(), &mut render_pass);
+                    let vec16 = Vec3::new(16.0, 16.0, 16.0);
+                    for x in min_extent.x..=max_extent.x {
+                        for z in min_extent.y..=max_extent.y {
+                            if let Some(chunk) = minecraft.world_render.get_cache().get_chunk_pos(x, z) {
+                                let mut mesh_index = 0i32;
+                                for mesh in chunk.get_sections() {
+                                    let chunk_pos_min = Vec3::new((x << 4) as f32, (mesh_index << 4) as f32, (z << 4) as f32);
+                                    let chunk_pos_max = chunk_pos_min + vec16;
+
+                                    if !frustrum.aabb_intersects(chunk_pos_min, chunk_pos_max, directions.0, directions.1, directions.2) { continue; }
+
+                                    match mesh {
+                                        Some(mesh) => mesh.draw(&mut render_pass),
+                                        None => { },
+                                    };
+                                    mesh_index += 1;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 {
@@ -479,7 +506,7 @@ fn main() {
                     let registry = registry.read().unwrap();
                     let blocks = registry.get_block_register();
                     // The maximum number of tessellations to be done every frame
-                    let max_tesselations = 2;
+                    let max_tesselations = 20;
                     let mut num_tessellations = 0;
                     if let Ok(server_world) = test_world.read() {
                         let mut tessellator = shared_tessellator.write().unwrap();
@@ -493,7 +520,9 @@ fn main() {
                                             let chunk_block_pos = pos.to_block_pos();
                                             let section_position = chunk_block_pos.to_entity_pos();
                                             let section_index = pos.vec.y as usize;
-                                            tessellator.tessellate_chunk_section(chunk, section_position, blocks);
+
+                                            let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos.vec);
+                                            tessellator.tessellate_chunk_section(chunk, section_position, blocks, nearby_chunks);
                                             let mesh = tessellator.build(&client.gpu.device);
                                             minecraft.world_render.set_section_mesh(mesh, pos.to_chunk_pos(), section_index);
                                             tessellate_queue.push_back(pos.vec);

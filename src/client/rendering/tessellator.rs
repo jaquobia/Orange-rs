@@ -200,7 +200,7 @@ impl TerrainTessellator {
     }
 
 
-    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>) {
+    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>, nearby_chunks: Vec<Option<&ChunkSection>>) {
 
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
@@ -230,20 +230,23 @@ impl TerrainTessellator {
                         let new_pos = pos_ivec + dir.get_int_vector();
                         if new_pos.x < 0
                             || new_pos.x > CHUNK_SECTION_AXIS_SIZE_M1 as i32
-                                || new_pos.y < 0
-                                || new_pos.y > CHUNK_SECTION_AXIS_SIZE_M1 as i32
-                                || new_pos.z < 0
-                                || new_pos.z > CHUNK_SECTION_AXIS_SIZE_M1 as i32
-                                {
-                                    occlusions[dir_index] = true; // Get information from neighbor
-                                                                  // chunk
-                                    continue;
+                            || new_pos.y < 0
+                            || new_pos.y > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                            || new_pos.z < 0
+                            || new_pos.z > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                        {
+                            if let Some(chunk) = nearby_chunks[dir_index] {
+                                let chunk_data = chunk.get_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15);
+                                let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
+                                if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
+                                    occlusions[dir_index] = block.is_transparent();
                                 }
-                        let chunk_data = section.get_vec(UVec3::new(
-                                new_pos.x as u32,
-                                new_pos.y as u32,
-                                new_pos.z as u32,
-                                ));
+                            } else {
+                                occlusions[dir_index] = true;
+                            };
+                            continue;
+                        }
+                        let chunk_data = section.get_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32, );
                         let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
                         if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
                             occlusions[dir_index] = block.is_transparent();
@@ -255,7 +258,7 @@ impl TerrainTessellator {
                         Vec3::one(),
                         textures,
                         &occlusions,
-                        );
+                    );
                 }
             }
         }

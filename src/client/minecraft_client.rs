@@ -1,18 +1,11 @@
-use std::{collections::VecDeque, cell::RefCell};
+use std::{cell::RefCell};
 
-use super::{rendering::{mesh::Mesh, tessellator::TerrainTessellator, world_renders::WorldRenderer}, gui::screen::Screen};
+use super::{rendering::{mesh::Mesh, world_renders::WorldRenderer}, gui::screen::Screen};
 use crate::{
-    block::Block,
-    world::{
-        chunk::{CHUNK_SECTION_AXIS_SIZE, Chunk},
-    },
-    registry::Register,
-    util::pos::{ChunkPos, Position},
+    util::pos::{ChunkPos},
 };
-use ultraviolet::Vec3;
+use ultraviolet::{IVec3};
 use wgpu::RenderPass;
-use crate::util::pos::NewChunkPosition;
-use crate::world::chunk::ChunkSection;
 
 pub type ClientChunkStorage = Option<Mesh>;
 
@@ -65,7 +58,7 @@ impl MinecraftClient {
     // pub fn set_screen(&self, screen: Option<Box<dyn Screen>>) {
     //     self.active_screen.replace(screen);
     // }
-    pub fn set_screen<'a, S: Screen + 'static>(&'a self) {
+    pub fn set_screen<S: Screen + 'static>(&self) {
         self.active_screen.replace(Some(Box::new(S::new())));
     }
 
@@ -73,41 +66,25 @@ impl MinecraftClient {
         self.player_level_id
     }
 
-    pub fn draw_chunk<'a>(&'a self, x: i32, z: i32, render_pass: &mut RenderPass<'a>) {
-        if let Some(chunk) = self.world_render.get_cache().get_chunk_pos(x, z) {
-            for mesh in chunk.get_sections() {
-                match mesh {
-                    Some(mesh) => mesh.draw(render_pass),
-                    None => { },
-                };
-            }
-        }
-    }
-
     pub fn draw_chunks<'a>(&'a self, min_extent: ChunkPos, max_extent: ChunkPos, render_pass: &mut RenderPass<'a>) {
         for x in min_extent.x..=max_extent.x {
             for z in min_extent.y..=max_extent.y {
-                self.draw_chunk(x, z, render_pass);
+                let vec16 = IVec3::new(16, 16, 16);
+                if let Some(chunk) = self.world_render.get_cache().get_chunk_pos(x, z) {
+                    let mut mesh_index = 0i32;
+                    for mesh in chunk.get_sections() {
+                        let chunk_pos_min = IVec3::new(x << 4, mesh_index << 4, z << 4);
+                        let chunk_pos_max = chunk_pos_min + vec16;
+
+                        match mesh {
+                            Some(mesh) => mesh.draw(render_pass),
+                            None => { },
+                        };
+                        mesh_index += 1;
+                    }
+                }
             }
         }
-    }
-
-    pub fn direct_tessellate_chunk(&mut self,
-                                   tessellator: &mut TerrainTessellator,
-                                   device: &wgpu::Device,
-                                   blocks: &Register<Block>,
-                                   chunk_pos: NewChunkPosition,
-                                   chunk: &ChunkSection,
-                                    // chunk_pos: ChunkPos,
-) -> Result<(), ()> {
-        let chunk_block_pos = chunk_pos.to_block_pos();
-        let section_position = chunk_block_pos.to_entity_pos();
-        let section_index = chunk_pos.vec.y as usize;
-        tessellator.tessellate_chunk_section(chunk, section_position, blocks);
-        let mesh = tessellator.build(device);
-        self.world_render.set_section_mesh(mesh, chunk_pos.to_chunk_pos(), section_index);
-
-        Ok(())
     }
 
     pub fn process_chunks(&mut self, min_extent: ChunkPos, max_extent: ChunkPos) {
