@@ -1,4 +1,4 @@
-use ultraviolet::{Mat4, Vec3, Vec4};
+use ultraviolet::{Vec3, Vec4};
 
 pub struct AABB {
     min: Vec3,
@@ -11,7 +11,7 @@ impl AABB {
     }
     fn isOnOrForwardPlane(plane: &FrustrumPlane, center: Vec3, extents: Vec3) -> bool {
         let r = extents.x * plane.normal.x.abs() + extents.y * plane.normal.y.abs() + extents.z * plane.normal.z.abs();
-        plane.getSignedDistanceToPlane(center).abs() >= -r
+        -r <= plane.getSignedDistanceToPlane(center)
     }
 
     // pub fn isOnFrustum(&self, frustrum: Frustrum) -> bool {
@@ -43,24 +43,9 @@ impl Frustrum {
         }
     }
 
-    pub fn aabb_intersects(&self, min: Vec3, max: Vec3, front: Vec3, right: Vec3, up: Vec3) -> bool {
+    pub fn aabb_intersects(&self, min: Vec3, max: Vec3) -> bool {
         let center = (max + min) * 0.5;
         let extents = max - center;
-
-        // let x_axis = Vec3::new(1.0, 0.0, 0.0);
-        // let y_axis = Vec3::new(0.0, 1.0, 0.0);
-        // let z_axis = Vec3::new(0.0, 0.0, 1.0);
-        //
-        // let right = right * extents.x;
-        // let up = up * extents.y;
-        // let front = front * extents.z;
-
-        // let extents = Vec3::new(
-        //     x_axis.dot(right).abs() + x_axis.dot(up).abs() + x_axis.dot(front).abs(),
-        //     y_axis.dot(right).abs() + y_axis.dot(up).abs() + y_axis.dot(front).abs(),
-        //     z_axis.dot(right).abs() + z_axis.dot(up).abs() + z_axis.dot(front).abs(),
-        // );
-        // let center: Vec3 = (*model_mat * Vec4::new(center.x, center.y, center.z, 1.0)).truncated();
 
         AABB::isOnOrForwardPlane(&self.planes[3], center, extents) &&
             AABB::isOnOrForwardPlane(&self.planes[2], center, extents) &&

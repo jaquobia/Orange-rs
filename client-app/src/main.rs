@@ -139,7 +139,7 @@ fn main() {
     // and mcregion world types; but may also provide ability to configure a custom world height
     let chunk_height: usize = 8;
 
-    let mut minecraft = MinecraftClient::new(chunk_height as u32);
+    let mut minecraft = MinecraftClient::new(chunk_height);
     minecraft.set_screen::<MainMenu>();
     
     let username = String::from("TT3");
@@ -387,7 +387,7 @@ fn main() {
             }
             if event_helper.key_held(VirtualKeyCode::G) {
                 // warn!("Chunk Count: {}", test_world.read().unwrap().chunks.chunks().len());
-                warn!("Player Position: {:?}", client.camera.position);
+                warn!("Player Position: {:?}", client.camera.position());
             }
             if event_helper.key_held(VirtualKeyCode::Space) {
                 client
@@ -470,32 +470,38 @@ fn main() {
                     render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
                     render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
 
-                    let directions = CameraController::get_directions(client.camera.yaw);
+                    let directions = client.camera.vectors();
                     let aspect = client.projection.aspect;
                     let fovy = client.projection.fovy;
                     let znear = client.projection.znear;
                     let zfar = client.projection.zfar;
-                    let frustrum = Frustrum::new(client.camera.position, directions.0, directions.1, directions.2, aspect, fovy, znear, zfar);
+                    let camera_position = client.camera.position();
+                    // warn!("Front: {:?}, right: {:?}. up: {:?}", directions.0, directions.1, directions.2);
+                    let frustrum = Frustrum::new(camera_position, directions.0, directions.1, directions.2, aspect, fovy, znear, zfar);
 
                     // AABB in frustrum culling?
+                    let mut render_list: Vec<IVec3> = vec![];
                     let vec16 = Vec3::new(16.0, 16.0, 16.0);
                     for x in min_extent.x..=max_extent.x {
                         for z in min_extent.y..=max_extent.y {
-                            if let Some(chunk) = minecraft.world_render.get_cache().get_chunk_pos(x, z) {
-                                let mut mesh_index = 0i32;
-                                for mesh in chunk.get_sections() {
-                                    let chunk_pos_min = Vec3::new((x << 4) as f32, (mesh_index << 4) as f32, (z << 4) as f32);
-                                    let chunk_pos_max = chunk_pos_min + vec16;
+                            for y in 0..chunk_height as i32 {
+                                let chunk_pos_min = Vec3::new((x << 4) as f32, (y << 4) as f32, (z << 4) as f32);
+                                let chunk_pos_max = chunk_pos_min + vec16;
 
-                                    if !frustrum.aabb_intersects(chunk_pos_min, chunk_pos_max, directions.0, directions.1, directions.2) { continue; }
-
-                                    match mesh {
-                                        Some(mesh) => mesh.draw(&mut render_pass),
-                                        None => { },
-                                    };
-                                    mesh_index += 1;
-                                }
+                                if !frustrum.aabb_intersects(chunk_pos_min, chunk_pos_max) { continue; }
+                                render_list.push(IVec3::new(x, y, z));
                             }
+                        }
+                    }
+                    let camera_pos_i = IVec3::new(camera_position.x as i32, camera_position.y as i32, camera_position.z as i32);
+                    render_list.sort_unstable_by(|a, b| {
+                        let dist_a = *a - camera_pos_i;
+                        let dist_b = *b - camera_pos_i;
+                        dist_a.mag().cmp(&dist_b.mag())
+                    });
+                    for chunk_pos in render_list {
+                        if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(chunk_pos) {
+                            mesh.draw(&mut render_pass);
                         }
                     }
                 }
@@ -512,20 +518,18 @@ fn main() {
                         let mut tessellator = shared_tessellator.write().unwrap();
                         for x in min_extent.x..=max_extent.x {
                             for z in min_extent.y..=max_extent.y {
-                                for y in 0..server_world.get_height() {
-                                    let pos = NewChunkPosition::new(x, y as i32, z);
-                                    match server_world.chunk_storage.get_chunk(pos.vec) {
+                                for y in 0..server_world.get_height() as i32 {
+                                    let pos = IVec3::new(x, y, z);
+                                    match server_world.chunk_storage.get_chunk(pos) {
                                         Ok(chunk) if chunk.is_dirty() => {
                                             num_tessellations += 1;
-                                            let chunk_block_pos = pos.to_block_pos();
-                                            let section_position = chunk_block_pos.to_entity_pos();
-                                            let section_index = pos.vec.y as usize;
+                                            let section_position = NewChunkPosition::new(x, y, z).to_entity_pos();
 
-                                            let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos.vec);
+                                            let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos);
                                             tessellator.tessellate_chunk_section(chunk, section_position, blocks, nearby_chunks);
                                             let mesh = tessellator.build(&client.gpu.device);
-                                            minecraft.world_render.set_section_mesh(mesh, pos.to_chunk_pos(), section_index);
-                                            tessellate_queue.push_back(pos.vec);
+                                            minecraft.client_chunk_storage.set_chunk(mesh, pos);
+                                            tessellate_queue.push_back(pos);
                                         },
                                         _ => {}
                                     };

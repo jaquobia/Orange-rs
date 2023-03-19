@@ -6,34 +6,73 @@ const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
 
 #[derive(Debug)]
 pub struct Camera {
-    pub position: Vec3,
-    pub yaw: f32,
-    pub pitch: f32,
+    position: Vec3,
+    front: Vec3,
+    right: Vec3,
+    up: Vec3,
+    world_up: Vec3,
+    yaw: f32,
+    pitch: f32,
 }
 
 impl Camera {
     pub fn new<V: Into<Vec3>, Y: Into<Rad<f32>>, P: Into<Rad<f32>>>(
         position: V,
+        up: V,
         yaw: Y,
         pitch: P,
     ) -> Self {
         let rad_yaw: Rad<f32> = yaw.into();
         let rad_pitch: Rad<f32> = pitch.into();
-        Self {
-            position: position.into(),
-            yaw: rad_yaw.0,
-            pitch: rad_pitch.0,
-        }
+        Self::raw_new(position.into(), up.into(), rad_yaw.0, rad_pitch.0)
+    }
+
+    pub fn raw_new(position: Vec3, up: Vec3, yaw: f32, pitch: f32) -> Self {
+
+        let mut ret = Self {
+            position,
+            front: Vec3::new(0.0, 0.0, 0.0),
+            right: Vec3::new(0.0, 0.0, 0.0),
+            up,
+            world_up: up,
+            yaw,
+            pitch,
+        };
+        Self::update_vectors(&mut ret);
+        ret
+    }
+
+    pub fn yaw_pitch(&self) -> (f32, f32) {
+        (self.yaw, self.pitch)
+    }
+
+    pub fn vectors(&self) -> (Vec3, Vec3, Vec3) {
+        (self.front, self.right, self.up)
+    }
+
+    pub fn position(&self) -> Vec3 {
+        self.position
     }
 
     pub fn calc_matrix(&self) -> Mat4 {
-        let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
-        let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
         Mat4::look_at(
             self.position,
-            self.position + Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw),
-            Vec3::unit_y(),
+            self.position + self.front,
+            self.up,
         )
+    }
+
+    pub fn update_vectors(&mut self) {
+        let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
+        let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
+
+        self.front = Vec3::new(
+            cos_yaw * cos_pitch,
+            sin_pitch,
+            sin_yaw * cos_pitch,
+        ).normalized();
+        self.right = self.front.cross(self.world_up).normalized();
+        self.up = self.right.cross(self.front).normalized();
     }
 }
 
@@ -145,13 +184,6 @@ impl CameraController {
         self.rotate_vertical = 0.0;
     }
 
-    pub fn get_directions(yaw: f32) -> (Vec3, Vec3, Vec3) {
-        let (yaw_sin, yaw_cos) = yaw.sin_cos();
-        let forward = Vec3::new(yaw_cos, 0.0, yaw_sin).normalized();
-        let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalized();
-        (forward, right, Vec3::new(0.0, 1.0, 0.0))
-    }
-
     pub fn update_camera(&mut self, camera: &mut Camera, dt: f32) {
         // Move forward/backward and left/right
         let (yaw_sin, yaw_cos) = camera.yaw.sin_cos();
@@ -170,18 +202,20 @@ impl CameraController {
         camera.yaw += self.rotate_horizontal * self.sensitivity * SENSITIVITY_CORRECTION;
         camera.pitch += self.rotate_vertical * self.sensitivity * SENSITIVITY_CORRECTION;
 
-        // If process_mouse isn't called every frame, these values
-        // will not get set to zero, and the camera will rotate
-        // when moving in a non cardinal direction.
-        self.rotate_horizontal = 0.0;
-        self.rotate_vertical = 0.0;
-
         // Keep the camera's angle from going too high/low.
         if camera.pitch < -SAFE_FRAC_PI_2 {
             camera.pitch = -SAFE_FRAC_PI_2;
         } else if camera.pitch > SAFE_FRAC_PI_2 {
             camera.pitch = SAFE_FRAC_PI_2;
         }
+
+        camera.update_vectors();
+
+        // If process_mouse isn't called every frame, these values
+        // will not get set to zero, and the camera will rotate
+        // when moving in a non cardinal direction.
+        self.rotate_horizontal = 0.0;
+        self.rotate_vertical = 0.0;
 
         self.amount_left = 0.0;
         self.amount_right = 0.0;

@@ -46,7 +46,7 @@ impl Client {
         let gpu = WgpuData::new(&window);
 
         let (width, height) = window.inner_size().into();
-        let camera = camera::Camera::new((0.0, 64.0, 10.0), angle::Deg(-90.0), angle::Deg(-20.0));
+        let camera = camera::Camera::new((0.0, 64.0, 10.0), (0.0, 1.0, 0.0), angle::Deg(-90.0), angle::Deg(-20.0));
         let projection = camera::Projection::new(width, height, angle::Deg(45.0), 0.1, 100.0);
         let camera_controller = camera::CameraController::new(10.0, 1.0);
 
