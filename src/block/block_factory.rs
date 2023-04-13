@@ -1,3 +1,4 @@
+use crate::block::ModelSupplierType;
 use crate::minecraft::identifier::Identifier;
 
 use super::Block;
@@ -51,6 +52,11 @@ impl BlockFactory {
         self.settings.texture_index = Some(f);
         self
     }
+
+    pub fn model(mut self, f: ModelSupplierType) -> Self {
+        self.settings.model_supplier = Some(f);
+        self
+    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -60,4 +66,5 @@ pub struct BlockSettings {
     pub slipperiness: Option<f32>,
     pub transparent: Option<bool>,
     pub texture_index: Option<usize>,
+    pub model_supplier: Option<ModelSupplierType>,
 }

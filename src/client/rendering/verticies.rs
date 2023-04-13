@@ -4,7 +4,7 @@ use ultraviolet::{Vec2, Vec3};
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct TerrainVertex {
     position: Vec3,
-    color: Vec3,
+    color: Vec3, // u8 index -> texture; 2u8 2u8 -> uv
     normal: Vec3,
     texture: Vec2,
     overlay: u32,

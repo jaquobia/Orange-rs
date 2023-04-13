@@ -1,23 +1,32 @@
+use std::collections::HashMap;
 use std::ops::Add;
+use log::warn;
 
 use ultraviolet::{Vec2, Vec3, UVec3, IVec3};
 use wgpu::{util::DeviceExt, Device, Queue};
 
 use crate::{direction::{Direction, DIRECTIONS}, world::chunk::{CHUNK_SECTION_AXIS_SIZE, CHUNK_SECTION_AXIS_SIZE_M1, Chunk, ChunkSection}, registry::Register, block::Block};
+use crate::client::models::model::{BakedModel, ModelShape};
+use crate::client::textures::TextureObject;
+use crate::minecraft::identifier::Identifier;
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
 
 pub struct TerrainTessellator {
-    vertex_buffer: Vec<TerrainVertex>,
-    index_buffer: Vec<u32>,
+    opaque_vertex_buffer: Vec<TerrainVertex>,
+    transparent_vertex_buffer: Vec<TerrainVertex>,
+    opaque_index_buffer: Vec<u32>,
+    transparent_index_buffer: Vec<u32>,
 }
 
 impl TerrainTessellator {
     /// Construct a new tessellator object
     pub fn new() -> Self {
         Self {
-            vertex_buffer: vec![],
-            index_buffer: vec![],
+            opaque_vertex_buffer: vec![],
+            transparent_vertex_buffer: vec![],
+            opaque_index_buffer: vec![],
+            transparent_index_buffer: vec![],
         }
     }
 
@@ -47,7 +56,7 @@ impl TerrainTessellator {
             let texture_y = (texture_index / 16) as f32;
             let uv_min = Vec2::new(texture_x * TEX_SIZE, texture_y * TEX_SIZE);
             let uv_max = uv_min.add(Vec2::new(TEX_SIZE, TEX_SIZE));
-            self.quad(pos, pos_max, color, dir, uv_min, uv_max, lights);
+            // self.quad(pos, pos_max, color, dir, uv_min, uv_max, lights);
         }
         self
     }
@@ -63,61 +72,19 @@ impl TerrainTessellator {
     /// `lights` the light values of the vertices, currently unused
     pub fn quad(
         &mut self,
-        pos_min: Vec3,
-        pos_max: Vec3,
+        pos: [Vec3; 4],
         color: Vec3,
-        direction: &Direction,
+        normal: Vec3,
         uv_min: Vec2,
         uv_max: Vec2,
-        _lights: &[u32; 8],
     ) -> &mut Self {
-        let (p0, p1, p2, p3) = match direction {
-            Direction::North => (
-                Vec3::new(pos_min.x, pos_max.y, pos_min.z),
-                Vec3::new(pos_min.x, pos_max.y, pos_max.z),
-                Vec3::new(pos_min.x, pos_min.y, pos_min.z),
-                Vec3::new(pos_min.x, pos_min.y, pos_max.z),
-            ),
-            Direction::South => (
-                Vec3::new(pos_max.x, pos_max.y, pos_max.z),
-                Vec3::new(pos_max.x, pos_max.y, pos_min.z),
-                Vec3::new(pos_max.x, pos_min.y, pos_max.z),
-                Vec3::new(pos_max.x, pos_min.y, pos_min.z),
-            ),
-            Direction::East => (
-                Vec3::new(pos_max.x, pos_max.y, pos_min.z),
-                Vec3::new(pos_min.x, pos_max.y, pos_min.z),
-                Vec3::new(pos_max.x, pos_min.y, pos_min.z),
-                Vec3::new(pos_min.x, pos_min.y, pos_min.z),
-            ),
-            Direction::West => (
-                Vec3::new(pos_min.x, pos_max.y, pos_max.z),
-                Vec3::new(pos_max.x, pos_max.y, pos_max.z),
-                Vec3::new(pos_min.x, pos_min.y, pos_max.z),
-                Vec3::new(pos_max.x, pos_min.y, pos_max.z),
-            ),
-            Direction::Up => (
-                Vec3::new(pos_max.x, pos_max.y, pos_min.z),
-                Vec3::new(pos_max.x, pos_max.y, pos_max.z),
-                Vec3::new(pos_min.x, pos_max.y, pos_min.z),
-                Vec3::new(pos_min.x, pos_max.y, pos_max.z),
-            ),
-            Direction::Down => (
-                Vec3::new(pos_max.x, pos_min.y, pos_max.z),
-                Vec3::new(pos_max.x, pos_min.y, pos_min.z),
-                Vec3::new(pos_min.x, pos_min.y, pos_max.z),
-                Vec3::new(pos_min.x, pos_min.y, pos_min.z),
-            ),
-        };
 
-        let normal = direction.get_float_vector();
-
-        let prev_vert_len = self.vertex_buffer.len() as u32;
+        let prev_vert_len = self.opaque_vertex_buffer.len() as u32;
         // Top Left
-        self.vertex(TerrainVertex::new(p0, color, normal, uv_min, 0, 0));
+        self.vertex(TerrainVertex::new(pos[0], color, normal, uv_min, 0, 0));
         // Top Right
         self.vertex(TerrainVertex::new(
-            p1,
+            pos[1],
             color,
             normal,
             Vec2::new(uv_max.x, uv_min.y),
@@ -126,7 +93,7 @@ impl TerrainTessellator {
         ));
         // Bottom Left
         self.vertex(TerrainVertex::new(
-            p2,
+            pos[2],
             color,
             normal,
             Vec2::new(uv_min.x, uv_max.y),
@@ -134,21 +101,69 @@ impl TerrainTessellator {
             0,
         ));
         // Bottom Right
-        self.vertex(TerrainVertex::new(p3, color, normal, uv_max, 0, 0));
+        self.vertex(TerrainVertex::new(pos[3], color, normal, uv_max, 0, 0));
 
-        self.index_buffer.push(prev_vert_len + 0);
-        self.index_buffer.push(prev_vert_len + 2);
-        self.index_buffer.push(prev_vert_len + 3);
-        self.index_buffer.push(prev_vert_len + 0);
-        self.index_buffer.push(prev_vert_len + 3);
-        self.index_buffer.push(prev_vert_len + 1);
+        self.opaque_index_buffer.push(prev_vert_len + 0);
+        self.opaque_index_buffer.push(prev_vert_len + 2);
+        self.opaque_index_buffer.push(prev_vert_len + 3);
+        self.opaque_index_buffer.push(prev_vert_len + 0);
+        self.opaque_index_buffer.push(prev_vert_len + 3);
+        self.opaque_index_buffer.push(prev_vert_len + 1);
+
+        self
+    }
+
+    pub fn quad_transparent(
+        &mut self,
+        pos: [Vec3; 4],
+        color: Vec3,
+        normal: Vec3,
+        uv_min: Vec2,
+        uv_max: Vec2,
+    ) -> &mut Self {
+
+        let prev_vert_len = self.transparent_vertex_buffer.len() as u32;
+        // Top Left
+        self.vertex_transparent(TerrainVertex::new(pos[0], color, normal, uv_min, 0, 0));
+        // Top Right
+        self.vertex_transparent(TerrainVertex::new(
+            pos[1],
+            color,
+            normal,
+            Vec2::new(uv_max.x, uv_min.y),
+            0,
+            0,
+        ));
+        // Bottom Left
+        self.vertex_transparent(TerrainVertex::new(
+            pos[2],
+            color,
+            normal,
+            Vec2::new(uv_min.x, uv_max.y),
+            0,
+            0,
+        ));
+        // Bottom Right
+        self.vertex_transparent(TerrainVertex::new(pos[3], color, normal, uv_max, 0, 0));
+
+        self.transparent_index_buffer.push(prev_vert_len + 0);
+        self.transparent_index_buffer.push(prev_vert_len + 2);
+        self.transparent_index_buffer.push(prev_vert_len + 3);
+        self.transparent_index_buffer.push(prev_vert_len + 0);
+        self.transparent_index_buffer.push(prev_vert_len + 3);
+        self.transparent_index_buffer.push(prev_vert_len + 1);
 
         self
     }
 
     /// Adds a vertex to a buffer, private because it doesn't update the index buffer
     fn vertex(&mut self, vert: TerrainVertex) -> &mut Self {
-        self.vertex_buffer.push(vert);
+        self.opaque_vertex_buffer.push(vert);
+        self
+    }
+
+    fn vertex_transparent(&mut self, vert: TerrainVertex) -> &mut Self {
+        self.transparent_vertex_buffer.push(vert);
         self
     }
 
@@ -156,111 +171,156 @@ impl TerrainTessellator {
     pub fn build(&mut self, device: &Device) -> Mesh {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(self.vertex_buffer.as_slice()),
+            contents: bytemuck::cast_slice(self.opaque_vertex_buffer.as_slice()),
             usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(self.index_buffer.as_slice()),
+            contents: bytemuck::cast_slice(self.opaque_index_buffer.as_slice()),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let num_verticies = self.vertex_buffer.len() as u32;
-        let num_indicies = self.index_buffer.len() as u32;
-        let mesh = Mesh::new(vertex_buffer, num_verticies, index_buffer, num_indicies);
+        let num_vertices = self.opaque_vertex_buffer.len() as u32;
+        let num_indices = self.opaque_index_buffer.len() as u32;
 
-        self.vertex_buffer.clear();
-        self.index_buffer.clear();
-        // TODO check if keeping buffer size is good
-        // self.vertex_buffer.shrink_to_fit();
-        // self.index_buffer.shrink_to_fit();
+        let vertex_buffer_transparent = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(self.transparent_vertex_buffer.as_slice()),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let index_buffer_transparent = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(self.transparent_index_buffer.as_slice()),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let num_vertices_transparent = self.transparent_vertex_buffer.len() as u32;
+        let num_indices_transparent = self.transparent_index_buffer.len() as u32;
+        let mesh = Mesh::new(vertex_buffer, vertex_buffer_transparent, num_vertices, num_vertices_transparent, index_buffer, index_buffer_transparent, num_indices, num_indices_transparent);
+
+        self.opaque_vertex_buffer.clear();
+        self.transparent_vertex_buffer.clear();
+        self.opaque_index_buffer.clear();
+        self.transparent_index_buffer.clear();
 
         mesh
     }
 
-    pub fn into_mesh(&mut self, queue: &Queue, mesh: &mut Mesh) {
-        let vertex_buffer = &mesh.vertex_buffer;
-        let index_buffer = &mesh.index_buffer;
+    // pub fn into_mesh(&mut self, queue: &Queue, mesh: &mut Mesh) {
+    //     let vertex_buffer = &mesh.vertex_buffer;
+    //     let index_buffer = &mesh.index_buffer;
+    //
+    //     queue.write_buffer(
+    //         vertex_buffer,
+    //         0,
+    //         bytemuck::cast_slice(self.vertex_buffer.as_slice()),
+    //     );
+    //     queue.write_buffer(
+    //         index_buffer,
+    //         0,
+    //         bytemuck::cast_slice(self.index_buffer.as_slice()),
+    //     );
+    //
+    //     mesh.num_verticies = self.vertex_buffer.len() as u32;
+    //     mesh.num_indicies = self.index_buffer.len() as u32;
+    //
+    //     self.vertex_buffer.clear();
+    //     self.index_buffer.clear();
+    // }
 
-        queue.write_buffer(
-            vertex_buffer,
-            0,
-            bytemuck::cast_slice(self.vertex_buffer.as_slice()),
-        );
-        queue.write_buffer(
-            index_buffer,
-            0,
-            bytemuck::cast_slice(self.index_buffer.as_slice()),
-        );
-
-        mesh.num_verticies = self.vertex_buffer.len() as u32;
-        mesh.num_indicies = self.index_buffer.len() as u32;
-
-        self.vertex_buffer.clear();
-        self.index_buffer.clear();
+    fn get_occlusions(intra_chunk_position: IVec3, blocks: &Register<Block>, chunk: &ChunkSection, nearby_chunks: &Vec<Option<&ChunkSection>>) -> [bool; 6] {
+        let mut occlusions: [bool; 6] = [false; 6];
+        for dir in &DIRECTIONS {
+            let dir_index = dir.ordinal();
+            let new_pos = intra_chunk_position + dir.get_int_vector();
+            if new_pos.x < 0
+                || new_pos.x > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                || new_pos.y < 0
+                || new_pos.y > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+                || new_pos.z < 0
+                || new_pos.z > CHUNK_SECTION_AXIS_SIZE_M1 as i32
+            {
+                if let Some(chunk) = nearby_chunks[dir_index] {
+                    let chunk_data = chunk.get_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15);
+                    let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
+                    if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
+                        occlusions[dir_index] = !block.is_transparent();
+                    }
+                }
+                continue;
+            }
+            let chunk_data = chunk.get_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32);
+            let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
+            if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
+                occlusions[dir_index] = !block.is_transparent();
+            }
+        }
+        occlusions
     }
 
+    fn find_texture_in_map(texture_strings: &HashMap<String, String>, mut tex_to_find: String) -> String {
+        let default_texture = String::from("missing");
 
-    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>, nearby_chunks: Vec<Option<&ChunkSection>>) {
+        while tex_to_find.starts_with("#") {
+            let a = &texture_strings.get(&tex_to_find[1..]);
+            tex_to_find = a.unwrap_or(&default_texture).clone();
+        }
+
+        return tex_to_find;
+    }
+
+    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>, textures: &HashMap<Identifier, TextureObject>, nearby_chunks: Vec<Option<&ChunkSection>>) {
 
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
                 for z in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
-                    let pos_vec = UVec3::new(x, y, z);
-                    let pos_ivec = IVec3::new(x as i32, y as i32, z as i32);
 
-                    let position = Vec3::new(x as f32, y as f32, z as f32);
-                    let chunk_data = section.get_vec(pos_vec);
+                    let real_world_position = section_position + Vec3::new(x as f32, y as f32, z as f32);
+                    let chunk_data = section.get_vec(UVec3::new(x, y, z));
 
-                    let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
-                    if block_id == 0 {
-                        // Air, stop
-                        continue;
-                    }
+                    let (block_id, metadata) = Chunk::chunk_data_helper(chunk_data);
+                    // Air, stop
+                    if block_id == 0 { continue; }
 
                     let block = blocks.get_element_from_index(block_id);
-                    let mut occlusions: [bool; 6] = [false; 6];
-                    let textures: [u32; 6] = if let Some(block) = block.as_ref() {
-                        [block.texture_index() as u32; 6]
-                    } else {
-                        [10; 6]
-                    };
+                    let (block_model, is_transparent) = if let Some(block) = block.as_ref() {
+                        (block.get_model(metadata as u32), block.is_transparent())
+                    } else { (BakedModel::new(), false) };
 
-                    for dir in &DIRECTIONS {
-                        let dir_index = dir.ordinal();
-                        let new_pos = pos_ivec + dir.get_int_vector();
-                        if new_pos.x < 0
-                            || new_pos.x > CHUNK_SECTION_AXIS_SIZE_M1 as i32
-                            || new_pos.y < 0
-                            || new_pos.y > CHUNK_SECTION_AXIS_SIZE_M1 as i32
-                            || new_pos.z < 0
-                            || new_pos.z > CHUNK_SECTION_AXIS_SIZE_M1 as i32
-                        {
-                            if let Some(chunk) = nearby_chunks[dir_index] {
-                                let chunk_data = chunk.get_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15);
-                                let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
-                                if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
-                                    occlusions[dir_index] = block.is_transparent();
+                    let occlusions: [bool; 6] = Self::get_occlusions(IVec3::new(x as i32, y as i32, z as i32), blocks, section, &nearby_chunks);
+
+                    let model_textures = block_model.textures();
+                    for face in block_model.shapes() {
+                        match face {
+                            ModelShape::Quad {quad} => {
+                                if let Some(dir) = quad.cullface {
+                                    if occlusions[dir.ordinal()] {
+                                        continue;
+                                    }
+                                };
+
+                                let positions: [Vec3; 4] = [quad.pos[0] + real_world_position, quad.pos[1] + real_world_position, quad.pos[2] + real_world_position, quad.pos[3] + real_world_position];
+                                let qtexclone = quad.texture.clone();
+                                let texture = Self::find_texture_in_map(model_textures, qtexclone.clone());
+
+                                let (uv_min, uv_max) = if let TextureObject::AtlasTexture { internal_uv } = textures[&Identifier::from(texture)] {
+                                    (internal_uv[0], internal_uv[1])
+                                } else { (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) };
+
+                                let (quad_uv_min, quad_uv_max) = (quad.u, quad.v);
+
+                                if is_transparent {
+                                    self.quad_transparent(positions, quad.color, quad.normal, uv_min, uv_max);
+                                } else {
+                                    self.quad(positions, quad.color, quad.normal, uv_min, uv_max);
                                 }
-                            } else {
-                                occlusions[dir_index] = true;
-                            };
-                            continue;
-                        }
-                        let chunk_data = section.get_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32, );
-                        let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
-                        if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
-                            occlusions[dir_index] = block.is_transparent();
+                            },
+                            ModelShape::Triangle {triangle} => {
+
+                            }
                         }
                     }
 
-                    self.cuboid(
-                        position + section_position,
-                        Vec3::one(),
-                        textures,
-                        &occlusions,
-                    );
-                }
-            }
-        }
+                } // z
+            } // x
+        } // y
     }
 }

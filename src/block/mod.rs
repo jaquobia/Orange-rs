@@ -1,8 +1,12 @@
 pub mod block_factory;
 
 use crate::{minecraft::identifier::Identifier, registry::Registerable};
+use crate::client::models::model::{BakedModel, VoxelModel};
+use crate::minecraft::template_models;
 
 use self::block_factory::BlockSettings;
+
+pub type ModelSupplierType = fn(u32) -> BakedModel;
 
 /// Describes the properties of blocks in the world, how they look, how they interact with
 /// entities, and if they have an associated entity
@@ -19,6 +23,8 @@ pub struct Block {
     transparent: bool,
     /// To be removed in favor of models
     texture_index: usize,
+
+    model: ModelSupplierType,
 }
 
 impl Block {
@@ -38,6 +44,8 @@ impl Block {
 
         let texture_index = settings.texture_index.unwrap_or(0);
 
+        let model_supplier = settings.model_supplier.unwrap_or(|x| { VoxelModel::from_template(template_models::cube_all()).with_texture("all", "missing").bake() });
+
         Self {
             identifier,
             hardness,
@@ -45,6 +53,7 @@ impl Block {
             slipperiness,
             transparent,
             texture_index,
+            model: model_supplier,
         }
     }
 
@@ -66,6 +75,11 @@ impl Block {
 
     pub fn texture_index(&self) -> usize {
         self.texture_index
+    }
+
+    pub fn get_model(&self, meta: u32) -> BakedModel {
+        let f: ModelSupplierType = self.model;
+        f(meta)
     }
 }
 

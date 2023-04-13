@@ -83,7 +83,7 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
                 Packet::Handshake { handshake_data } => {
                     let login_packet = Packet::Login{ protocol: protocol_id, username: username.clone(), seed: 0, dimension: 0 };
                     network_thread.send_packet(login_packet); 
-                    warn!("Handshake Packet Recieved! {handshake_data}, sending login request as {username}."); 
+                    warn!("Handshake Packet Received! {handshake_data}, sending login request as {username}.");
                 },
                 Packet::Login { protocol, username, seed, dimension } => {
                     player_id = protocol;
@@ -386,7 +386,6 @@ fn main() {
                     .process_keyboard(CameraControllerMovement::Right, true);
             }
             if event_helper.key_held(VirtualKeyCode::G) {
-                // warn!("Chunk Count: {}", test_world.read().unwrap().chunks.chunks().len());
                 warn!("Player Position: {:?}", client.camera.position());
             }
             if event_helper.key_held(VirtualKeyCode::Space) {
@@ -494,14 +493,22 @@ fn main() {
                         }
                     }
                     let camera_pos_i = IVec3::new(camera_position.x as i32, camera_position.y as i32, camera_position.z as i32);
+                    let vec8 = IVec3::new(8, 8, 8);
+                    // Sort by center of chunks; if sorting by min point, chunks to the x+/y+/z+ are likely to be drawn before the chunk of the player
                     render_list.sort_unstable_by(|a, b| {
-                        let dist_a = *a - camera_pos_i;
-                        let dist_b = *b - camera_pos_i;
+                        let dist_a = *a + vec8 - camera_pos_i;
+                        let dist_b = *b + vec8 - camera_pos_i;
                         dist_a.mag().cmp(&dist_b.mag())
                     });
-                    for chunk_pos in render_list {
-                        if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(chunk_pos) {
+                    for chunk_pos in &render_list {
+                        if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(*chunk_pos) {
                             mesh.draw(&mut render_pass);
+                        }
+                    }
+                    render_list.reverse();
+                    for chunk_pos in &render_list {
+                        if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(*chunk_pos) {
+                            mesh.draw_transparent(&mut render_pass);
                         }
                     }
                 }
@@ -511,8 +518,9 @@ fn main() {
                     
                     let registry = registry.read().unwrap();
                     let blocks = registry.get_block_register();
+                    let textures = registry.get_texture_register();
                     // The maximum number of tessellations to be done every frame
-                    let max_tesselations = 20;
+                    let max_tesselations = 2;
                     let mut num_tessellations = 0;
                     if let Ok(server_world) = test_world.read() {
                         let mut tessellator = shared_tessellator.write().unwrap();
@@ -526,7 +534,7 @@ fn main() {
                                             let section_position = NewChunkPosition::new(x, y, z).to_entity_pos();
 
                                             let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos);
-                                            tessellator.tessellate_chunk_section(chunk, section_position, blocks, nearby_chunks);
+                                            tessellator.tessellate_chunk_section(chunk, section_position, blocks, textures, nearby_chunks);
                                             let mesh = tessellator.build(&client.gpu.device);
                                             minecraft.client_chunk_storage.set_chunk(mesh, pos);
                                             tessellate_queue.push_back(pos);
@@ -535,9 +543,7 @@ fn main() {
                                     };
                                     if num_tessellations > max_tesselations { break; }
                                 }
-                                if num_tessellations > max_tesselations { break; }
                             }
-                            if num_tessellations > max_tesselations { break; }
                         }
                     }
                     if tessellate_queue.len() > 0 {

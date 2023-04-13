@@ -1,5 +1,6 @@
 use ultraviolet::{IVec3, Vec3};
 
+#[derive(Copy, Clone, Debug)]
 pub enum Direction {
     North,
     South,

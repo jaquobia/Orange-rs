@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use ultraviolet::IVec3;
 use crate::direction::DIRECTIONS;
-
 pub mod chunk;
-pub mod chunk_map;
 
 #[derive(Debug)]
 pub enum ChunkAccessError {
