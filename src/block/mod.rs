@@ -2,11 +2,13 @@ pub mod block_factory;
 
 use crate::{minecraft::identifier::Identifier, registry::Registerable};
 use crate::client::models::model::{BakedModel, VoxelModel};
+use crate::direction::Direction;
 use crate::minecraft::template_models;
 
 use self::block_factory::BlockSettings;
 
 pub type ModelSupplierType = fn(u32) -> BakedModel;
+pub type SideCullFunctionType = fn(Direction) -> bool;
 
 /// Describes the properties of blocks in the world, how they look, how they interact with
 /// entities, and if they have an associated entity
@@ -21,10 +23,9 @@ pub struct Block {
     slipperiness: f32,
     /// Transparent, determines if this block should be on the transparency layer
     transparent: bool,
-    /// To be removed in favor of models
-    texture_index: usize,
 
     model: ModelSupplierType,
+    side_cull_fn: SideCullFunctionType,
 }
 
 impl Block {
@@ -42,9 +43,9 @@ impl Block {
 
         let transparent = settings.transparent.unwrap_or(false);
 
-        let texture_index = settings.texture_index.unwrap_or(0);
 
-        let model_supplier = settings.model_supplier.unwrap_or(|x| { VoxelModel::from_template(template_models::cube_all()).with_texture("all", "missing").bake() });
+        let model_supplier = settings.model_supplier.unwrap_or(|x| { VoxelModel::from_template(template_models::missing()).bake() });
+        let side_cull_fn = settings.side_cull_fn.unwrap_or(|dir| { true });
 
         Self {
             identifier,
@@ -52,8 +53,8 @@ impl Block {
             resistance,
             slipperiness,
             transparent,
-            texture_index,
             model: model_supplier,
+            side_cull_fn,
         }
     }
 
@@ -73,13 +74,14 @@ impl Block {
         self.transparent
     }
 
-    pub fn texture_index(&self) -> usize {
-        self.texture_index
-    }
-
     pub fn get_model(&self, meta: u32) -> BakedModel {
         let f: ModelSupplierType = self.model;
         f(meta)
+    }
+
+    pub fn culls_side(&self, dir: Direction) -> bool {
+        let f: SideCullFunctionType = self.side_cull_fn;
+        f(dir)
     }
 }
 

@@ -1,7 +1,7 @@
 // Im not sure how efficient string concatenation is via format!(), so I would recommend not
 // creating new Indentifiers all the time to save on performance, and rather reuse them
 
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 /// Identitifer construct, a commonly seen concept in modern modded minecraft, also known as ResourceLocation in some earlier versions
@@ -11,6 +11,12 @@ pub struct Identifier {
     namespace: String,
     name: String,
     total_id: String,
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.total_id)
+    }
 }
 
 impl PartialEq for Identifier {
@@ -52,12 +58,6 @@ impl Identifier {
 
     pub fn get_total_identifier(&self) -> &String {
         &self.total_id
-    }
-}
-
-impl Display for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.total_id.as_str())
     }
 }
 

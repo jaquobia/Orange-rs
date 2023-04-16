@@ -8,8 +8,8 @@ use orange_rs::{
     client::{
         minecraft_client::MinecraftClient, 
         rendering::{
-            ElapsedTime, 
-            State, 
+            ElapsedTime,
+            TerrainOpaqueState,
             tessellator::TerrainTessellator
         }, 
         camera::CameraControllerMovement, 
@@ -35,6 +35,7 @@ use ultraviolet::{DVec3, IVec3, Vec3};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
 use orange_rs::client::camera::CameraController;
+use orange_rs::client::rendering::TerrainTransparentState;
 use orange_rs::util::frustrum::Frustrum;
 use orange_rs::util::pos::NewChunkPosition;
 use orange_rs::world::{ChunkStorageTrait};
@@ -48,14 +49,22 @@ fn prepare_client(client: &mut Client) {
     // Layouts is created after state, but state should be part of client
     // A weird ordering issue that should eventually be fixed, but not important atm
     {
-        let world_render_state = State::new(
+        let world_render_state = TerrainOpaqueState::new(
             &client.gpu.device,
             &client.gpu.config,
             &client.projection,
             &client.camera,
             &client.layouts["mc_terrain_tex_layout"],
         );
-        client.state.replace(world_render_state);
+        client.terrain_opaque_state.replace(world_render_state);
+        let world_render_state = TerrainTransparentState::new(
+            &client.gpu.device,
+            &client.gpu.config,
+            &client.projection,
+            &client.camera,
+            &client.layouts["mc_terrain_tex_layout"],
+        );
+        client.terrain_transparent_state.replace(world_render_state);
     }
 }
 
@@ -101,6 +110,10 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
     Ok(network_thread)
 }
 
+/**
+uv correction, model element rotation, model caching, transparent shader pipeline, finish models for blocks, tints for leaves and grass, specify block face occlusion, transparent - transparent block face culling
+**/
+
 fn main() {
 
     // env_logger::init();
@@ -108,6 +121,10 @@ fn main() {
 
     // Eventually parse these for username and stuff
     let _args: Vec<String> = std::env::args().collect();
+
+    println!("Args: {:?}", _args);
+
+    let param_ip = &_args[1];
 
     let event_loop = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
@@ -146,7 +163,7 @@ fn main() {
     let address = "127.0.0.0".to_string();
     let port = 25565;
     let mut test_world = TestWorld::new(chunk_height);
-    let mut network_thread = match join_server(username, 14, address, port, &mut test_world) {
+    let mut network_thread = match join_server(username, 14, param_ip.clone(), port, &mut test_world) {
         Ok(network_thread) => {
             network_thread
         },
@@ -298,10 +315,12 @@ fn main() {
                         test_world.handle_map_chunk(x, y as i32, z, size_x, size_y, size_z, compressed_data);
                     },
                     Packet::MultiBlockChange { chunk_x, chunk_z, coords_type_metadata_array } => {
-                        // warn!("Multi Block Change");
+                        warn!("Multi Block Change");
+                        test_world.set_blocks(chunk_x, chunk_z, coords_type_metadata_array);
                     },
                     Packet::BlockChange { x, y, z, block_type, metadata } => {
-                        // warn!("Block Change");
+                        warn!("Block Change");
+                        test_world.set_block(x, y as i32, z, block_type as u8, metadata as u8);
                     },
                     Packet::BlockAction { x, y, z, instrument_or_state, pitch_or_direction } => {
                         // warn!("Block Action");
@@ -363,7 +382,6 @@ fn main() {
                 warn!("Stopping!");
                 control_flow.set_exit();
                 server_thread.stop();
-                return;
             }
             if event_helper.key_held(VirtualKeyCode::W) {
                 client
@@ -463,7 +481,7 @@ fn main() {
                         }),
                     });
 
-                    let state = client.state.as_ref().unwrap();
+                    let state = client.terrain_opaque_state.as_ref().unwrap();
 
                     render_pass.set_pipeline(&state.render_pipeline);
                     render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
@@ -505,6 +523,11 @@ fn main() {
                             mesh.draw(&mut render_pass);
                         }
                     }
+                    let state = client.terrain_transparent_state.as_ref().unwrap();
+
+                    render_pass.set_pipeline(&state.render_pipeline);
+                    render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
+                    render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
                     render_list.reverse();
                     for chunk_pos in &render_list {
                         if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(*chunk_pos) {
@@ -512,15 +535,14 @@ fn main() {
                         }
                     }
                 }
-
                 {
-                    minecraft.process_chunks(min_extent.clone(), max_extent.clone());
+                    // minecraft.process_chunks(min_extent.clone(), max_extent.clone());
                     
                     let registry = registry.read().unwrap();
                     let blocks = registry.get_block_register();
                     let textures = registry.get_texture_register();
                     // The maximum number of tessellations to be done every frame
-                    let max_tesselations = 2;
+                    let max_tessellations = 2;
                     let mut num_tessellations = 0;
                     if let Ok(server_world) = test_world.read() {
                         let mut tessellator = shared_tessellator.write().unwrap();
@@ -541,7 +563,7 @@ fn main() {
                                         },
                                         _ => {}
                                     };
-                                    if num_tessellations > max_tesselations { break; }
+                                    if num_tessellations > max_tessellations { break; }
                                 }
                             }
                         }

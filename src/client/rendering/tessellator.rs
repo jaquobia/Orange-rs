@@ -9,6 +9,7 @@ use crate::{direction::{Direction, DIRECTIONS}, world::chunk::{CHUNK_SECTION_AXI
 use crate::client::models::model::{BakedModel, ModelShape};
 use crate::client::textures::TextureObject;
 use crate::minecraft::identifier::Identifier;
+use crate::registry::Registerable;
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
 
@@ -226,7 +227,7 @@ impl TerrainTessellator {
     //     self.index_buffer.clear();
     // }
 
-    fn get_occlusions(intra_chunk_position: IVec3, blocks: &Register<Block>, chunk: &ChunkSection, nearby_chunks: &Vec<Option<&ChunkSection>>) -> [bool; 6] {
+    fn get_occlusions(intra_chunk_position: IVec3, blocks: &Register<Block>, chunk: &ChunkSection, nearby_chunks: &Vec<Option<&ChunkSection>>, source_block_transparent: bool) -> [bool; 6] {
         let mut occlusions: [bool; 6] = [false; 6];
         for dir in &DIRECTIONS {
             let dir_index = dir.ordinal();
@@ -242,7 +243,7 @@ impl TerrainTessellator {
                     let chunk_data = chunk.get_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15);
                     let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
                     if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
-                        occlusions[dir_index] = !block.is_transparent();
+                        occlusions[dir_index] = (block.is_transparent() == source_block_transparent) && block.culls_side(dir.reverse());
                     }
                 }
                 continue;
@@ -250,7 +251,7 @@ impl TerrainTessellator {
             let chunk_data = chunk.get_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32);
             let (block_id, _metadata) = Chunk::chunk_data_helper(chunk_data);
             if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
-                occlusions[dir_index] = !block.is_transparent();
+                occlusions[dir_index] = (block.is_transparent() == source_block_transparent) && block.culls_side(dir.reverse());
             }
         }
         occlusions
@@ -268,25 +269,23 @@ impl TerrainTessellator {
     }
 
     pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, section_position: Vec3, blocks: &Register<Block>, textures: &HashMap<Identifier, TextureObject>, nearby_chunks: Vec<Option<&ChunkSection>>) {
-
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
                 for z in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
 
                     let real_world_position = section_position + Vec3::new(x as f32, y as f32, z as f32);
                     let chunk_data = section.get_vec(UVec3::new(x, y, z));
-
                     let (block_id, metadata) = Chunk::chunk_data_helper(chunk_data);
                     // Air, stop
                     if block_id == 0 { continue; }
 
                     let block = blocks.get_element_from_index(block_id);
                     let (block_model, is_transparent) = if let Some(block) = block.as_ref() {
-                        (block.get_model(metadata as u32), block.is_transparent())
+                        let model = block.get_model(metadata as u32);
+                        let is_transparent = block.is_transparent();
+                        (model, is_transparent)
                     } else { (BakedModel::new(), false) };
-
-                    let occlusions: [bool; 6] = Self::get_occlusions(IVec3::new(x as i32, y as i32, z as i32), blocks, section, &nearby_chunks);
-
+                    let occlusions: [bool; 6] = Self::get_occlusions(IVec3::new(x as i32, y as i32, z as i32), blocks, section, &nearby_chunks, is_transparent);
                     let model_textures = block_model.textures();
                     for face in block_model.shapes() {
                         match face {
@@ -300,12 +299,14 @@ impl TerrainTessellator {
                                 let positions: [Vec3; 4] = [quad.pos[0] + real_world_position, quad.pos[1] + real_world_position, quad.pos[2] + real_world_position, quad.pos[3] + real_world_position];
                                 let qtexclone = quad.texture.clone();
                                 let texture = Self::find_texture_in_map(model_textures, qtexclone.clone());
-
-                                let (uv_min, uv_max) = if let TextureObject::AtlasTexture { internal_uv } = textures[&Identifier::from(texture)] {
+                                let texture_id = Identifier::from(texture);
+                                let (uv_min, uv_max) = if let TextureObject::AtlasTexture { internal_uv } = textures.get(&texture_id).expect(format!("No texture for {}", texture_id).as_str()) {
                                     (internal_uv[0], internal_uv[1])
                                 } else { (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) };
+                                let uv_range = uv_max - uv_min;
+                                let (quad_uv_min, quad_uv_max) = (quad.u / 16.0, quad.v / 16.0);
 
-                                let (quad_uv_min, quad_uv_max) = (quad.u, quad.v);
+                                let (uv_min, uv_max) = (uv_min + uv_range * quad_uv_min, uv_min + uv_range * quad_uv_max);
 
                                 if is_transparent {
                                     self.quad_transparent(positions, quad.color, quad.normal, uv_min, uv_max);

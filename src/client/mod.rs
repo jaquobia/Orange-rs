@@ -14,11 +14,12 @@ use camera::{Camera, CameraController, Projection};
 use crate::math_helper::angle;
 use rendering::{
     textures::{DepthTextureWrapper, DiffuseTextureWrapper},
-    State,
+    TerrainOpaqueState,
 };
 use ultraviolet::Mat4;
 use wgpu::BindGroupLayout;
 use winit::window::CursorGrabMode;
+use crate::client::rendering::TerrainTransparentState;
 
 pub struct Client {
     pub window: winit::window::Window,
@@ -36,7 +37,8 @@ pub struct Client {
     pub layouts: HashMap<String, BindGroupLayout>,
     pub depth_texture: DepthTextureWrapper,
 
-    pub state: Option<State>,
+    pub terrain_opaque_state: Option<TerrainOpaqueState>,
+    pub terrain_transparent_state: Option<TerrainTransparentState>,
 }
 
 impl Client {
@@ -70,7 +72,8 @@ impl Client {
             layouts: HashMap::new(),
             depth_texture,
 
-            state: None,
+            terrain_opaque_state: None,
+            terrain_transparent_state: None,
         }
     }
 
@@ -100,7 +103,13 @@ impl Client {
         }
         self.proj_view = self.projection.calc_matrix() * self.camera.calc_matrix();
 
-        let state = self.state.as_mut().unwrap();
+        let state = self.terrain_opaque_state.as_mut().unwrap();
+        self.gpu.queue.write_buffer(
+            &state.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.proj_view]),
+        );
+        let state = self.terrain_transparent_state.as_mut().unwrap();
         self.gpu.queue.write_buffer(
             &state.camera_buffer,
             0,

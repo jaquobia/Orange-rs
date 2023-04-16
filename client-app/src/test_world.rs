@@ -1,9 +1,11 @@
 use std::io::Read;
 use legion::EntityStore;
+use log::warn;
 use ultraviolet::{IVec2, IVec3, Vec3};
 use orange_rs::entities::{EntityController, EntityTransform};
+use orange_rs::packets::prot14::MultiBlockChangeData;
 use orange_rs::util::pos::{BlockPos, EntityPos, NewChunkPosition};
-use orange_rs::world::chunk::{CHUNK_SECTION_AXIS_SIZE, ChunkSection};
+use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkSection};
 use orange_rs::world::{ChunkStorage, ChunkStoragePlanar, ChunkStorageTrait};
 
 pub struct TestWorld {
@@ -163,6 +165,37 @@ impl TestWorld {
         self.height
     }
 
+    pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: u8, meta: u8) {
+        let cpos = (x >> 4, y >> 4, z >> 4);
+        match self.chunk_storage.get_chunk_mut(cpos.into()) {
+            Ok(chunk) => {
+                let meta = (meta as u64) << 12;
+                let block_data = block as u64 | meta;
+                let (ix, iy, iz) = (x & 15, y  & 15, z & 15);
+                // warn!("Block Change 2: ({ix}, {iy}, {iz})|({:?}) <- {block}|{meta}", cpos);
+                chunk.set_pos(ix as u32, iy as u32, iz as u32, block_data);
+                chunk.set_dirty(true);
+            },
+            _ => {}
+        }
+    }
+
+    pub fn set_blocks(&mut self, cx: i32, cz: i32, data: MultiBlockChangeData) {
+        for (index, block) in data.blocks.into_iter().enumerate() {
+            let coords = data.coords[index];
+            let x = ((coords >> 12) & 0b0000000000001111) as u32;
+            let z = ((coords >> 8) & 0b0000000000001111) as u32;
+            let y = (coords & 0b0000000011111111) as i32;
+            let meta = (data.metadata[index] as u64) << 12;
+            println!("Setting ({x}, {y}, {z})|() <- {block} |{}", data.metadata[index]);
+            let block_data = block as u64 | meta;
+            if let Ok(chunk) = self.chunk_storage.get_chunk_mut(IVec3::new(cx, y >> 4, cz)) {
+                chunk.set_pos(x, (y & 15) as u32, z, block_data);
+                chunk.set_dirty(true);
+            }
+        }
+    }
+
     pub fn handle_map_chunk(&mut self, block_x: i32, block_y: i32, block_z: i32, size_x: i8, size_y: i8, size_z: i8, compressed_data: Vec<u8>) {
         let size_x = size_x as usize + 1;
         let size_y = size_y as usize + 1;
@@ -184,6 +217,9 @@ impl TestWorld {
         let region_size = size_x * size_y * size_z;
         let mut inflater = flate2::read::ZlibDecoder::new(compressed_data.as_slice());
         let expected_size = (region_size * 5) >> 1;
+        let meta_start = region_size;
+        let light_start = (region_size * 3) >> 1;
+        let skylight_start = region_size * 2;
         let mut raw_data = vec![0; expected_size];
         let num_bytes = inflater.read(&mut raw_data).unwrap();
 
@@ -203,17 +239,18 @@ impl TestWorld {
                 for z in 0..size_z {
 
                     let block_index = y + (z * size_y) + (x * size_y * size_z);
-                    let byte_index = block_index >> 1;
+                    let nibble_byte_index = block_index >> 1;
                     let shift_index = block_index % 2;
 
-                    let meta_index = byte_index + region_size;
+                    let meta_index = meta_start + nibble_byte_index;
                     let block_light_index = 0;
                     let sky_light_index =  0;
 
+                    const NIBBLE_MASK: u8 = 0b00001111;
                     let data: u64 = raw_data[block_index].into();
 
-                    // let meta = raw_data[meta_index];
-                    // let data = Chunk::data_set_meta(data, meta.into());
+                    let meta = if shift_index == 0 { raw_data[meta_index] & NIBBLE_MASK } else { raw_data[meta_index] >> 4 };
+                    let data = Chunk::data_set_meta(data, meta as u64);
 
                     // let block_light = raw_data[block_light_index];
                     // let sky_light = raw_data[sky_light_index];

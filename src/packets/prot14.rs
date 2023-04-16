@@ -289,9 +289,9 @@ impl PacketParseable for ItemPacketData {
 
 #[derive(Debug, Clone)]
 pub struct MultiBlockChangeData {
-    coords: Vec<i16>,
-    blocks: Vec<i8>,
-    metadata: Vec<i8>,
+    pub coords: Vec<i16>,
+    pub blocks: Vec<i8>,
+    pub metadata: Vec<i8>,
 }
 
 impl PacketParseable for MultiBlockChangeData {

@@ -1,6 +1,6 @@
 use ultraviolet::{IVec3, Vec3};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
     North,
     South,
@@ -50,6 +50,46 @@ impl Direction {
             Direction::West => 3,
             Direction::Up => 4,
             Direction::Down => 5,
+        }
+    }
+
+    pub fn reverse(&self) -> Direction {
+        match self {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+        }
+    }
+
+    pub fn reverse_horizontal(&self) -> Direction {
+        match self {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+            _ => *self
+        }
+    }
+
+    pub fn cw(&self) -> Direction {
+        match self {
+            Direction::North => Direction::East,
+            Direction::East => Direction::South,
+            Direction::South => Direction::West,
+            Direction::West => Direction::North,
+            _ => *self
+        }
+    }
+    pub fn ccw(&self) -> Direction {
+        match self {
+            Direction::North => Direction::West,
+            Direction::West => Direction::South,
+            Direction::South => Direction::East,
+            Direction::East => Direction::North,
+            _ => *self
         }
     }
 }
