@@ -5,7 +5,7 @@ use ultraviolet::{IVec2, IVec3, Vec3};
 use orange_rs::entities::{EntityController, EntityTransform};
 use orange_rs::packets::prot14::MultiBlockChangeData;
 use orange_rs::util::pos::{BlockPos, EntityPos, NewChunkPosition};
-use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkSection};
+use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkDataType, ChunkSection};
 use orange_rs::world::{ChunkStorage, ChunkStoragePlanar, ChunkStorageTrait};
 
 pub struct TestWorld {
@@ -169,8 +169,7 @@ impl TestWorld {
         let cpos = (x >> 4, y >> 4, z >> 4);
         match self.chunk_storage.get_chunk_mut(cpos.into()) {
             Ok(chunk) => {
-                let meta = (meta as u64) << 12;
-                let block_data = block as u64 | meta;
+                let block_data = Chunk::data_set_meta(block as ChunkDataType, meta as ChunkDataType);
                 let (ix, iy, iz) = (x & 15, y  & 15, z & 15);
                 // warn!("Block Change 2: ({ix}, {iy}, {iz})|({:?}) <- {block}|{meta}", cpos);
                 chunk.set_pos(ix as u32, iy as u32, iz as u32, block_data);
@@ -186,9 +185,9 @@ impl TestWorld {
             let x = ((coords >> 12) & 0b0000000000001111) as u32;
             let z = ((coords >> 8) & 0b0000000000001111) as u32;
             let y = (coords & 0b0000000011111111) as i32;
-            let meta = (data.metadata[index] as u64) << 12;
-            println!("Setting ({x}, {y}, {z})|() <- {block} |{}", data.metadata[index]);
-            let block_data = block as u64 | meta;
+            let meta = data.metadata[index];
+            // println!("Setting ({x}, {y}, {z})|() <- {block} |{}", data.metadata[index]);
+            let block_data = Chunk::data_set_meta(block as ChunkDataType, meta as ChunkDataType);
             if let Ok(chunk) = self.chunk_storage.get_chunk_mut(IVec3::new(cx, y >> 4, cz)) {
                 chunk.set_pos(x, (y & 15) as u32, z, block_data);
                 chunk.set_dirty(true);
@@ -218,8 +217,8 @@ impl TestWorld {
         let mut inflater = flate2::read::ZlibDecoder::new(compressed_data.as_slice());
         let expected_size = (region_size * 5) >> 1;
         let meta_start = region_size;
-        let light_start = (region_size * 3) >> 1;
-        let skylight_start = region_size * 2;
+        let block_light_start = (region_size * 3) >> 1;
+        let sky_light_start = region_size * 2;
         let mut raw_data = vec![0; expected_size];
         let num_bytes = inflater.read(&mut raw_data).unwrap();
 
@@ -239,18 +238,21 @@ impl TestWorld {
                 for z in 0..size_z {
 
                     let block_index = y + (z * size_y) + (x * size_y * size_z);
-                    let nibble_byte_index = block_index >> 1;
-                    let shift_index = block_index % 2;
+                    let nibble_byte_index = block_index >> 1;   // nibbles are half as large as a byte
+                    let shift_index = block_index % 2;          // but we have to put 2 nibbles in a single byte
 
                     let meta_index = meta_start + nibble_byte_index;
-                    let block_light_index = 0;
-                    let sky_light_index =  0;
+                    let block_light_index = block_light_start + nibble_byte_index;
+                    let sky_light_index =  sky_light_start + nibble_byte_index;
 
                     const NIBBLE_MASK: u8 = 0b00001111;
-                    let data: u64 = raw_data[block_index].into();
+                    let data = raw_data[block_index].into();
 
                     let meta = if shift_index == 0 { raw_data[meta_index] & NIBBLE_MASK } else { raw_data[meta_index] >> 4 };
-                    let data = Chunk::data_set_meta(data, meta as u64);
+                    let block_light = if shift_index == 0 { raw_data[block_light_index] & NIBBLE_MASK } else { raw_data[block_light_index] >> 4 };
+                    let sky_light = if shift_index == 0 { raw_data[sky_light_index] & NIBBLE_MASK } else { raw_data[sky_light_index] >> 4 };
+                    let data = Chunk::data_set_meta(data, meta as ChunkDataType);
+                    let data = Chunk::data_set_block_light(data, block_light as ChunkDataType);
 
                     // let block_light = raw_data[block_light_index];
                     // let sky_light = raw_data[sky_light_index];

@@ -1,3 +1,4 @@
+use log::warn;
 use ultraviolet::{Vec2, Vec3};
 use crate::{registry::Registry, block::block_factory::BlockFactory};
 use crate::client::models::model::{BakedModel, VoxelElement, VoxelFace, VoxelModel, VoxelRotation};
@@ -6,7 +7,7 @@ use crate::client::textures::TextureObject::AtlasTexture;
 use crate::direction::Direction;
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::template_models;
-use crate::minecraft::template_models::{column, column_top_bottom, crop, cross, cube, cube_all, missing, orientable, stair_all, torch, wall_torch};
+use crate::minecraft::template_models::{column, column_top_bottom, crop, cross, cube, cube_all, door_bottom_left, door_bottom_right, door_top_left, door_top_right, missing, orientable, pressure_plate_down, pressure_plate_up, stair_all, torch, wall_torch};
 
 pub enum GameVersion {
     B173,
@@ -164,7 +165,7 @@ fn load_b173(registry: &mut Registry) {
     textures.insert(Identifier::from("minecraft:spruce_log_side"), make_atlas_tex(116));
     textures.insert(Identifier::from("minecraft:birch_log_side"), make_atlas_tex(117));
     textures.insert(Identifier::from("minecraft:pumpkin_side"), make_atlas_tex(118));
-    textures.insert(Identifier::from("minecraft:pumpkin_face"), make_atlas_tex(119));
+    textures.insert(Identifier::from("minecraft:pumpkin_front"), make_atlas_tex(119));
     textures.insert(Identifier::from("minecraft:lantern_front"), make_atlas_tex(120));
     textures.insert(Identifier::from("minecraft:cake_top"), make_atlas_tex(121));
     textures.insert(Identifier::from("minecraft:cake_side"), make_atlas_tex(122));
@@ -256,6 +257,7 @@ fn load_b173(registry: &mut Registry) {
                         BakedModel::new()
                 })
                 .transparent(true)
+                .full_block(false)
                 .side_cull_fn(non_full_cull)
                 .build(),
             BlockFactory::new("stone")
@@ -321,6 +323,7 @@ fn load_b173(registry: &mut Registry) {
                     }
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("bedrock")
                 .hardness(-1.0)
@@ -336,6 +339,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:water_0").bake()
                 })
+                .full_block(false)
                 .build(),
             BlockFactory::new("still_water")
                 .hardness(100.0)
@@ -344,6 +348,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:water_0").bake()
                 })
+                .full_block(false)
                 .build(),
             BlockFactory::new("flowing_lava")
                 .hardness(0.0)
@@ -352,6 +357,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:lava_0").bake()
                 })
+                .full_block(false)
                 .build(),
             BlockFactory::new("still_lava")
                 .hardness(100.0)
@@ -360,6 +366,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:lava_0").bake()
                 })
+                .full_block(false)
                 .build(),
             BlockFactory::new("sand")
                 .hardness(0.5)
@@ -418,13 +425,13 @@ fn load_b173(registry: &mut Registry) {
                 .hardness(0.2)
                 .model(|meta| {
                     // TODO: Account for tint
-                    match meta & 3 {
-                        0 => cube_all().clone().with_texture("all", "minecraft:leaves_oak").bake(),
-                        1 => cube_all().clone().with_texture("all", "minecraft:leaves_spruce").bake(),
-                        2 => cube_all().clone().with_texture("all", "minecraft:leaves_oak").bake(),
-                        _ => missing().clone().bake(),
-                    }
-
+                    let texture = match meta & 3 {
+                        0 => "minecraft:leaves_oak",
+                        1 => "minecraft:leaves_spruce",
+                        2 => "minecraft:leaves_oak",
+                        _ => return missing().clone().bake(),
+                    };
+                    cube_all().clone().with_texture("all", texture).bake()
                 })
                 .side_cull_fn(non_full_cull)
                 .build(),
@@ -442,6 +449,7 @@ fn load_b173(registry: &mut Registry) {
                     cube_all().clone().with_texture("all", "minecraft:glass").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("ore_lapis")
                 .hardness(3.0)
@@ -527,6 +535,7 @@ fn load_b173(registry: &mut Registry) {
                                     .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([0., 13.], [3., 16.]), Direction::East)
                                     .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([13., 13.], [16., 16.]), Direction::West)
                                 )
+                                .with_ambient_occlusion(false)
                                 .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
                         },
                         false => {
@@ -554,19 +563,22 @@ fn load_b173(registry: &mut Registry) {
                                     .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]), Direction::East)
                                     .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]), Direction::West)
                                 )
+                                .with_ambient_occlusion(false)
                                 .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
                         }
                     }
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("powered_rail")
                 .hardness(0.7)
                 .model(|meta| {
                     // TODO: COMPLEX MODEL
-                    cube_all().clone().with_texture("all", "minecraft:powered_rail").bake()
+                    cube_all().clone().with_texture("all", "minecraft:powered_rail_off").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("detector_rail")
                 .hardness(0.7)
@@ -574,12 +586,15 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:detector_rail").bake()
                 })
+                .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("sticky_piston")
                 .model(|meta| {
                     // TODO: COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:piston_sticky_front").bake()
                 })
+                .side_cull_fn(non_full_cull)
                 .build(),
             BlockFactory::new("web")
                 .hardness(4.0)
@@ -587,13 +602,19 @@ fn load_b173(registry: &mut Registry) {
                     cross().clone().with_texture("cross", "minecraft:cobweb").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("tall_grass")
                 .hardness(0.0)
-                .model(|_| {
-                    cross().clone().with_texture("cross", "minecraft:tall_grass").bake()
+                .model(|meta| {
+                    let texture =
+                        if meta == 0 { "minecraft:dead_bush" }
+                        else if meta == 2 { "minecraft:fern" }
+                        else { "minecraft:tall_grass" };
+                    cross().clone().with_texture("cross", texture).bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("dead_bush")
                 .hardness(0.0)
@@ -601,18 +622,61 @@ fn load_b173(registry: &mut Registry) {
                     cross().clone().with_texture("cross", "minecraft:dead_bush").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("piston")
                 .model(|meta| {
+                    warn!("piston meta: {meta}");
+                    let is_powered = meta  & 8 > 0;
+                    let rotation = match meta & 7 {
+                        0 => { Some(VoxelRotation::new(90., 2, [8.0, 8.0, 8.0], false)) },
+                        1 => { Some(VoxelRotation::new(270., 2, [8.0, 8.0, 8.0], false)) },
+                        2 => { Some(VoxelRotation::new(270., 1, [8.0, 8.0, 8.0], false)) },
+                        3 => { Some(VoxelRotation::new(90., 1, [8.0, 8.0, 8.0], false)) },
+                        4 => { Some(VoxelRotation::new(0., 1, [8.0, 8.0, 8.0], false)) },
+                        5 => { Some(VoxelRotation::new(180., 1, [8.0, 8.0, 8.0], false)) },
+                        _ => return missing().clone().bake(),
+                    };
+                    let model = if is_powered {
+                        VoxelModel::new().with_element(VoxelElement::new([4., 0., 0.], [16., 16., 16.])
+                            .with_face(VoxelFace::new("minecraft:piston_base"), Direction::North)
+                            .with_face(VoxelFace::new("minecraft:piston_bottom").with_cullface(Direction::South), Direction::South)
+                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(270.).with_cullface(Direction::East), Direction::East)
+                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(180.).with_cullface(Direction::West), Direction::West)
+                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(180.).with_cullface(Direction::Up), Direction::Up)
+                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(180.).with_cullface(Direction::Down), Direction::Down)
+                        )
+                    } else {
+                        VoxelModel::new().with_element(VoxelElement::new([0., 0., 0.], [16., 16., 16.])
+                            .with_face(VoxelFace::new("minecraft:piston_front").with_cullface(Direction::North), Direction::North)
+                            .with_face(VoxelFace::new("minecraft:piston_bottom").with_cullface(Direction::South), Direction::South)
+                            .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(270.).with_cullface(Direction::East), Direction::East)
+                            // .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(270.).with_cullface(Direction::West), Direction::West)
+                            // .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(180.).with_cullface(Direction::Up), Direction::Up)
+                            // .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(180.).with_cullface(Direction::Down), Direction::Down)
+                        )
+
+                    }.bake_with_rotate(rotation);
+                    warn!("Piston model end");
+                    model
+                    // 0 -> down
+                    // 1 -> up
+                    // 4 -> north
+                    // 5 -> south
+                    // 3 -> west
+                    // 2 -> east
                     // TODO: COMPLEX MODEL
-                    cube_all().clone().with_texture("all", "minecraft:piston_front").bake()
+                    // cube_all().clone().with_texture("all", "minecraft:piston_front").bake()
                 })
+                .side_cull_fn(non_full_cull)
                 .build(),
             BlockFactory::new("piston_extension")
                 .model(|meta| {
                     // TODO: COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:piston_front").bake()
                 })
+                .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("wool")
                 .hardness(0.8)
@@ -645,6 +709,8 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:piston_front").bake()
                 })
+                .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("yellow_flower")
                 .hardness(0.0)
@@ -652,6 +718,7 @@ fn load_b173(registry: &mut Registry) {
                     cross().clone().with_texture("cross", "minecraft:yellow_flower").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("red_flower")
                 .hardness(0.0)
@@ -659,6 +726,7 @@ fn load_b173(registry: &mut Registry) {
                     cross().clone().with_texture("cross", "minecraft:red_flower").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("brown_mushroom")
                 .hardness(0.0)
@@ -666,6 +734,7 @@ fn load_b173(registry: &mut Registry) {
                     cross().clone().with_texture("cross", "minecraft:brown_mushroom").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("red_mushroom")
                 .hardness(0.0)
@@ -673,6 +742,7 @@ fn load_b173(registry: &mut Registry) {
                     cross().clone().with_texture("cross", "minecraft:red_mushroom").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("block_gold")
                 .hardness(3.0)
@@ -708,6 +778,7 @@ fn load_b173(registry: &mut Registry) {
                         .bake()
                 })
                 .side_cull_fn(slab_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("brick_block")
                 .hardness(2.0)
@@ -765,10 +836,12 @@ fn load_b173(registry: &mut Registry) {
                     }
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("fire")
                 .hardness(0.0)
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 // TODO: ODD MODEL
                 .build(),
             BlockFactory::new("mob_spawner")
@@ -808,6 +881,7 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("redstone_dust")
                 .hardness(0.0)
                 // TODO: COMPLEX MODEL
+                .full_block(false)
                 .build(),
             BlockFactory::new("ore_diamond")
                 .hardness(3.0)
@@ -844,6 +918,7 @@ fn load_b173(registry: &mut Registry) {
                         .bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("tilled_dirt")
                 .hardness(0.6)
@@ -899,19 +974,59 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("sign")
                 .hardness(1.0)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("wooden_door")
                 .hardness(3.0)
                 .side_cull_fn(non_full_cull)
+                .model(|meta| {
+                    let is_bottom = meta & 8 == 0;
+                    // is_open and is_right are the same thing in b1.7.3
+                    let is_open = meta & 4 > 0;
+                    let is_right = is_open;
+                    let rotation_modifier = if is_open { 1 } else { 0 };
+                    let angle = (((meta & 3) + rotation_modifier) & 3) as f32 * -90.;
+                    let voxel_rotation = Some(VoxelRotation::new(angle, 1, [8., 8., 8.], false));
+
+                    if is_bottom {
+                        if is_open {
+                            door_bottom_right().clone()
+                        } else {
+                            door_bottom_left().clone()
+                        }.with_texture("door_face", "minecraft:oak_door_bottom")
+                    } else { // is top
+                        if is_open {
+                            door_top_right().clone()
+                        } else {
+                            door_top_left().clone()
+                        }.with_texture("door_face", "minecraft:oak_door_top")
+                    }.bake_with_rotate(voxel_rotation)
+                })
+                .full_block(false)
                 .build(),
             BlockFactory::new("ladder")
                 .hardness(0.4)
                 .side_cull_fn(non_full_cull)
+                .model(|meta| {
+                    let rotation = match meta {
+                        2 => 0.,
+                        3 => 180.,
+                        4 => 90.,
+                        5 => 270.,
+                        _ => 0.,
+                    };
+                    let voxel_rotation = Some(VoxelRotation::new(rotation, 1, [8., 8., 8.], false));
+                    VoxelModel::new().with_element(VoxelElement::new([0., 0., 15.2], [16., 16., 15.2])
+                        .with_face(VoxelFace::new("#ladder"), Direction::East)
+                    ).with_texture("ladder", "minecraft:ladder").bake_with_rotate(voxel_rotation)
+                })
+                .full_block(false)
                 .build(),
             BlockFactory::new("rail")
                 .hardness(0.7)
                 .side_cull_fn(non_full_cull)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("cobblestone_stair")
                 .hardness(3.0)
@@ -923,149 +1038,262 @@ fn load_b173(registry: &mut Registry) {
                 .hardness(1.0)
                 .side_cull_fn(non_full_cull)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("lever")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
+                // TODO: Simple Model?
+                .full_block(false)
                 .build(),
             BlockFactory::new("stone_pressure_plate")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
+                .model(|meta| {
+                    if meta == 0 {
+                        pressure_plate_up().clone()
+                    } else {
+                        pressure_plate_down().clone()
+                    }.with_texture("all", "minecraft:stone").bake()
+                })
+                .full_block(false)
                 .build(),
             BlockFactory::new("iron_door")
                 .hardness(3.0)
                 .side_cull_fn(non_full_cull)
+                .model(|meta| {
+                    let is_bottom = meta & 8 == 0;
+                    // is_open and is_right are the same thing in b1.7.3
+                    let is_open = meta & 4 > 0;
+                    let is_right = is_open;
+                    let rotation_modifier = if is_open { 1 } else { 0 };
+                    let angle = (((meta & 3) + rotation_modifier) & 3) as f32 * -90.;
+                    let voxel_rotation = Some(VoxelRotation::new(angle, 1, [8., 8., 8.], false));
+
+                    if is_bottom {
+                        if is_open {
+                            door_bottom_right().clone()
+                        } else {
+                            door_bottom_left().clone()
+                        }.with_texture("door_face", "minecraft:iron_door_bottom")
+                    } else { // is top
+                        if is_open {
+                            door_top_right().clone()
+                        } else {
+                            door_top_left().clone()
+                        }.with_texture("door_face", "minecraft:iron_door_top")
+                    }.bake_with_rotate(voxel_rotation)
+                })
                 .build(),
             BlockFactory::new("wooden_pressure_plate")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
+                .model(|meta| {
+                    if meta == 0 {
+                        pressure_plate_up().clone()
+                    } else {
+                        pressure_plate_down().clone()
+                    }.with_texture("all", "minecraft:oak_plank").bake()
+                })
+                .full_block(false)
                 .build(),
             BlockFactory::new("ore_redstone")
                 .hardness(3.0)
                 .resistance(5.0)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:redstone_ore").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:redstone_ore").bake()
                 })
                 .build(),
             BlockFactory::new("ore_redstone_glowing")
                 .hardness(3.0)
                 .resistance(5.0)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:redstone_ore").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:redstone_ore").bake()
                 })
                 .build(),
             BlockFactory::new("torch_redstone_off")
                 .hardness(0.0)
-                .model(|meta| {
-                    VoxelModel::from_template(torch()).with_texture("torch", "minecraft:redstone_torch_off").bake()
+                .model(|_| {
+                    torch().clone().with_texture("torch", "minecraft:redstone_torch_off").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("torch_redstone_on")
                 .hardness(0.0)
-                .model(|meta| {
-                    VoxelModel::from_template(torch()).with_texture("torch", "minecraft:redstone_torch_on").bake()
+                .model(|_| {
+                    torch().clone().with_texture("torch", "minecraft:redstone_torch_on").bake()
                 })
                 .side_cull_fn(non_full_cull)
-
+                .full_block(false)
                 .build(),
             BlockFactory::new("button")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
+                // TODO: Simple Model?
+                .full_block(false)
                 .build(),
             BlockFactory::new("snow_layer")
                 .hardness(0.1)
                 .side_cull_fn(slab_cull)
+                // TODO: Simple Model?
+                .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("ice")
                 .hardness(0.5)
                 .transparent(true)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:ice").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:ice").bake()
                 })
                 // .side_cull_fn(non_full_cull)
                 .build(),
             BlockFactory::new("snow")
                 .hardness(0.2)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:snow").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:snow").bake()
                 })
                 .build(),
             BlockFactory::new("cactus")
                 .hardness(0.4)
                 .side_cull_fn(non_full_cull)
+                // TODO: Simple Model?
+                .full_block(false)
                 .build(),
             BlockFactory::new("clay_block")
                 .hardness(0.6)
                 .resistance(6000000.0)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:clay").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:clay").bake()
                 })
                 .build(),
             BlockFactory::new("reed")
                 .hardness(0.0)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cross()).with_texture("cross", "minecraft:reed").bake()
+                .model(|_| {
+                    cross().clone().with_texture("cross", "minecraft:reed").bake()
                 })
                 .side_cull_fn(non_full_cull)
+                .full_block(false)
                 .build(),
             BlockFactory::new("jukebox")
                 .hardness(2.0)
                 .resistance(10.0)
+                .model(|_| {
+                    cube().clone()
+                        .with_texture("up", "minecraft:jukebox_top")
+                        .with_texture("down", "minecraft:jukebox_side")
+                        .with_texture("north", "minecraft:jukebox_side")
+                        .with_texture("south", "minecraft:jukebox_side")
+                        .with_texture("east", "minecraft:jukebox_side")
+                        .with_texture("west", "minecraft:jukebox_side").bake()
+                })
                 .build(),
             BlockFactory::new("fence")
                 .hardness(2.0)
                 .resistance(5.0)
                 .side_cull_fn(non_full_cull)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("pumpkin")
                 .hardness(1.0)
+                .model(|meta| {
+                    let rotation = match meta {
+                        0 => 90.,
+                        1 => 0.,
+                        2 => 270.,
+                        3 => 180.,
+                        _ => 0.
+                    };
+                    cube_all().clone()
+                        .with_texture("north", "minecraft:pumpkin_front")
+                        .with_texture("up", "minecraft:pumpkin_top")
+                        .with_texture("down", "minecraft:pumpkin_side")
+                        .with_texture("south", "minecraft:pumpkin_side")
+                        .with_texture("east", "minecraft:pumpkin_side")
+                        .with_texture("west", "minecraft:pumpkin_side").bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8., 8., 8.], false)))
+                })
                 .build(),
             BlockFactory::new("netherrack")
                 .hardness(0.4)
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:netherrack").bake()
+                })
                 .build(),
             BlockFactory::new("soulsand")
                 .hardness(0.5)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:soulsand").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:soulsand").bake()
                 })
                 .build(),
             BlockFactory::new("glowstone_block")
                 .hardness(0.3)
-                .model(|meta| {
-                    VoxelModel::from_template(template_models::cube_all()).with_texture("all", "minecraft:glowstone").bake()
+                .model(|_| {
+                    cube_all().clone().with_texture("all", "minecraft:glowstone").bake()
                 })
                 .build(),
             BlockFactory::new("portal")
                 .hardness(-1.0)
                 .transparent(true)
                 .side_cull_fn(non_full_cull)
+                // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("pumpkin_lantern")
                 .hardness(1.0)
+                .model(|meta| {
+                    let rotation = match meta {
+                        0 => 90.,
+                        1 => 0.,
+                        2 => 270.,
+                        3 => 180.,
+                        _ => 0.
+                    };
+                    cube_all().clone()
+                        .with_texture("north", "minecraft:lantern_front")
+                        .with_texture("up", "minecraft:pumpkin_top")
+                        .with_texture("down", "minecraft:pumpkin_side")
+                        .with_texture("south", "minecraft:pumpkin_side")
+                        .with_texture("east", "minecraft:pumpkin_side")
+                        .with_texture("west", "minecraft:pumpkin_side").bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8., 8., 8.], false)))
+                })
                 .build(),
             BlockFactory::new("cake")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("repeater_off")
                 .hardness(0.0)
                 .side_cull_fn(non_full_cull)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("repeater_on")
                 .hardness(0.0)
                 .side_cull_fn(non_full_cull)
                 // TODO: Complex Model
+                .full_block(false)
                 .build(),
             BlockFactory::new("locked_chest")
                 .hardness(0.0)
+                .model(|_| {
+                    // TODO: Account for nearby blocks for rotation, requires surrounding block information
+                    let rotation = 90.;
+                    orientable().clone()
+                        .with_texture("up", "minecraft:chest_top")
+                        .with_texture("down", "minecraft:chest_top")
+                        .with_texture("front", "minecraft:chest_front")
+                        .with_texture("side", "minecraft:chest_side_single")
+                        .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
+                })
                 .build(),
             BlockFactory::new("trapdoor")
                 .hardness(-1.0)
                 .side_cull_fn(non_full_cull)
+                // TODO: Complex Model
+                .full_block(false)
                 .build(),
         ];
 

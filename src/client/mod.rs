@@ -14,17 +14,17 @@ use camera::{Camera, CameraController, Projection};
 use crate::math_helper::angle;
 use rendering::{
     textures::{DepthTextureWrapper, DiffuseTextureWrapper},
-    TerrainOpaqueState,
 };
 use ultraviolet::Mat4;
 use wgpu::BindGroupLayout;
 use winit::window::CursorGrabMode;
-use crate::client::rendering::TerrainTransparentState;
+use crate::minecraft::mc_resource_handler::CAMERA_BUFFER_NAME;
 
 pub struct Client {
     pub window: winit::window::Window,
     pub gpu: WgpuData,
     pub camera: Camera,
+
     pub camera_controller: CameraController,
     pub projection: Projection,
     pub proj_view: Mat4,
@@ -34,11 +34,12 @@ pub struct Client {
     cursor_visible: bool,
 
     pub textures: crate::minecraft::mc_resource_handler::TexMapType,
-    pub layouts: HashMap<String, BindGroupLayout>,
     pub depth_texture: DepthTextureWrapper,
 
-    pub terrain_opaque_state: Option<TerrainOpaqueState>,
-    pub terrain_transparent_state: Option<TerrainTransparentState>,
+    pipelines: HashMap<String, wgpu::RenderPipeline>,
+    buffers: HashMap<String, wgpu::Buffer>,
+    bind_group_layouts: HashMap<String, BindGroupLayout>,
+    bind_groups: HashMap<String, wgpu::BindGroup>,
 }
 
 impl Client {
@@ -49,7 +50,7 @@ impl Client {
 
         let (width, height) = window.inner_size().into();
         let camera = camera::Camera::new((0.0, 64.0, 10.0), (0.0, 1.0, 0.0), angle::Deg(-90.0), angle::Deg(-20.0));
-        let projection = camera::Projection::new(width, height, angle::Deg(45.0), 0.1, 100.0);
+        let projection = camera::Projection::new(width, height, angle::Deg(60.0), 0.1, 100.0);
         let camera_controller = camera::CameraController::new(10.0, 1.0);
 
         let proj_view = projection.calc_matrix() * camera.calc_matrix();
@@ -69,16 +70,69 @@ impl Client {
             cursor_visible: true,
 
             textures: HashMap::new(),
-            layouts: HashMap::new(),
             depth_texture,
 
-            terrain_opaque_state: None,
-            terrain_transparent_state: None,
+            pipelines: HashMap::new(),
+            buffers: HashMap::new(),
+            bind_group_layouts: HashMap::new(),
+            bind_groups: HashMap::new(),
         }
     }
 
-    pub fn get_texture(&self, id: &str) -> &DiffuseTextureWrapper {
-        self.textures.get(id).unwrap()
+    pub fn get_device(&self) -> &wgpu::Device {
+        &self.gpu.device
+    }
+
+    pub fn get_queue(&self) -> &wgpu::Queue {
+        &self.gpu.queue
+    }
+
+    pub fn get_surface(&self) -> &wgpu::Surface {
+        &self.gpu.surface
+    }
+
+    pub fn get_surface_configuration(&self) -> &wgpu::SurfaceConfiguration {
+        &self.gpu.config
+    }
+
+    pub fn get_texture<T: AsRef<str>>(&self, id: T) -> &DiffuseTextureWrapper {
+        self.textures.get(id.as_ref()).unwrap()
+    }
+
+    pub fn insert_texture<T: AsRef<str>>(&mut self, id: T, texture: DiffuseTextureWrapper) {
+        self.textures.insert(id.as_ref().to_string(), texture);
+    }
+
+    pub fn get_layout<T: AsRef<str>>(&self, id: T) -> Option<&wgpu::BindGroupLayout> {
+        self.bind_group_layouts.get(id.as_ref())
+    }
+
+    pub fn get_bind_group<T: AsRef<str>>(&self, id: T) -> Option<&wgpu::BindGroup> {
+        self.bind_groups.get(id.as_ref())
+    }
+
+    pub fn insert_bind_group<T: AsRef<str>>(&mut self, id: T, bind_group: wgpu::BindGroup) {
+        self.bind_groups.insert(id.as_ref().to_string(), bind_group);
+    }
+
+    pub fn insert_layout<T: AsRef<str>>(&mut self, id: T, layout: wgpu::BindGroupLayout) {
+        self.bind_group_layouts.insert(id.as_ref().to_string(), layout);
+    }
+
+    pub fn get_pipeline<T: AsRef<str>>(&self, id: T) -> Option<&wgpu::RenderPipeline> {
+        self.pipelines.get(id.as_ref())
+    }
+
+    pub fn insert_pipeline<T: AsRef<str>>(&mut self, id: T, pipeline: wgpu::RenderPipeline) {
+        self.pipelines.insert(id.as_ref().to_string(), pipeline);
+    }
+
+    pub fn get_buffer<T: AsRef<str>>(&self, id: T) -> Option<&wgpu::Buffer> {
+        self.buffers.get(id.as_ref())
+    }
+
+    pub fn insert_buffer<T: AsRef<str>>(&mut self, id: T, pipeline: wgpu::Buffer) {
+        self.buffers.insert(id.as_ref().to_string(), pipeline);
     }
 
     pub fn resize(&mut self, new_size: (u32, u32)) {
@@ -103,15 +157,9 @@ impl Client {
         }
         self.proj_view = self.projection.calc_matrix() * self.camera.calc_matrix();
 
-        let state = self.terrain_opaque_state.as_mut().unwrap();
-        self.gpu.queue.write_buffer(
-            &state.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.proj_view]),
-        );
-        let state = self.terrain_transparent_state.as_mut().unwrap();
-        self.gpu.queue.write_buffer(
-            &state.camera_buffer,
+        let buffer = self.get_buffer(CAMERA_BUFFER_NAME).unwrap();
+        self.get_queue().write_buffer(
+            buffer,
             0,
             bytemuck::cast_slice(&[self.proj_view]),
         );

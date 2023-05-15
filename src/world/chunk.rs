@@ -40,8 +40,11 @@ const CHUNK_SECTION_PLANE_SIZE: usize = CHUNK_SECTION_AXIS_SIZE * CHUNK_SECTION_
 const CHUNK_SECTION_DIMENSION_SIZE: usize =
     CHUNK_SECTION_AXIS_SIZE * CHUNK_SECTION_AXIS_SIZE * CHUNK_SECTION_AXIS_SIZE;
 
-/// Put some documentation here about the decision for this type and how its relevant
-type ChunkDataType = u64;
+/// 8 bits block id, 4 bits metadata, 4 bits blocklight
+/// But in actuality, a u16 will be used because it is the smallest integer type that will encompass
+/// The 16^3 and 32^3 region, representing possible blockstates
+pub type ChunkDataType = u16;
+pub type ChunkDataUnpackedType = (usize, ChunkDataType, ChunkDataType);
 
 /// The chunk sections will be stored as vectors to be managed on the heap, but never be resized
 type ChunkSectionDataStorageType = Vec<ChunkDataType>;
@@ -251,21 +254,31 @@ impl Chunk {
         self.position
     }
 
-    pub fn chunk_data_helper(data: u64) -> (usize, u64) {
-        const block_magic_number: u64 = 0b111111111111;
-        let chunk_block = (data & block_magic_number) as usize;
-        let metadata = (data & !block_magic_number) >> 12;
-        (chunk_block, metadata)
+    const BLOCK_MASK: ChunkDataType         = 0b0000000011111111;
+    const META_MASK: ChunkDataType          = 0b0000111100000000;
+    const BLOCK_LIGHT_MASK: ChunkDataType   = 0b1111000000000000;
+    // const BLOCK_OFFSET: ChunkDataType = 0;
+    const META_OFFSET: ChunkDataType = 8;
+    const BLOCK_LIGHT_OFFSET: ChunkDataType = 12;
+
+
+    pub fn chunk_data_helper(data: ChunkDataType) -> ChunkDataUnpackedType {
+        let chunk_block = data & Chunk::BLOCK_MASK;
+        let metadata = (data & Chunk::META_MASK) >> Chunk::META_OFFSET;
+        let block_light = (data & Chunk::BLOCK_LIGHT_MASK) >> Chunk::BLOCK_LIGHT_OFFSET;
+        (chunk_block as usize, metadata, block_light)
     }
 
-    pub fn data_set_block(block_data: u64, block: usize) -> u64 {
-        const block_magic_number: u64 = 0b111111111111;
-        (block_data & !block_magic_number) | (block as u64 & block_magic_number)
+    pub fn data_set_block(block_data: ChunkDataType, block: usize) -> ChunkDataType {
+        (block_data & !Chunk::BLOCK_MASK) | (block as ChunkDataType & Chunk::BLOCK_MASK)
     }
 
-    pub fn data_set_meta(block_data: u64, meta: u64) -> u64 {
-        const block_magic_number: u64 = 0b111111111111;
-        (block_data & block_magic_number) | (meta << 12)
+    pub fn data_set_meta(block_data: ChunkDataType, meta: ChunkDataType) -> ChunkDataType {
+        (block_data & !Chunk::META_MASK) | ((meta << Chunk::META_OFFSET) & Chunk::META_MASK)
+    }
+
+    pub fn data_set_block_light(block_data: ChunkDataType, block_light: ChunkDataType) -> ChunkDataType {
+        (block_data & !Chunk::BLOCK_LIGHT_MASK) | ((block_light << Chunk::BLOCK_LIGHT_OFFSET) & Chunk::BLOCK_LIGHT_MASK)
     }
 
     pub fn get_sections(&self) -> &Vec<ChunkSection> {

@@ -11,7 +11,7 @@ impl ServerPlayer {
         Self {
             is_local: true,
             username: "TestPlayer001".to_string(),
-            uuid: 01247,
+            uuid: 1247,
         }
     }
 

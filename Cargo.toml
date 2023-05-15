@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 winit = "0.28"
-wgpu = { version = "0.15", optional = true }
+wgpu = { version = "0.16.0", optional = true }
 pollster = "0.3"
 image = "0.24"
 lazy_static = "1.4"
@@ -27,7 +27,7 @@ bytemuck = { version = "1.12", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1.0.151"
 serde_json = "1.0"
-tungstenite = "0.18.0"
+tungstenite = "0.19.0"
 byteorder = "1"
 
 orange_networking = { path = "../orange_networking" }

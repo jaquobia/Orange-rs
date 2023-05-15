@@ -142,7 +142,6 @@ impl PacketParseable for WindowItemsData {
                 if id == -1 {
                     None
                 } else {
-                    warn!("A non -1 item id");
                     let amount = match i8::from_packet_bytes(&bytes[consumed..]) {
                         Ok((value, size)) => { consumed += size; value },
                         Err(e) => { return Err(e); },
@@ -307,7 +306,6 @@ impl PacketParseable for MultiBlockChangeData {
         ].concat()
     }
     fn from_packet_bytes(bytes: &[u8]) -> Result<(Self, usize), PacketParseError> where Self: Sized {
-        warn!("MultiBlockChangeData");
         let mut consumed = 0usize;
         let blocks_size = match i16::from_packet_bytes(&bytes[consumed..]) {
             Ok((value, size)) => { consumed += size; value },

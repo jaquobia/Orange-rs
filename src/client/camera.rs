@@ -74,6 +74,10 @@ impl Camera {
         self.right = self.front.cross(self.world_up).normalized();
         self.up = self.right.cross(self.front).normalized();
     }
+
+    pub fn set_position(&mut self, position: Vec3) {
+        self.position = position;
+    }
 }
 
 pub struct Projection {

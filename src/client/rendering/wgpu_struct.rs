@@ -1,5 +1,3 @@
-use wgpu::{Backends, InstanceDescriptor};
-
 pub struct WgpuData {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,

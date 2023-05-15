@@ -18,7 +18,7 @@ pub struct ChunkStack<ChunkType> {
 impl<ChunkType> ChunkStack<ChunkType> {
     pub fn new(height: usize) -> Self {
         let mut chunks = Vec::with_capacity(height);
-        for x in 0..height {
+        for _ in 0..height {
             chunks.push(None);
         }
         Self {
@@ -152,13 +152,13 @@ impl<ChunkType> ChunkStoragePlanar<ChunkType> {
         let z: u32 = bytemuck::cast(z);
         let x = x as i64;
         let z = z as i64;
-        return x | (z << 32); // easiest hash ever, since an i64 is just two i32's
+        x | (z << 32) // easiest hash ever, since an i64 is just two i32's
     }
 
     fn hash_to_index(&self, hash: i64) -> Option<usize> {
         self.stack_pos_to_index_map
             .get(&hash)
-            .and_then(|&index| Some(index)) // This line removes the reference
+            .map(|&index| index)// This line removes the reference
     }
 
     fn inner_pos_to_index(&self, x: i32, z: i32) -> Option<usize> {
@@ -182,7 +182,7 @@ impl<ChunkType> ChunkStoragePlanar<ChunkType> {
 
     fn get_stack(&self, x: i32, z: i32) -> Option<&ChunkStack<ChunkType>> {
         let hash = Self::generate_hash(x, z);
-        self.hash_to_index(hash).and_then(|index| { Some(&self.chunk_stacks[index]) })
+        self.hash_to_index(hash).map(|index| { &self.chunk_stacks[index] })
     }
 }
 
@@ -198,7 +198,7 @@ impl<ChunkType> ChunkStorageTrait<ChunkType> for ChunkStoragePlanar<ChunkType> {
 
         self.chunk_stacks[stack_index].chunks[y] = Some(chunk);
 
-        return Ok(());
+        Ok(())
     }
 
     fn get_chunk(&self, position: IVec3) -> ChunkAccessResult<&ChunkType> {
@@ -240,7 +240,7 @@ impl<ChunkType> ChunkStorageTrait<ChunkType> for ChunkStoragePlanar<ChunkType> {
 
         match stack_index {
             Some(stack_index) => {
-                Ok(self.chunk_stacks[stack_index].chunks[y as usize].take())
+                Ok(self.chunk_stacks[stack_index].chunks[y].take())
             },
             None => { Err(ChunkAccessError::ChunkDoesNotExist) }
         }

@@ -1,6 +1,6 @@
 mod test_world;
 
-use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc, atomic::AtomicBool, Mutex}, borrow::BorrowMut, ops::{DerefMut, Deref} };
+use std::{collections::VecDeque, sync::{Arc, RwLock} };
 use env_logger::Builder;
 use log::{LevelFilter, warn};
 use orange_rs::{
@@ -9,12 +9,11 @@ use orange_rs::{
         minecraft_client::MinecraftClient, 
         rendering::{
             ElapsedTime,
-            TerrainOpaqueState,
             tessellator::TerrainTessellator
         }, 
         camera::CameraControllerMovement, 
         Client, 
-        gui::screen::{Screen, MainMenu}
+        gui::screen::MainMenu
     }, 
     util::{
         pos::{
@@ -34,38 +33,15 @@ use orange_networking::{network_interface::NetworkThread};
 use ultraviolet::{DVec3, IVec3, Vec3};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
-use orange_rs::client::camera::CameraController;
-use orange_rs::client::rendering::TerrainTransparentState;
+use orange_rs::minecraft::mc_resource_handler::{CAMERA_BIND_GROUP_NAME, LIGHTMAP_TEXTURE_NAME, TERRAIN_OPAQUE_PIPELINE, TERRAIN_TRANSPARENT_PIPELINE};
 use orange_rs::util::frustrum::Frustrum;
 use orange_rs::util::pos::NewChunkPosition;
 use orange_rs::world::{ChunkStorageTrait};
 use crate::test_world::TestWorld;
 
 fn prepare_client(client: &mut Client) {
-// Create the texture layout and load the textures from the binary
-    mc_resource_handler::mc_terrain_tex_layout(client);
+    mc_resource_handler::create_resources(client);
     mc_resource_handler::load_binary_resources(client);
-
-    // Layouts is created after state, but state should be part of client
-    // A weird ordering issue that should eventually be fixed, but not important atm
-    {
-        let world_render_state = TerrainOpaqueState::new(
-            &client.gpu.device,
-            &client.gpu.config,
-            &client.projection,
-            &client.camera,
-            &client.layouts["mc_terrain_tex_layout"],
-        );
-        client.terrain_opaque_state.replace(world_render_state);
-        let world_render_state = TerrainTransparentState::new(
-            &client.gpu.device,
-            &client.gpu.config,
-            &client.projection,
-            &client.camera,
-            &client.layouts["mc_terrain_tex_layout"],
-        );
-        client.terrain_transparent_state.replace(world_render_state);
-    }
 }
 
 #[derive(Debug)]
@@ -121,7 +97,6 @@ fn main() {
 
     // Eventually parse these for username and stuff
     let _args: Vec<String> = std::env::args().collect();
-
     println!("Args: {:?}", _args);
 
     let param_ip = &_args[1];
@@ -403,8 +378,15 @@ fn main() {
                     .camera_controller
                     .process_keyboard(CameraControllerMovement::Right, true);
             }
-            if event_helper.key_held(VirtualKeyCode::G) {
+            if event_helper.key_pressed(VirtualKeyCode::G) {
                 warn!("Player Position: {:?}", client.camera.position());
+            }
+            if event_helper.key_pressed(VirtualKeyCode::H) {
+                if let Ok(test_world) = test_world.read() {
+                    if let Some(transform) = test_world.get_player_transform() {
+                        client.camera.set_position(transform.position);
+                    }
+                }
             }
             if event_helper.key_held(VirtualKeyCode::Space) {
                 client
@@ -428,7 +410,7 @@ fn main() {
  
             render_time.tick();
 
-            client.update(render_time.elasped_time() as f32);
+            client.update(render_time.elapsed_time() as f32);
 
             let render_result: Result<(), wgpu::SurfaceError> = {
                 let player_pos = match test_world.read().unwrap().get_player_transform() {
@@ -481,11 +463,10 @@ fn main() {
                         }),
                     });
 
-                    let state = client.terrain_opaque_state.as_ref().unwrap();
-
-                    render_pass.set_pipeline(&state.render_pipeline);
-                    render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
+                    render_pass.set_pipeline(client.get_pipeline(TERRAIN_OPAQUE_PIPELINE).unwrap());
+                    render_pass.set_bind_group(0, client.get_bind_group(CAMERA_BIND_GROUP_NAME).unwrap(), &[]);
                     render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
+                    render_pass.set_bind_group(2, client.get_texture(LIGHTMAP_TEXTURE_NAME).bind_group(), &[]);
 
                     let directions = client.camera.vectors();
                     let aspect = client.projection.aspect;
@@ -523,11 +504,8 @@ fn main() {
                             mesh.draw(&mut render_pass);
                         }
                     }
-                    let state = client.terrain_transparent_state.as_ref().unwrap();
 
-                    render_pass.set_pipeline(&state.render_pipeline);
-                    render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
-                    render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
+                    render_pass.set_pipeline(client.get_pipeline(TERRAIN_TRANSPARENT_PIPELINE).unwrap());
                     render_list.reverse();
                     for chunk_pos in &render_list {
                         if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(*chunk_pos) {
@@ -555,8 +533,8 @@ fn main() {
                                             num_tessellations += 1;
                                             let section_position = NewChunkPosition::new(x, y, z).to_entity_pos();
 
-                                            let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos);
-                                            tessellator.tessellate_chunk_section(chunk, section_position, blocks, textures, nearby_chunks);
+                                            // let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos);
+                                            tessellator.tessellate_chunk_section(chunk, section_position, pos, blocks, textures, &server_world.chunk_storage);
                                             let mesh = tessellator.build(&client.gpu.device);
                                             minecraft.client_chunk_storage.set_chunk(mesh, pos);
                                             tessellate_queue.push_back(pos);

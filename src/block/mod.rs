@@ -1,4 +1,5 @@
 pub mod block_factory;
+mod properties;
 
 use crate::{minecraft::identifier::Identifier, registry::Registerable};
 use crate::client::models::model::{BakedModel, VoxelModel};
@@ -23,6 +24,8 @@ pub struct Block {
     slipperiness: f32,
     /// Transparent, determines if this block should be on the transparency layer
     transparent: bool,
+    /// Full Block, determines if this block consists of the entire voxel region 1^3, used in AO (client)
+    full_block: bool,
 
     model: ModelSupplierType,
     side_cull_fn: SideCullFunctionType,
@@ -43,9 +46,10 @@ impl Block {
 
         let transparent = settings.transparent.unwrap_or(false);
 
+        let full_block = settings.full_block.unwrap_or(true);
 
-        let model_supplier = settings.model_supplier.unwrap_or(|x| { VoxelModel::from_template(template_models::missing()).bake() });
-        let side_cull_fn = settings.side_cull_fn.unwrap_or(|dir| { true });
+        let model_supplier = settings.model_supplier.unwrap_or(|_| { VoxelModel::from_template(template_models::missing()).bake() });
+        let side_cull_fn = settings.side_cull_fn.unwrap_or(|_| { true });
 
         Self {
             identifier,
@@ -53,6 +57,7 @@ impl Block {
             resistance,
             slipperiness,
             transparent,
+            full_block,
             model: model_supplier,
             side_cull_fn,
         }
@@ -73,6 +78,10 @@ impl Block {
     pub fn is_transparent(&self) -> bool {
         self.transparent
     }
+
+    pub fn is_full_block(&self) -> bool { self.full_block }
+
+    pub fn is_solid_block(&self) -> bool { self.is_full_block() && !self.is_transparent() }
 
     pub fn get_model(&self, meta: u32) -> BakedModel {
         let f: ModelSupplierType = self.model;

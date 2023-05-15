@@ -1,4 +1,4 @@
-use ultraviolet::{Vec3, Vec4};
+use ultraviolet::Vec3;
 
 pub struct AABB {
     min: Vec3,

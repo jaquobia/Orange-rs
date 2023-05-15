@@ -2,20 +2,19 @@
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) colour: vec3<f32>,
+    @location(1) color: vec3<f32>,
     @location(2) normal: vec3<f32>,
     @location(3) texture: vec2<f32>,
     @location(4) overlay: u32,
-    @location(5) light: u32,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) colour: vec3<f32>,
+    @location(0) color: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) texture: vec2<f32>,
-    @location(3) overlay: u32,
-    @location(4) light: u32,
+    @location(3) overlay: f32,
+    @location(4) ao: f32,
 };
 
 struct CameraUniform {
@@ -25,14 +24,18 @@ struct CameraUniform {
 @group(0) @binding(0)
 var<uniform> camera: CameraUniform;
 
+fn ao_color(ao: u32) -> f32 {
+    return f32(ao) * 0.3333;
+}
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.colour = in.colour;
+    out.color = in.color;
     out.normal = in.normal;
     out.texture = in.texture;
-    out.overlay = in.overlay;
-    out.light = in.light;
+    out.overlay = f32(in.overlay & u32(15)) / 15.0;
+    out.ao = ao_color((in.overlay >> 4u) & 15u);
     out.clip_position = camera.view_proj * vec4<f32>(in.position, 1.0);
     return out;
 }
@@ -40,12 +43,21 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 // Fragment shader
 
 @group(1) @binding(0)
-var t_diffuse: texture_2d<f32>;
+var t_atlas: texture_2d<f32>;
 @group(1) @binding(1)
-var s_diffuse: sampler;
+var s_atlas: sampler;
+
+@group(2) @binding(0)
+var t_lightmap: texture_2d<f32>;
+@group(2) @binding(1)
+var s_lightmap: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var sample = textureSample(t_diffuse, s_diffuse, in.texture);
-    return sample;
+    var sampleT = textureSample(t_atlas, s_atlas, in.texture);
+    let ao_modifier = mix(0.15, 1.0, in.ao);
+    let ao = vec3<f32>(ao_modifier);
+    var light = in.overlay;
+    var color = vec4<f32>(in.color * ao * light, 1.0);
+    return sampleT * color;
 }

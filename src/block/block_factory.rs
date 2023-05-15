@@ -48,6 +48,11 @@ impl BlockFactory {
         self
     }
 
+    pub fn full_block(mut self, f: bool) -> Self {
+        self.settings.full_block = Some(f);
+        self
+    }
+
     pub fn model(mut self, f: ModelSupplierType) -> Self {
         self.settings.model_supplier = Some(f);
         self
@@ -65,6 +70,7 @@ pub struct BlockSettings {
     pub resistance: Option<f32>,
     pub slipperiness: Option<f32>,
     pub transparent: Option<bool>,
+    pub full_block: Option<bool>,
     pub model_supplier: Option<ModelSupplierType>,
     pub side_cull_fn: Option<SideCullFunctionType>,
 }

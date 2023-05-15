@@ -66,6 +66,7 @@ lazy_static! {
             .with_face(VoxelFace::new("#crop").with_uv([16.0, 0.0], [0.0, 16.0]), Direction::East)
             .with_face(VoxelFace::new("#crop").with_uv([0.0, 0.0], [16.0, 16.0]), Direction::West)
         );
+
         let slab_template = VoxelModel::new().with_element(VoxelElement::new([0.0, 0.0, 0.0], [16.0, 8.0, 16.0])
         .with_face(VoxelFace::new("#down").with_cullface(Direction::Down), Direction::Down)
         .with_face(VoxelFace::new("#up").with_cullface(Direction::Up), Direction::Up)
@@ -74,6 +75,7 @@ lazy_static! {
         .with_face(VoxelFace::new("#west").with_cullface(Direction::West).with_uv([0.0, 0.0], [16.0, 8.0]), Direction::West)
         .with_face(VoxelFace::new("#east").with_cullface(Direction::East).with_uv([0.0, 0.0], [16.0, 8.0]), Direction::East)
         );
+
         let slab_all_template = VoxelModel::from_template(&slab_template)
         .with_texture("particle", "#all")
         .with_texture("down", "#all")
@@ -82,6 +84,7 @@ lazy_static! {
         .with_texture("south", "#all")
         .with_texture("west", "#all")
         .with_texture("east", "#all");
+
         let slab_column_template = VoxelModel::from_template(&slab_template)
         .with_texture("particle", "#up")
         .with_texture("down", "#up")
@@ -104,6 +107,7 @@ lazy_static! {
             .with_face(VoxelFace::new("#torch").with_uv([0.0, 0.0], [16.0, 16.0]), Direction::West)
             .with_shade(false)
         ).with_ambient_occlusion(false);
+
         let wall_torch_template = VoxelModel::new()
         .with_element(VoxelElement::new([-1.0, 3.5, 7.0], [1.0, 13.5, 9.0])
             .with_face(VoxelFace::new("#torch").with_uv([7.0, 6.0], [9.0, 8.0]), Direction::Up)
@@ -121,18 +125,22 @@ lazy_static! {
             .with_rotation(VoxelRotation::new(-22.5, 2, Vec3::new(0.0, 3.5, 8.0), false))
             .with_shade(false)
         ).with_ambient_occlusion(false);
+
         let missing_template = VoxelModel::from_template(&cube_all_template).with_texture("all", "missing");
+
         let orientable_template = VoxelModel::from_template(&cube_template)
         .with_texture("north", "#front")
         .with_texture("south", "#side")
         .with_texture("east", "#side")
         .with_texture("west", "#side");
+
         let column_top_bottom_template = VoxelModel::from_template(&cube_template)
         .with_texture("particle", "#up")
         .with_texture("north", "#side")
         .with_texture("south", "#side")
         .with_texture("west", "#side")
         .with_texture("east", "#side");
+
         let stair_template = VoxelModel::new()
         .with_texture("particle", "#all")
         .with_element(VoxelElement::new([0.0, 0.0, 0.0], [16.0, 8.0, 16.0])
@@ -150,6 +158,7 @@ lazy_static! {
             .with_face(VoxelFace::new("#west").with_cullface(Direction::West).with_uv([8.0, 8.0], [16.0, 16.0]), Direction::West)
             .with_face(VoxelFace::new("#east").with_cullface(Direction::East).with_uv([0.0, 8.0], [8.0, 16.0]), Direction::East)
         );
+
         let stair_all_template = VoxelModel::from_template(&stair_template)
         .with_texture("particle", "#all")
         .with_texture("north", "#all")
@@ -158,7 +167,62 @@ lazy_static! {
         .with_texture("west", "#all")
         .with_texture("up", "#all")
         .with_texture("down", "#all");
-        vec![cube_template, cube_all_template, cross_template, crop_template, cube_column_template, slab_template, slab_all_template, slab_column_template, torch_template, missing_template, wall_torch_template, orientable_template, column_top_bottom_template, stair_template, stair_all_template]
+
+        let door_bottom_left_template = VoxelModel::new()
+        .with_element(VoxelElement::new([0., 0., 0.], [3., 16., 16.])
+            .with_face(VoxelFace::new("#door_face").with_uv([16., 13.], [0., 16.]).with_cullface(Direction::Down).with_rotation(90.), Direction::Down)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [16., 16.]).with_cullface(Direction::North), Direction::North)
+            .with_face(VoxelFace::new("#door_face").with_uv([16., 0.], [0., 16.]).with_cullface(Direction::South), Direction::South)
+            .with_face(VoxelFace::new("#door_face").with_uv([3., 0.], [0., 16.]), Direction::East)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [3., 16.]).with_cullface(Direction::West), Direction::West)
+        );
+
+        let door_bottom_right_template = VoxelModel::new()
+        .with_element(VoxelElement::new([0., 0., 0.], [3., 16., 16.])
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 13.], [16., 16.]).with_cullface(Direction::Down).with_rotation(90.), Direction::Down)
+            .with_face(VoxelFace::new("#door_face").with_uv([16., 0.], [0., 16.]).with_cullface(Direction::North), Direction::North)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [16., 16.]).with_cullface(Direction::South), Direction::South)
+            .with_face(VoxelFace::new("#door_face").with_uv([3., 0.], [0., 16.]), Direction::East)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [3., 16.]).with_cullface(Direction::West), Direction::West)
+        );
+
+        let door_top_left_template = VoxelModel::new()
+        .with_element(VoxelElement::new([0., 0., 0.], [3., 16., 16.])
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 3.], [16., 0.]).with_cullface(Direction::Up).with_rotation(90.), Direction::Up)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [16., 16.]).with_cullface(Direction::North), Direction::North)
+            .with_face(VoxelFace::new("#door_face").with_uv([16., 0.], [0., 16.]).with_cullface(Direction::South), Direction::South)
+            .with_face(VoxelFace::new("#door_face").with_uv([3., 0.], [0., 16.]), Direction::East)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [3., 16.]).with_cullface(Direction::West), Direction::West)
+        );
+
+        let door_top_right_template = VoxelModel::new()
+        .with_element(VoxelElement::new([0., 0., 0.], [3., 16., 16.])
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 3.], [16., 0.]).with_cullface(Direction::Up).with_rotation(90.), Direction::Up)
+            .with_face(VoxelFace::new("#door_face").with_uv([16., 0.], [0., 16.]).with_cullface(Direction::North), Direction::North)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [16., 16.]).with_cullface(Direction::South), Direction::South)
+            .with_face(VoxelFace::new("#door_face").with_uv([3., 0.], [0., 16.]), Direction::East)
+            .with_face(VoxelFace::new("#door_face").with_uv([0., 0.], [3., 16.]).with_cullface(Direction::West), Direction::West)
+        );
+
+        let pressure_plate_up_template = VoxelModel::new()
+        .with_element(VoxelElement::new([1., 0. ,1.], [15., 1., 15.])
+            .with_face(VoxelFace::new("#all").with_uv([1., 1.], [15., 15.]), Direction::Up)
+            .with_face(VoxelFace::new("#all").with_uv([1., 1.], [15., 15.]).with_cullface(Direction::Down), Direction::Down)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 16.]), Direction::North)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 16.]), Direction::South)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 16.]), Direction::East)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 16.]), Direction::West));
+
+        let pressure_plate_down_template = VoxelModel::new()
+        .with_element(VoxelElement::new([1., 0. ,1.], [15., 0.5, 15.])
+            .with_face(VoxelFace::new("#all").with_uv([1., 1.], [15., 15.]), Direction::Up)
+            .with_face(VoxelFace::new("#all").with_uv([1., 1.], [15., 15.]).with_cullface(Direction::Down), Direction::Down)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 15.5]), Direction::North)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 15.5]), Direction::South)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 15.5]), Direction::East)
+            .with_face(VoxelFace::new("#all").with_uv([1., 15.], [15., 15.5]), Direction::West));
+        vec![cube_template, cube_all_template, cross_template, crop_template, cube_column_template, slab_template, slab_all_template, slab_column_template, torch_template, missing_template, wall_torch_template, orientable_template, column_top_bottom_template, stair_template, stair_all_template,
+        door_bottom_left_template, door_bottom_right_template, door_top_left_template, door_top_right_template, pressure_plate_up_template, pressure_plate_down_template, ]
     };
 }
 
@@ -217,4 +281,22 @@ pub fn stair() -> &'static VoxelModel {
 }
 pub fn stair_all() -> &'static VoxelModel {
     &TEMPLATE_MODELS[14]
+}
+pub fn door_bottom_left() -> &'static VoxelModel {
+    &TEMPLATE_MODELS[15]
+}
+pub fn door_bottom_right() -> &'static VoxelModel {
+    &TEMPLATE_MODELS[16]
+}
+pub fn door_top_left() -> &'static VoxelModel {
+    &TEMPLATE_MODELS[17]
+}
+pub fn door_top_right() -> &'static VoxelModel {
+    &TEMPLATE_MODELS[18]
+}
+pub fn pressure_plate_up() -> &'static VoxelModel {
+    &TEMPLATE_MODELS[19]
+}
+pub fn pressure_plate_down() -> &'static VoxelModel {
+    &TEMPLATE_MODELS[20]
 }

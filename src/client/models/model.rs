@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::f32::consts;
-use std::ops::{Mul, Rem};
-use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
+use std::ops::{Rem};
+use log::warn;
+use ultraviolet::{Mat4, Vec2, Vec3};
 
 use crate::direction::{Direction, DIRECTIONS};
 
@@ -12,12 +12,13 @@ pub struct ModelPoly<const SIZE:  usize> {
     pub u: Vec2,
     pub v: Vec2,
     pub cullface: Option<Direction>,
+    pub ao_face: Option<Direction>,
     pub texture: String,
     pub tint_index: i32,
 }
 
-type ModelQuad = ModelPoly<4>;
-type ModelTriangle = ModelPoly<3>;
+pub type ModelQuad = ModelPoly<4>;
+pub type ModelTriangle = ModelPoly<3>;
 
 pub enum ModelShape {
     Quad { quad: ModelQuad },
@@ -61,6 +62,12 @@ impl ModelShape {
             ModelShape::Triangle { triangle } => { triangle.cullface },
         }
     }
+    pub fn ao_face(&self) -> Option<Direction> {
+        match self {
+            ModelShape::Quad { quad } => { quad.ao_face },
+            ModelShape::Triangle { triangle } => { triangle.ao_face },
+        }
+    }
     pub fn texture(&self) -> &String {
         match self {
             ModelShape::Quad { quad } => { &quad.texture },
@@ -72,6 +79,7 @@ impl ModelShape {
 pub struct BakedModel {
     quads: Vec<ModelShape>,
     textures: HashMap<String, String>,
+    ambient_occlusion: bool,
 }
 
 impl BakedModel {
@@ -79,6 +87,7 @@ impl BakedModel {
         Self {
             quads: vec![],
             textures: HashMap::new(),
+            ambient_occlusion: true,
         }
     }
 
@@ -88,6 +97,7 @@ impl BakedModel {
     pub fn textures(&self) -> &HashMap<String, String> {
         &self.textures
     }
+    pub fn ambient_occlusion(&self) -> bool { self.ambient_occlusion }
 }
 
 #[derive(Clone)]
@@ -173,6 +183,7 @@ impl VoxelModel {
             2 => Vec3::unit_z(),
             _ => Vec3::zero(),
         };
+        // warn!("Rotation on axis {axis:?} by {angle} radians");
         let rotation = Mat4::from_rotation_around(axis.xyzw(), angle).extract_rotation().normalized();
         // the function provided by minecraft's wiki under the sapling example, but doesn't work: https://minecraft.fandom.com/wiki/Tutorials/Models#Block_models
         // let scale = if *rescale { 1.0 + 1.0 / (angle.cos() - 1.0) } else { 1.0 };
@@ -222,7 +233,7 @@ impl VoxelModel {
             let min_pos = element.from * (1.0 / 16.0);
             let max_pos = element.to * (1.0 / 16.0);
 
-            let mut points = &mut [
+            let points = &mut [
                 Vec3::new(min_pos.x, max_pos.y, min_pos.z), // 0
                 Vec3::new(min_pos.x, max_pos.y, max_pos.z), // 1
                 Vec3::new(min_pos.x, min_pos.y, min_pos.z), // 2
@@ -247,16 +258,30 @@ impl VoxelModel {
                     let face_direction = DIRECTIONS[index];
                     let pos = get_face_vertices_on_cuboid(face_direction, points);
                     let (u, v) = if let Some(uv) = face.uv {
-                        (uv[0], uv[1])
+                        match face.rotation {
+                            1 => (Vec2::new(uv[0].x, uv[1].y), Vec2::new(uv[1].x, uv[0].y)),
+                            2 => (uv[1], uv[0]),
+                            3 => (Vec2::new(uv[1].x, uv[0].y), Vec2::new(uv[0].x, uv[1].y)),
+                            _ => (uv[0], uv[1]),
+                        }
                     } else {
-                        ((0.0, 0.0).into(), (16.0, 16.0).into())
+                        match face.rotation {
+                            1 => ((0.0, 16.0).into(), (16.0, 0.0).into()),
+                            2 => ((16.0, 16.0).into(), (0.0, 0.0).into()),
+                            3 => ((16.0, 0.0).into(), (0.0, 16.0).into()),
+                            _ => ((0.0, 0.0).into(), (16.0, 16.0).into()),
+                        }
                     };
+                    let color = (1.0, 1.0, 1.0).into();
                     let cullface = Self::rotate_direction(face.cullface, variant_rotation_angle);
-                    quads.push( ModelShape::Quad { quad: ModelQuad { pos, u, v, texture: face.texture_variable.clone(), color: (1.0, 1.0, 1.0).into(), cullface, normal: face_direction.get_float_vector(), tint_index: face.tint_index} } );
+                    let ao_face = if element.rotation.is_some() { None } else { Some(face_direction) };
+                    let normal = face_direction.get_float_vector();
+                    let tint_index = face.tint_index;
+                    quads.push( ModelShape::Quad { quad: ModelQuad { pos, u, v, texture: face.texture_variable.clone(), color, cullface, ao_face, normal, tint_index} } );
                 }
             }
         }
-        BakedModel { quads, textures }
+        BakedModel { quads, textures, ambient_occlusion: self.ambient_occlusion }
     }
 }
 
@@ -302,6 +327,8 @@ pub struct VoxelFace {
     uv: Option<[Vec2; 2]>,
     cullface: Option<Direction>,
     tint_index: i32,
+    /// The rotation (permutation) of the uv on the vertices
+    rotation: u8,
 }
 
 impl VoxelFace {
@@ -314,6 +341,7 @@ impl VoxelFace {
             uv: None,
             cullface: None,
             tint_index: -1,
+            rotation: 0,
         }
     }
     pub fn with_uv(self, u: impl Into<Vec2>, v: impl Into<Vec2>) -> Self {
@@ -329,6 +357,13 @@ impl VoxelFace {
     }
     pub fn with_tint(mut self, tint: i32) -> Self {
         self.tint_index = tint;
+        self
+    }
+
+    pub fn with_rotation(mut self, rotation: f32) -> Self {
+        let normalized_rotation = (rotation).rem(360.0);
+        let scaled_rotation = normalized_rotation / 90.;
+        self.rotation = scaled_rotation as u8;
         self
     }
 }
