@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 use std::ops::Add;
+use rustc_hash::FxHashMap;
 
-use ultraviolet::{Vec2, Vec3, IVec3};
-use wgpu::{util::DeviceExt, Device};
+use ultraviolet::{IVec3, Vec2, Vec3};
+use wgpu::{Device, util::DeviceExt};
 
-use crate::{direction::DIRECTIONS, world::chunk::{CHUNK_SECTION_AXIS_SIZE, Chunk, ChunkSection}, registry::Register, block::Block};
+use crate::{block::Block, direction::DIRECTIONS, world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkSection}};
 use crate::client::models::model::{BakedModel, ModelQuad, ModelShape};
 use crate::client::textures::TextureObject;
 use crate::direction::{DirectionAll, DIRECTIONS_ALL};
 use crate::minecraft::identifier::Identifier;
+use crate::minecraft::registry::Register;
 
 use crate::world::chunk::ChunkDataType;
 use crate::world::{ChunkStorage, ChunkStorageTrait};
@@ -242,13 +244,21 @@ impl TerrainTessellator {
     //     self.index_buffer.clear();
     // }
 
-    fn get_occlusions(nearby_blocks: &[ChunkDataType; 26], blocks: &Register<Block>, source_block_transparent: bool) -> u32 {
+    fn get_occlusions(nearby_blocks: &[ChunkDataType; 26], blocks: &Register<Block>, source_block_transparent: bool, source_block_id: usize) -> u32 {
         let mut occlusions = 0u32;
         for dir in &DIRECTIONS {
             let chunk_data = nearby_blocks[dir.ordinal()];
             let (block_id, _metadata, _block_light) = Chunk::chunk_data_helper(chunk_data);
             if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
-                let should_occlude = (block.is_transparent() == source_block_transparent) && block.culls_side(dir.reverse());
+                let block_transparent = block.is_transparent();
+
+                let both_transparent = block_transparent && block_transparent == source_block_transparent;
+                // let different_transparencies = block_transparent != source_block_transparent;
+                let same_block = block_id == source_block_id;
+
+                let other_culls_this = block.culls_side(dir.reverse());
+                
+                let should_occlude = (both_transparent && same_block) || (!block_transparent && other_culls_this);
                 occlusions |= (should_occlude as u32) << dir.ordinal();
             }
         }
@@ -512,10 +522,11 @@ impl TerrainTessellator {
     }
 
     pub fn sample_light_for_pos(pos: Vec3, lights: &[f32; 8], ao: u32) -> u32 {
-        let a = Self::trilinear_interpolate(pos, &lights) as u32;
+        let a = (Self::trilinear_interpolate(pos, &lights) as u32) & 0b1111;
         // let b = (Self::trilinear_interpolate(pos, &ao) as u32) << 4;
-        let b = ao << 4;
-        a | b
+        let b = (ao & 0b1111) << 4;
+        let c = (0 & 0b1111) << 8;
+        a | b | c
     }
 
     pub fn sample_light_for_pos_multiple(pos: &[Vec3; 4], lights: &[u8; 8], ao: &[u8]) -> [u32; 4] {
@@ -529,12 +540,8 @@ impl TerrainTessellator {
         ]
     }
 
-    // pub fn sample_light_for_quad(quad: &ModelQuad) -> [u32; 4] {
-    //     quad.
-    // }
-
     // Vec<Option<&ChunkSection>>
-    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, textures: &HashMap<Identifier, TextureObject>, nearby_chunks: &ChunkStorage<ChunkSection>) {
+    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, textures: &FxHashMap<Identifier, TextureObject>, nearby_chunks: &ChunkStorage<ChunkSection>) {
         let smooth_shading = true;
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
@@ -554,7 +561,7 @@ impl TerrainTessellator {
 
                     let intra_chunk_position = IVec3::new(x as i32, y as i32, z as i32);
                     let nearby_blocks = Self::get_nearby_blocks(section, &nearby_chunks, intra_chunk_position, chunk_pos);
-                    let occlusions = Self::get_occlusions(&nearby_blocks, blocks,is_transparent);
+                    let occlusions = Self::get_occlusions(&nearby_blocks, blocks, is_transparent, block_id);
 
                     let lights = Self::get_nearby_lighting_data(&nearby_blocks, block_light);
                     let ao = if block_model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, blocks) } else { [3; 24] };
@@ -593,12 +600,13 @@ impl TerrainTessellator {
 
                                 let ao_left = ao[0] + ao[3];
                                 let ao_right = ao[2] + ao[1];
-                                // let ao_flip = ao_left < ao_right;
+                                let ao_flip = ao_left < ao_right;
                                 let light_left = lights[0] + lights[3];
                                 let light_right = lights[2] + lights[1];
                                 let light_flip = light_left >= light_right;
                                 let light_flip = lights[0] >= light_right || lights[3] >= light_right;
-                                let flip = !light_flip;
+                                let flip = light_flip;
+                                // let flip = ao_flip;
 
                                 if is_transparent {
                                     self.quad_transparent(positions, lights, quad.color, quad.normal, uv_min, uv_max, flip);

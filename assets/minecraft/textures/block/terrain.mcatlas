@@ -1,0 +1,698 @@
+{
+  "atlas": {
+    "Uniform": {
+      "across": 16,
+      "down": null,
+      "textures": [
+        {
+          "cell": 0,
+          "identifier": "minecraft:grass_top"
+        },
+        {
+          "cell": 1,
+          "identifier": "minecraft:stone"
+        },
+        {
+          "cell": 2,
+          "identifier": "minecraft:dirt"
+        },
+        {
+          "cell": 3,
+          "identifier": "minecraft:grass_side"
+        },
+        {
+          "cell": 4,
+          "identifier": "minecraft:oak_plank"
+        },
+        {
+          "cell": 5,
+          "identifier": "minecraft:stone_slab_side"
+        },
+        {
+          "cell": 6,
+          "identifier": "minecraft:stone_slab_top"
+        },
+        {
+          "cell": 7,
+          "identifier": "minecraft:bricks"
+        },
+        {
+          "cell": 8,
+          "identifier": "minecraft:tnt_side"
+        },
+        {
+          "cell": 9,
+          "identifier": "minecraft:tnt_top"
+        },
+        {
+          "cell": 10,
+          "identifier": "minecraft:tnt_bottom"
+        },
+        {
+          "cell": 11,
+          "identifier": "minecraft:cobweb"
+        },
+        {
+          "cell": 12,
+          "identifier": "minecraft:red_flower"
+        },
+        {
+          "cell": 13,
+          "identifier": "minecraft:yellow_flower"
+        },
+        {
+          "cell": 14,
+          "identifier": "minecraft:portal"
+        },
+        {
+          "cell": 15,
+          "identifier": "minecraft:oak_sapling"
+        },
+        {
+          "cell": 16,
+          "identifier": "minecraft:cobblestone"
+        },
+        {
+          "cell": 17,
+          "identifier": "minecraft:bedrock"
+        },
+        {
+          "cell": 18,
+          "identifier": "minecraft:sand"
+        },
+        {
+          "cell": 19,
+          "identifier": "minecraft:gravel"
+        },
+        {
+          "cell": 20,
+          "identifier": "minecraft:oak_log_side"
+        },
+        {
+          "cell": 21,
+          "identifier": "minecraft:oak_log_top"
+        },
+        {
+          "cell": 22,
+          "identifier": "minecraft:iron_block"
+        },
+        {
+          "cell": 23,
+          "identifier": "minecraft:gold_block"
+        },
+        {
+          "cell": 24,
+          "identifier": "minecraft:diamond_block"
+        },
+        {
+          "cell": 25,
+          "identifier": "minecraft:chest_top"
+        },
+        {
+          "cell": 26,
+          "identifier": "minecraft:chest_side_single"
+        },
+        {
+          "cell": 27,
+          "identifier": "minecraft:chest_front"
+        },
+        {
+          "cell": 28,
+          "identifier": "minecraft:red_mushroom"
+        },
+        {
+          "cell": 29,
+          "identifier": "minecraft:brown_mushroom"
+        },
+        {
+          "cell": 30,
+          "identifier": "missing"
+        },
+        {
+          "cell": 31,
+          "identifier": "minecraft:fire_1"
+        },
+        {
+          "cell": 32,
+          "identifier": "minecraft:gold_ore"
+        },
+        {
+          "cell": 33,
+          "identifier": "minecraft:iron_ore"
+        },
+        {
+          "cell": 34,
+          "identifier": "minecraft:coal_ore"
+        },
+        {
+          "cell": 35,
+          "identifier": "minecraft:bookshelf"
+        },
+        {
+          "cell": 36,
+          "identifier": "minecraft:mossy_cobblestone"
+        },
+        {
+          "cell": 37,
+          "identifier": "minecraft:obsidian"
+        },
+        {
+          "cell": 38,
+          "identifier": "minecraft:grass_side_overlay"
+        },
+        {
+          "cell": 39,
+          "identifier": "minecraft:tall_grass"
+        },
+        {
+          "cell": 40,
+          "identifier": "minecraft:grass_top_2"
+        },
+        {
+          "cell": 41,
+          "identifier": "minecraft:chest_front_double_left"
+        },
+        {
+          "cell": 42,
+          "identifier": "minecraft:chest_front_double_right"
+        },
+        {
+          "cell": 43,
+          "identifier": "minecraft:workbench_top"
+        },
+        {
+          "cell": 44,
+          "identifier": "minecraft:furnace_front"
+        },
+        {
+          "cell": 45,
+          "identifier": "minecraft:furnace_side"
+        },
+        {
+          "cell": 46,
+          "identifier": "minecraft:dispenser_front"
+        },
+        {
+          "cell": 47,
+          "identifier": "minecraft:fire_2"
+        },
+        {
+          "cell": 48,
+          "identifier": "minecraft:sponge"
+        },
+        {
+          "cell": 49,
+          "identifier": "minecraft:glass"
+        },
+        {
+          "cell": 50,
+          "identifier": "minecraft:diamond_ore"
+        },
+        {
+          "cell": 51,
+          "identifier": "minecraft:redstone_ore"
+        },
+        {
+          "cell": 52,
+          "identifier": "minecraft:leaves_oak"
+        },
+        {
+          "cell": 53,
+          "identifier": "minecraft:leaves_oak_2"
+        },
+        {
+          "cell": 55,
+          "identifier": "minecraft:dead_bush"
+        },
+        {
+          "cell": 56,
+          "identifier": "minecraft:fern"
+        },
+        {
+          "cell": 57,
+          "identifier": "minecraft:chest_side_double_left"
+        },
+        {
+          "cell": 58,
+          "identifier": "minecraft:chest_side_double_right"
+        },
+        {
+          "cell": 59,
+          "identifier": "minecraft:workbench_front"
+        },
+        {
+          "cell": 60,
+          "identifier": "minecraft:workbench_side"
+        },
+        {
+          "cell": 61,
+          "identifier": "minecraft:furnace_front_lit"
+        },
+        {
+          "cell": 62,
+          "identifier": "minecraft:furnace_top"
+        },
+        {
+          "cell": 63,
+          "identifier": "minecraft:spruce_sapling"
+        },
+        {
+          "cell": 64,
+          "identifier": "minecraft:white_wool"
+        },
+        {
+          "cell": 65,
+          "identifier": "minecraft:mob_spawner"
+        },
+        {
+          "cell": 66,
+          "identifier": "minecraft:snow"
+        },
+        {
+          "cell": 67,
+          "identifier": "minecraft:ice"
+        },
+        {
+          "cell": 68,
+          "identifier": "minecraft:grass_side_snowy"
+        },
+        {
+          "cell": 69,
+          "identifier": "minecraft:cactus_top"
+        },
+        {
+          "cell": 70,
+          "identifier": "minecraft:cactus_side"
+        },
+        {
+          "cell": 71,
+          "identifier": "minecraft:cactus_bottom"
+        },
+        {
+          "cell": 72,
+          "identifier": "minecraft:clay"
+        },
+        {
+          "cell": 73,
+          "identifier": "minecraft:reed"
+        },
+        {
+          "cell": 74,
+          "identifier": "minecraft:jukebox_side"
+        },
+        {
+          "cell": 75,
+          "identifier": "minecraft:jukebox_top"
+        },
+        {
+          "cell": 79,
+          "identifier": "minecraft:birch_sapling"
+        },
+        {
+          "cell": 80,
+          "identifier": "minecraft:torch"
+        },
+        {
+          "cell": 81,
+          "identifier": "minecraft:oak_door_top"
+        },
+        {
+          "cell": 82,
+          "identifier": "minecraft:iron_door_top"
+        },
+        {
+          "cell": 83,
+          "identifier": "minecraft:ladder"
+        },
+        {
+          "cell": 84,
+          "identifier": "minecraft:oak_trap_door"
+        },
+        {
+          "cell": 86,
+          "identifier": "minecraft:farmland_wet"
+        },
+        {
+          "cell": 87,
+          "identifier": "minecraft:farmland_dry"
+        },
+        {
+          "cell": 88,
+          "identifier": "minecraft:wheat_0"
+        },
+        {
+          "cell": 89,
+          "identifier": "minecraft:wheat_1"
+        },
+        {
+          "cell": 90,
+          "identifier": "minecraft:wheat_2"
+        },
+        {
+          "cell": 91,
+          "identifier": "minecraft:wheat_3"
+        },
+        {
+          "cell": 92,
+          "identifier": "minecraft:wheat_4"
+        },
+        {
+          "cell": 93,
+          "identifier": "minecraft:wheat_5"
+        },
+        {
+          "cell": 94,
+          "identifier": "minecraft:wheat_6"
+        },
+        {
+          "cell": 95,
+          "identifier": "minecraft:wheat_7"
+        },
+        {
+          "cell": 96,
+          "identifier": "minecraft:lever"
+        },
+        {
+          "cell": 97,
+          "identifier": "minecraft:oak_door_bottom"
+        },
+        {
+          "cell": 98,
+          "identifier": "minecraft:iron_door_bottom"
+        },
+        {
+          "cell": 99,
+          "identifier": "minecraft:redstone_torch_on"
+        },
+        {
+          "cell": 102,
+          "identifier": "minecraft:pumpkin_top"
+        },
+        {
+          "cell": 103,
+          "identifier": "minecraft:netherrack"
+        },
+        {
+          "cell": 104,
+          "identifier": "minecraft:soul_sand"
+        },
+        {
+          "cell": 105,
+          "identifier": "minecraft:glowstone"
+        },
+        {
+          "cell": 106,
+          "identifier": "minecraft:piston_sticky_front"
+        },
+        {
+          "cell": 107,
+          "identifier": "minecraft:piston_front"
+        },
+        {
+          "cell": 108,
+          "identifier": "minecraft:piston_side"
+        },
+        {
+          "cell": 109,
+          "identifier": "minecraft:piston_bottom"
+        },
+        {
+          "cell": 110,
+          "identifier": "minecraft:piston_base"
+        },
+        {
+          "cell": 112,
+          "identifier": "minecraft:rail_curved"
+        },
+        {
+          "cell": 113,
+          "identifier": "minecraft:black_wool"
+        },
+        {
+          "cell": 114,
+          "identifier": "minecraft:grey_wool"
+        },
+        {
+          "cell": 115,
+          "identifier": "minecraft:redstone_torch_off"
+        },
+        {
+          "cell": 116,
+          "identifier": "minecraft:spruce_log_side"
+        },
+        {
+          "cell": 117,
+          "identifier": "minecraft:birch_log_side"
+        },
+        {
+          "cell": 118,
+          "identifier": "minecraft:pumpkin_side"
+        },
+        {
+          "cell": 119,
+          "identifier": "minecraft:pumpkin_front"
+        },
+        {
+          "cell": 120,
+          "identifier": "minecraft:lantern_front"
+        },
+        {
+          "cell": 121,
+          "identifier": "minecraft:cake_top"
+        },
+        {
+          "cell": 122,
+          "identifier": "minecraft:cake_side"
+        },
+        {
+          "cell": 123,
+          "identifier": "minecraft:cake_side_eaten"
+        },
+        {
+          "cell": 124,
+          "identifier": "minecraft:cake_bottom"
+        },
+        {
+          "cell": 128,
+          "identifier": "minecraft:rail"
+        },
+        {
+          "cell": 129,
+          "identifier": "minecraft:red_wool"
+        },
+        {
+          "cell": 130,
+          "identifier": "minecraft:pink_wool"
+        },
+        {
+          "cell": 131,
+          "identifier": "minecraft:repeater_top_off"
+        },
+        {
+          "cell": 132,
+          "identifier": "minecraft:leaves_spruce"
+        },
+        {
+          "cell": 133,
+          "identifier": "minecraft:leaves_spruce_2"
+        },
+        {
+          "cell": 134,
+          "identifier": "minecraft:bed_top_foot"
+        },
+        {
+          "cell": 135,
+          "identifier": "minecraft:bed_top_head"
+        },
+        {
+          "cell": 140,
+          "identifier": "minecraft:cake_item"
+        },
+        {
+          "cell": 144,
+          "identifier": "minecraft:lapis_block"
+        },
+        {
+          "cell": 145,
+          "identifier": "minecraft:green_wool"
+        },
+        {
+          "cell": 146,
+          "identifier": "minecraft:lime_wool"
+        },
+        {
+          "cell": 147,
+          "identifier": "minecraft:repeater_top_on"
+        },
+        {
+          "cell": 149,
+          "identifier": "minecraft:bed_side_foot_front"
+        },
+        {
+          "cell": 150,
+          "identifier": "minecraft:bed_side_foot"
+        },
+        {
+          "cell": 151,
+          "identifier": "minecraft:bed_side_head"
+        },
+        {
+          "cell": 152,
+          "identifier": "minecraft:bed_side_head_front"
+        },
+        {
+          "cell": 160,
+          "identifier": "minecraft:lapis_ore"
+        },
+        {
+          "cell": 161,
+          "identifier": "minecraft:brown_wool"
+        },
+        {
+          "cell": 162,
+          "identifier": "minecraft:yellow_wool"
+        },
+        {
+          "cell": 163,
+          "identifier": "minecraft:powered_rail_off"
+        },
+        {
+          "cell": 164,
+          "identifier": "minecraft:redstone_dust"
+        },
+        {
+          "cell": 165,
+          "identifier": "minecraft:redstone_dust_line"
+        },
+        {
+          "cell": 176,
+          "identifier": "minecraft:sandstone_top"
+        },
+        {
+          "cell": 177,
+          "identifier": "minecraft:blue_wool"
+        },
+        {
+          "cell": 178,
+          "identifier": "minecraft:light_blue_wool"
+        },
+        {
+          "cell": 179,
+          "identifier": "minecraft:powered_rail_on"
+        },
+        {
+          "cell": 192,
+          "identifier": "minecraft:sandstone_side"
+        },
+        {
+          "cell": 193,
+          "identifier": "minecraft:purple_wool"
+        },
+        {
+          "cell": 194,
+          "identifier": "minecraft:magenta_wool"
+        },
+        {
+          "cell": 195,
+          "identifier": "minecraft:detector_rail"
+        },
+        {
+          "cell": 205,
+          "identifier": "minecraft:water_0"
+        },
+        {
+          "cell": 206,
+          "identifier": "minecraft:water_1"
+        },
+        {
+          "cell": 207,
+          "identifier": "minecraft:water_2"
+        },
+        {
+          "cell": 208,
+          "identifier": "minecraft:sandstone_bottom"
+        },
+        {
+          "cell": 209,
+          "identifier": "minecraft:cyan_wool"
+        },
+        {
+          "cell": 210,
+          "identifier": "minecraft:orange_wool"
+        },
+        {
+          "cell": 222,
+          "identifier": "minecraft:water_3"
+        },
+        {
+          "cell": 223,
+          "identifier": "minecraft:water_4"
+        },
+        {
+          "cell": 225,
+          "identifier": "minecraft:light_grey_wool"
+        },
+        {
+          "cell": 237,
+          "identifier": "minecraft:lava_0"
+        },
+        {
+          "cell": 238,
+          "identifier": "minecraft:lava_1"
+        },
+        {
+          "cell": 239,
+          "identifier": "minecraft:lava_2"
+        },
+        {
+          "cell": 240,
+          "identifier": "minecraft:break_0"
+        },
+        {
+          "cell": 241,
+          "identifier": "minecraft:break_1"
+        },
+        {
+          "cell": 242,
+          "identifier": "minecraft:break_2"
+        },
+        {
+          "cell": 243,
+          "identifier": "minecraft:break_3"
+        },
+        {
+          "cell": 244,
+          "identifier": "minecraft:break_4"
+        },
+        {
+          "cell": 245,
+          "identifier": "minecraft:break_5"
+        },
+        {
+          "cell": 246,
+          "identifier": "minecraft:break_6"
+        },
+        {
+          "cell": 247,
+          "identifier": "minecraft:break_7"
+        },
+        {
+          "cell": 248,
+          "identifier": "minecraft:break_8"
+        },
+        {
+          "cell": 249,
+          "identifier": "minecraft:break_9"
+        },
+        {
+          "cell": 254,
+          "identifier": "minecraft:lava_3"
+        },
+        {
+          "cell": 255,
+          "identifier": "minecraft:lava_4"
+        }
+      ]
+    }
+  }
+}

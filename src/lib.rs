@@ -3,7 +3,6 @@ pub mod direction;
 pub mod game_version;
 pub mod world;
 pub mod math_helper;
-pub mod registry;
 pub mod util;
 pub mod server;
 pub mod packets;

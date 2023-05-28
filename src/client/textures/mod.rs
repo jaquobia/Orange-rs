@@ -1,4 +1,6 @@
 use ultraviolet::Vec2;
+use crate::minecraft::identifier::Identifier;
+use crate::minecraft::registry::Registerable;
 
 /// A reference to some image in memory
 ///
@@ -16,4 +18,10 @@ pub enum TextureObject {
     ArrayTexture { layer: usize },
     /// A plain-old 3d texture
     Texture3D {},
+}
+
+impl Registerable for TextureObject {
+    fn get_identifier(&self) -> &Identifier {
+        todo!()
+    }
 }

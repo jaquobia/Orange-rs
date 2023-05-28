@@ -13,7 +13,7 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) texture: vec2<f32>,
-    @location(3) block_light: f32,
+    @location(3) block_light: vec2<f32>,
     @location(4) ao: f32,
 };
 
@@ -34,7 +34,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.color = in.color;
     out.normal = in.normal;
     out.texture = in.texture;
-    out.block_light = f32(in.overlay & u32(15)) / 15.0;
+    out.block_light = vec2<f32>(f32(in.overlay & 15u), f32((in.overlay >> 8u) & 15u));
     out.ao = ao_color((in.overlay >> 4u) & 15u);
     out.clip_position = camera.view_proj * vec4<f32>(in.position, 1.0);
     return out;
@@ -55,12 +55,13 @@ var s_lightmap: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var sampleT = textureSample(t_atlas, s_atlas, in.texture);
+    var light = textureSample(t_lightmap, s_lightmap, in.block_light * (1.0 / 15.0));
     if (sampleT.w < 0.1) {
         discard;
     }
     let ao_modifier = pow(mix(0.15, 1.0, in.ao), 0.5);
     let ao = vec3<f32>(ao_modifier);
-    var light = in.block_light;
-    var color = vec4<f32>(in.color * ao * light, 1.0);
-    return sampleT * color;
+    
+    var color = vec4<f32>(in.color * ao, 1.0);
+    return sampleT * color * light;
 }

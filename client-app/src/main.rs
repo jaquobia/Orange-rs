@@ -1,42 +1,42 @@
 mod test_world;
 
-use std::{collections::VecDeque, sync::{Arc, RwLock} };
+use std::{collections::VecDeque, sync::{Arc, RwLock}};
 use env_logger::Builder;
 use log::{LevelFilter, warn};
 use orange_rs::{
-    registry::Registry,
     client::{
-        minecraft_client::MinecraftClient, 
+        camera::CameraControllerMovement,
+        Client,
+        gui::screen::MainMenu,
+        minecraft_client::MinecraftClient,
         rendering::{
             ElapsedTime,
             tessellator::TerrainTessellator
-        }, 
-        camera::CameraControllerMovement, 
-        Client, 
-        gui::screen::MainMenu
-    }, 
+        }
+    },
+    entities::{EntityCamera, EntityController, EntityMotion, EntityTransform},
+    minecraft::mc_resource_handler,
+    packets::prot14::Packet,
     util::{
         pos::{
+            BlockPos,
             ChunkPos,
-            Position,
             EntityPos,
-            BlockPos
+            Position
         },
         workers::WorkerThread
     },
-    packets::prot14::Packet,
-    entities::{EntityTransform, EntityMotion, EntityController, EntityCamera},
-    minecraft::mc_resource_handler,
 
 };
-use orange_networking::{network_interface::NetworkThread};
+use orange_networking::network_interface::NetworkThread;
 use ultraviolet::{DVec3, IVec3, Vec3};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
 use orange_rs::minecraft::mc_resource_handler::{CAMERA_BIND_GROUP_NAME, LIGHTMAP_TEXTURE_NAME, TERRAIN_OPAQUE_PIPELINE, TERRAIN_TRANSPARENT_PIPELINE};
+use orange_rs::minecraft::registry::Registry;
 use orange_rs::util::frustrum::Frustrum;
 use orange_rs::util::pos::NewChunkPosition;
-use orange_rs::world::{ChunkStorageTrait};
+use orange_rs::world::ChunkStorageTrait;
 use crate::test_world::TestWorld;
 
 fn prepare_client(client: &mut Client) {
@@ -70,7 +70,7 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
                     network_thread.send_packet(login_packet); 
                     warn!("Handshake Packet Received! {handshake_data}, sending login request as {username}.");
                 },
-                Packet::Login { protocol, username, seed, dimension } => {
+                Packet::Login { protocol, seed, dimension, .. } => {
                     player_id = protocol;
                     world.set_dimension_id(dimension);
                     world.set_seed(seed);
@@ -87,7 +87,30 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
 }
 
 /**
-uv correction, model element rotation, model caching, transparent shader pipeline, finish models for blocks, tints for leaves and grass, specify block face occlusion, transparent - transparent block face culling
+ * Thigs to work on:  
+ * - Uv correction (rotation lock),
+ * - Model caching (integration with blockstates), 
+ * - Finish models for block, 
+ * - Tints for leaves and grass (implement the entire biome system...),
+ * - Fix bugs in lighting and ao (artifacts at ll=0/1, ao having sharp corners)
+ * - Fix ao with model rotation
+ * - Fix rotation of elements/faces on x axis
+ * - Implement gamma curve (brightness)
+ * - Implement GUIs
+ * - Implement Huds
+ * - Implement Inventories and Interactable GUI elements
+ * - Implement Items
+ * - Implement Blockstates
+ * - Implement Blockstate model varients by rotations and multipart
+ * - Implement ResourceLoader
+ * - Generate a default resourcepack
+ * - Implement player physics
+ * - Implement Entities (models)
+ * - Implement Entity movement & physics
+ * - Maps
+ * - Sky Light (chunk light maps)
+ * - Light updates
+ *
 **/
 
 fn main() {
@@ -135,7 +158,6 @@ fn main() {
     minecraft.set_screen::<MainMenu>();
     
     let username = String::from("TT3");
-    let address = "127.0.0.0".to_string();
     let port = 25565;
     let mut test_world = TestWorld::new(chunk_height);
     let mut network_thread = match join_server(username, 14, param_ip.clone(), port, &mut test_world) {
@@ -520,7 +542,7 @@ fn main() {
                     let blocks = registry.get_block_register();
                     let textures = registry.get_texture_register();
                     // The maximum number of tessellations to be done every frame
-                    let max_tessellations = 2;
+                    let max_tessellations = 8;
                     let mut num_tessellations = 0;
                     if let Ok(server_world) = test_world.read() {
                         let mut tessellator = shared_tessellator.write().unwrap();

@@ -1,11 +1,15 @@
+use std::fs::{self};
+
 use log::warn;
 use ultraviolet::{Vec2, Vec3};
-use crate::{registry::Registry, block::block_factory::BlockFactory};
+use crate::block::block_factory::BlockFactory;
 use crate::client::models::model::{BakedModel, VoxelElement, VoxelFace, VoxelModel, VoxelRotation};
 use crate::client::textures::TextureObject;
 use crate::client::textures::TextureObject::AtlasTexture;
 use crate::direction::Direction;
+use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType};
 use crate::minecraft::identifier::Identifier;
+use crate::minecraft::registry::Registry;
 use crate::minecraft::template_models;
 use crate::minecraft::template_models::{column, column_top_bottom, crop, cross, cube, cube_all, door_bottom_left, door_bottom_right, door_top_left, door_top_right, missing, orientable, pressure_plate_down, pressure_plate_up, stair_all, torch, wall_torch};
 
@@ -45,208 +49,16 @@ fn non_full_cull(_: Direction) -> bool {
 fn load_b173(registry: &mut Registry) {
 
     let textures = registry.get_texture_register_mut();
-    textures.insert(Identifier::from("minecraft:grass_top"), make_atlas_tex(0));
-    textures.insert(Identifier::from("minecraft:stone"), make_atlas_tex(1));
-    textures.insert(Identifier::from("minecraft:dirt"), make_atlas_tex(2));
-    textures.insert(Identifier::from("minecraft:grass_side"), make_atlas_tex(3));
-    textures.insert(Identifier::from("minecraft:oak_plank"), make_atlas_tex(4));
-    textures.insert(Identifier::from("minecraft:stone_slab_side"), make_atlas_tex(5));
-    textures.insert(Identifier::from("minecraft:stone_slab_top"), make_atlas_tex(6));
-    textures.insert(Identifier::from("minecraft:bricks"), make_atlas_tex(7));
-    textures.insert(Identifier::from("minecraft:tnt_side"), make_atlas_tex(8));
-    textures.insert(Identifier::from("minecraft:tnt_top"), make_atlas_tex(9));
-    textures.insert(Identifier::from("minecraft:tnt_bottom"), make_atlas_tex(10));
-    textures.insert(Identifier::from("minecraft:cobweb"), make_atlas_tex(11));
-    textures.insert(Identifier::from("minecraft:red_flower"), make_atlas_tex(12));
-    textures.insert(Identifier::from("minecraft:yellow_flower"), make_atlas_tex(13));
-    textures.insert(Identifier::from("minecraft:portal"), make_atlas_tex(14));
-    textures.insert(Identifier::from("minecraft:oak_sapling"), make_atlas_tex(15));
-    textures.insert(Identifier::from("minecraft:cobblestone"), make_atlas_tex(16));
-    textures.insert(Identifier::from("minecraft:bedrock"), make_atlas_tex(17));
-    textures.insert(Identifier::from("minecraft:sand"), make_atlas_tex(18));
-    textures.insert(Identifier::from("minecraft:gravel"), make_atlas_tex(19));
-    textures.insert(Identifier::from("minecraft:oak_log_side"), make_atlas_tex(20));
-    textures.insert(Identifier::from("minecraft:oak_log_top"), make_atlas_tex(21));
-    textures.insert(Identifier::from("minecraft:iron_block"), make_atlas_tex(22));
-    textures.insert(Identifier::from("minecraft:gold_block"), make_atlas_tex(23));
-    textures.insert(Identifier::from("minecraft:diamond_block"), make_atlas_tex(24));
-    textures.insert(Identifier::from("minecraft:chest_top"), make_atlas_tex(25));
-    textures.insert(Identifier::from("minecraft:chest_side_single"), make_atlas_tex(26));
-    textures.insert(Identifier::from("minecraft:chest_front"), make_atlas_tex(27));
-    textures.insert(Identifier::from("minecraft:red_mushroom"), make_atlas_tex(28));
-    textures.insert(Identifier::from("minecraft:brown_mushroom"), make_atlas_tex(29));
-    textures.insert(Identifier::from("missing"), make_atlas_tex(30));
-    // 30
-    textures.insert(Identifier::from("minecraft:fire_1"), make_atlas_tex(31));
-    textures.insert(Identifier::from("minecraft:gold_ore"), make_atlas_tex(32));
-    textures.insert(Identifier::from("minecraft:iron_ore"), make_atlas_tex(33));
-    textures.insert(Identifier::from("minecraft:coal_ore"), make_atlas_tex(34));
-    textures.insert(Identifier::from("minecraft:bookshelf"), make_atlas_tex(35));
-    textures.insert(Identifier::from("minecraft:mossy_cobblestone"), make_atlas_tex(36));
-    textures.insert(Identifier::from("minecraft:obsidian"), make_atlas_tex(37));
-    textures.insert(Identifier::from("minecraft:grass_side_overlay"), make_atlas_tex(38));
-    textures.insert(Identifier::from("minecraft:tall_grass"), make_atlas_tex(39));
-    textures.insert(Identifier::from("minecraft:grass_top_2"), make_atlas_tex(40));
-    textures.insert(Identifier::from("minecraft:chest_front_double_left"), make_atlas_tex(41));
-    textures.insert(Identifier::from("minecraft:chest_front_double_right"), make_atlas_tex(42));
-    textures.insert(Identifier::from("minecraft:workbench_top"), make_atlas_tex(43));
-    textures.insert(Identifier::from("minecraft:furnace_front"), make_atlas_tex(44));
-    textures.insert(Identifier::from("minecraft:furnace_side"), make_atlas_tex(45));
-    textures.insert(Identifier::from("minecraft:dispenser_front"), make_atlas_tex(46));
-    textures.insert(Identifier::from("minecraft:fire_2"), make_atlas_tex(47));
-    textures.insert(Identifier::from("minecraft:sponge"), make_atlas_tex(48));
-    textures.insert(Identifier::from("minecraft:glass"), make_atlas_tex(49));
-    textures.insert(Identifier::from("minecraft:diamond_ore"), make_atlas_tex(50));
-    textures.insert(Identifier::from("minecraft:redstone_ore"), make_atlas_tex(51));
-    textures.insert(Identifier::from("minecraft:leaves_oak"), make_atlas_tex(52));
-    textures.insert(Identifier::from("minecraft:leaves_oak_2"), make_atlas_tex(53));
-    // 54
-    textures.insert(Identifier::from("minecraft:dead_bush"), make_atlas_tex(55));
-    textures.insert(Identifier::from("minecraft:fern"), make_atlas_tex(56));
-    textures.insert(Identifier::from("minecraft:chest_side_double_left"), make_atlas_tex(57));
-    textures.insert(Identifier::from("minecraft:chest_side_double_right"), make_atlas_tex(58));
-    textures.insert(Identifier::from("minecraft:workbench_front"), make_atlas_tex(59));
-    textures.insert(Identifier::from("minecraft:workbench_side"), make_atlas_tex(60));
-    textures.insert(Identifier::from("minecraft:furnace_front_lit"), make_atlas_tex(61));
-    textures.insert(Identifier::from("minecraft:furnace_top"), make_atlas_tex(62));
-    textures.insert(Identifier::from("minecraft:spruce_sapling"), make_atlas_tex(63));
-    textures.insert(Identifier::from("minecraft:white_wool"), make_atlas_tex(64));
-    textures.insert(Identifier::from("minecraft:mob_spawner"), make_atlas_tex(65));
-    textures.insert(Identifier::from("minecraft:snow"), make_atlas_tex(66));
-    textures.insert(Identifier::from("minecraft:ice"), make_atlas_tex(67));
-    textures.insert(Identifier::from("minecraft:grass_side_snowy"), make_atlas_tex(68));
-    textures.insert(Identifier::from("minecraft:cactus_top"), make_atlas_tex(69));
-    textures.insert(Identifier::from("minecraft:cactus_side"), make_atlas_tex(70));
-    textures.insert(Identifier::from("minecraft:cactus_bottom"), make_atlas_tex(71));
-    textures.insert(Identifier::from("minecraft:clay"), make_atlas_tex(72));
-    textures.insert(Identifier::from("minecraft:reed"), make_atlas_tex(73));
-    textures.insert(Identifier::from("minecraft:jukebox_side"), make_atlas_tex(74));
-    textures.insert(Identifier::from("minecraft:jukebox_top"), make_atlas_tex(75));
-    // 76
-    // 77
-    // 78
-    textures.insert(Identifier::from("minecraft:birch_sapling"), make_atlas_tex(79));
-    textures.insert(Identifier::from("minecraft:torch"), make_atlas_tex(80));
-    textures.insert(Identifier::from("minecraft:oak_door_top"), make_atlas_tex(81));
-    textures.insert(Identifier::from("minecraft:iron_door_top"), make_atlas_tex(82));
-    textures.insert(Identifier::from("minecraft:ladder"), make_atlas_tex(83));
-    textures.insert(Identifier::from("minecraft:oak_trap_door"), make_atlas_tex(84));
-    // 85
-    textures.insert(Identifier::from("minecraft:farmland_wet"), make_atlas_tex(86));
-    textures.insert(Identifier::from("minecraft:farmland_dry"), make_atlas_tex(87));
-    textures.insert(Identifier::from("minecraft:wheat_0"), make_atlas_tex(88));
-    textures.insert(Identifier::from("minecraft:wheat_1"), make_atlas_tex(89));
-    textures.insert(Identifier::from("minecraft:wheat_2"), make_atlas_tex(90));
-    textures.insert(Identifier::from("minecraft:wheat_3"), make_atlas_tex(91));
-    textures.insert(Identifier::from("minecraft:wheat_4"), make_atlas_tex(92));
-    textures.insert(Identifier::from("minecraft:wheat_5"), make_atlas_tex(93));
-    textures.insert(Identifier::from("minecraft:wheat_6"), make_atlas_tex(94));
-    textures.insert(Identifier::from("minecraft:wheat_7"), make_atlas_tex(95));
-    textures.insert(Identifier::from("minecraft:lever"), make_atlas_tex(96));
-    textures.insert(Identifier::from("minecraft:oak_door_bottom"), make_atlas_tex(97));
-    textures.insert(Identifier::from("minecraft:iron_door_bottom"), make_atlas_tex(98));
-    textures.insert(Identifier::from("minecraft:redstone_torch_on"), make_atlas_tex(99));
-    // 100
-    // 101
-    textures.insert(Identifier::from("minecraft:pumpkin_top"), make_atlas_tex(102));
-    textures.insert(Identifier::from("minecraft:netherrack"), make_atlas_tex(103));
-    textures.insert(Identifier::from("minecraft:soul_sand"), make_atlas_tex(104));
-    textures.insert(Identifier::from("minecraft:glowstone"), make_atlas_tex(105));
-    textures.insert(Identifier::from("minecraft:piston_sticky_front"), make_atlas_tex(106));
-    textures.insert(Identifier::from("minecraft:piston_front"), make_atlas_tex(107));
-    textures.insert(Identifier::from("minecraft:piston_side"), make_atlas_tex(108));
-    textures.insert(Identifier::from("minecraft:piston_bottom"), make_atlas_tex(109));
-    textures.insert(Identifier::from("minecraft:piston_base"), make_atlas_tex(110));
-    // 111
-    textures.insert(Identifier::from("minecraft:rail_curved"), make_atlas_tex(112));
-    textures.insert(Identifier::from("minecraft:black_wool"), make_atlas_tex(113));
-    textures.insert(Identifier::from("minecraft:grey_wool"), make_atlas_tex(114));
-    textures.insert(Identifier::from("minecraft:redstone_torch_off"), make_atlas_tex(115));
-    textures.insert(Identifier::from("minecraft:spruce_log_side"), make_atlas_tex(116));
-    textures.insert(Identifier::from("minecraft:birch_log_side"), make_atlas_tex(117));
-    textures.insert(Identifier::from("minecraft:pumpkin_side"), make_atlas_tex(118));
-    textures.insert(Identifier::from("minecraft:pumpkin_front"), make_atlas_tex(119));
-    textures.insert(Identifier::from("minecraft:lantern_front"), make_atlas_tex(120));
-    textures.insert(Identifier::from("minecraft:cake_top"), make_atlas_tex(121));
-    textures.insert(Identifier::from("minecraft:cake_side"), make_atlas_tex(122));
-    textures.insert(Identifier::from("minecraft:cake_side_eaten"), make_atlas_tex(123));
-    textures.insert(Identifier::from("minecraft:cake_bottom"), make_atlas_tex(124));
-    // 125
-    // 126
-    // 127
-    textures.insert(Identifier::from("minecraft:rail"), make_atlas_tex(128));
-    textures.insert(Identifier::from("minecraft:red_wool"), make_atlas_tex(129));
-    textures.insert(Identifier::from("minecraft:pink_wool"), make_atlas_tex(130));
-    textures.insert(Identifier::from("minecraft:repeater_top_off"), make_atlas_tex(131));
-    textures.insert(Identifier::from("minecraft:leaves_spruce"), make_atlas_tex(132));
-    textures.insert(Identifier::from("minecraft:leaves_spruce_2"), make_atlas_tex(133));
-    textures.insert(Identifier::from("minecraft:bed_top_foot"), make_atlas_tex(134));
-    textures.insert(Identifier::from("minecraft:bed_top_head"), make_atlas_tex(135));
-    // 136
-    // 137
-    // 138
-    // 139
-    textures.insert(Identifier::from("minecraft:cake_item"), make_atlas_tex(140));
-    // 141
-    // 142
-    // 143
-    textures.insert(Identifier::from("minecraft:lapis_block"), make_atlas_tex(144));
-    textures.insert(Identifier::from("minecraft:green_wool"), make_atlas_tex(145));
-    textures.insert(Identifier::from("minecraft:lime_wool"), make_atlas_tex(146));
-    textures.insert(Identifier::from("minecraft:repeater_top_on"), make_atlas_tex(147));
-    // 148
-    textures.insert(Identifier::from("minecraft:bed_side_foot_front"), make_atlas_tex(149));
-    textures.insert(Identifier::from("minecraft:bed_side_foot"), make_atlas_tex(150));
-    textures.insert(Identifier::from("minecraft:bed_side_head"), make_atlas_tex(151));
-    textures.insert(Identifier::from("minecraft:bed_side_head_front"), make_atlas_tex(152));
-    // 153 - 159
-    textures.insert(Identifier::from("minecraft:lapis_ore"), make_atlas_tex(160));
-    textures.insert(Identifier::from("minecraft:brown_wool"), make_atlas_tex(161));
-    textures.insert(Identifier::from("minecraft:yellow_wool"), make_atlas_tex(162));
-    textures.insert(Identifier::from("minecraft:powered_rail_off"), make_atlas_tex(163));
-    textures.insert(Identifier::from("minecraft:redstone_dust"), make_atlas_tex(164));
-    textures.insert(Identifier::from("minecraft:redstone_dust_line"), make_atlas_tex(165));
-    // 166 - 175
-    textures.insert(Identifier::from("minecraft:sandstone_top"), make_atlas_tex(176));
-    textures.insert(Identifier::from("minecraft:blue_wool"), make_atlas_tex(177));
-    textures.insert(Identifier::from("minecraft:light_blue_wool"), make_atlas_tex(178));
-    textures.insert(Identifier::from("minecraft:powered_rail_on"), make_atlas_tex(179));
-    // 180 - 191
-    textures.insert(Identifier::from("minecraft:sandstone_side"), make_atlas_tex(192));
-    textures.insert(Identifier::from("minecraft:purple_wool"), make_atlas_tex(193));
-    textures.insert(Identifier::from("minecraft:magenta_wool"), make_atlas_tex(194));
-    textures.insert(Identifier::from("minecraft:detector_rail"), make_atlas_tex(195));
-    // 196 - 204
-    textures.insert(Identifier::from("minecraft:water_0"), make_atlas_tex(205));
-    textures.insert(Identifier::from("minecraft:water_1"), make_atlas_tex(206));
-    textures.insert(Identifier::from("minecraft:water_2"), make_atlas_tex(207));
-    textures.insert(Identifier::from("minecraft:sandstone_bottom"), make_atlas_tex(208));
-    textures.insert(Identifier::from("minecraft:cyan_wool"), make_atlas_tex(209));
-    textures.insert(Identifier::from("minecraft:orange_wool"), make_atlas_tex(210));
-    // 211 - 221
-    textures.insert(Identifier::from("minecraft:water_3"), make_atlas_tex(222));
-    textures.insert(Identifier::from("minecraft:water_4"), make_atlas_tex(223));
-    // 224
-    textures.insert(Identifier::from("minecraft:light_grey_wool"), make_atlas_tex(225));
-    // 226 - 236
-    textures.insert(Identifier::from("minecraft:lava_0"), make_atlas_tex(237));
-    textures.insert(Identifier::from("minecraft:lava_1"), make_atlas_tex(238));
-    textures.insert(Identifier::from("minecraft:lava_2"), make_atlas_tex(239));
-    textures.insert(Identifier::from("minecraft:break_0"), make_atlas_tex(240));
-    textures.insert(Identifier::from("minecraft:break_1"), make_atlas_tex(241));
-    textures.insert(Identifier::from("minecraft:break_2"), make_atlas_tex(242));
-    textures.insert(Identifier::from("minecraft:break_3"), make_atlas_tex(243));
-    textures.insert(Identifier::from("minecraft:break_4"), make_atlas_tex(244));
-    textures.insert(Identifier::from("minecraft:break_5"), make_atlas_tex(245));
-    textures.insert(Identifier::from("minecraft:break_6"), make_atlas_tex(246));
-    textures.insert(Identifier::from("minecraft:break_7"), make_atlas_tex(247));
-    textures.insert(Identifier::from("minecraft:break_8"), make_atlas_tex(248));
-    textures.insert(Identifier::from("minecraft:break_9"), make_atlas_tex(249));
-    // 250 - 253
-    textures.insert(Identifier::from("minecraft:lava_3"), make_atlas_tex(254));
-    textures.insert(Identifier::from("minecraft:lava_4"), make_atlas_tex(255));
 
+    let atlas_texture_json_str = fs::read_to_string("assets/minecraft/textures/block/terrain.mcatlas")
+        .expect("Should have been able to read the file");
+    let atlas_textures: MCAtlasTextureFile = serde_json::from_str(atlas_texture_json_str.as_str()).unwrap();
 
+    for UniformAtlasTextureType { identifier, cell } in atlas_textures.atlas.get_uniform_textures() {
+        let tex = make_atlas_tex(cell as usize);
+        textures.insert(Identifier::from_str(identifier.as_str()), tex);
+    }
+    
     // Blocks & Items
     let blocks = registry.get_block_register_mut();
     let block_register_list = vec![
@@ -339,6 +151,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:water_0").bake()
                 })
+                .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("still_water")
@@ -348,6 +161,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:water_0").bake()
                 })
+                .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("flowing_lava")
@@ -357,6 +171,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:lava_0").bake()
                 })
+                .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("still_lava")
@@ -366,6 +181,7 @@ fn load_b173(registry: &mut Registry) {
                     // TODO: SUPER COMPLEX MODEL
                     cube_all().clone().with_texture("all", "minecraft:lava_0").bake()
                 })
+                .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("sand")
@@ -444,7 +260,7 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("glass")
                 .hardness(0.3)
                 .resistance(6000000.0)
-                // .transparent(true)
+                .transparent(true)
                 .model(|_| {
                     cube_all().clone().with_texture("all", "minecraft:glass").bake()
                 })
@@ -868,7 +684,7 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("chest")
                 .hardness(2.5)
                 .model(|_| {
-                    // TODO: Account for nearby blocks for rotation, requires surrounding block information
+                    // TODO: Account for nearby block for rotation, requires surrounding block information
                     let rotation = 90.;
                     orientable().clone()
                         .with_texture("up", "minecraft:chest_top")
@@ -1279,7 +1095,7 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("locked_chest")
                 .hardness(0.0)
                 .model(|_| {
-                    // TODO: Account for nearby blocks for rotation, requires surrounding block information
+                    // TODO: Account for nearby block for rotation, requires surrounding block information
                     let rotation = 90.;
                     orientable().clone()
                         .with_texture("up", "minecraft:chest_top")

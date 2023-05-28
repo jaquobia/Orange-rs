@@ -1,4 +1,5 @@
 use ultraviolet::{IVec3, Vec3};
+use crate::block::properties::PropertyEnum;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
@@ -102,6 +103,26 @@ impl Direction {
             Direction::East => Direction::North,
             _ => *self
         }
+    }
+    pub fn name(&self) -> &'static str {
+        match self {
+            Direction::North => "North",
+            Direction::South => "South",
+            Direction::East => "East",
+            Direction::West => "West",
+            Direction::Up => "Up",
+            Direction::Down => "Down",
+        }
+    }
+}
+
+impl PropertyEnum for Direction {
+    fn get_values() -> Vec<u32> {
+        DIRECTIONS.iter().map(|dir| dir.ordinal() as u32).collect()
+    }
+
+    fn name_value(value: u32) -> String {
+        DIRECTIONS[value as usize].name().to_string()
     }
 }
 

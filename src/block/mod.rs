@@ -1,9 +1,10 @@
 pub mod block_factory;
-mod properties;
+pub mod properties;
 
-use crate::{minecraft::identifier::Identifier, registry::Registerable};
+use crate::minecraft::identifier::Identifier;
 use crate::client::models::model::{BakedModel, VoxelModel};
 use crate::direction::Direction;
+use crate::minecraft::registry::Registerable;
 use crate::minecraft::template_models;
 
 use self::block_factory::BlockSettings;
@@ -11,7 +12,7 @@ use self::block_factory::BlockSettings;
 pub type ModelSupplierType = fn(u32) -> BakedModel;
 pub type SideCullFunctionType = fn(Direction) -> bool;
 
-/// Describes the properties of blocks in the world, how they look, how they interact with
+/// Describes the properties of block in the world, how they look, how they interact with
 /// entities, and if they have an associated entity
 
 pub struct Block {
@@ -108,6 +109,10 @@ impl Default for Block {
     }
 }
 
-pub struct BlockState {}
+pub struct BlockState {
 
-impl BlockState {}
+}
+
+impl BlockState {
+
+}

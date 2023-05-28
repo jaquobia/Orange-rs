@@ -2,7 +2,7 @@ use std::cell::{Cell, RefCell};
 use std::sync::{Arc, Mutex};
 
 /// This module represents the data types for a chunk, which is defined as a column of 'chunk sections',
-/// each of which stores the data for blocks, light, and metadata in an array of 16^3 elements, and
+/// each of which stores the data for block, light, and metadata in an array of 16^3 elements, and
 /// chunks are a stack of 16* sections (8 for legacy versions, and I believe 32 for most modern
 /// versions)
 ///
@@ -156,11 +156,11 @@ pub type ChunkHeightmapType = (i32, i32);
 type ChunkHeightmapStorageType = Vec<ChunkHeightmapType>;
 
 pub struct Chunk {
-    /// The Sections of a chunk, stored as a stack of CHUNK_SECTION_AXIS_SIZE^3 regions of blocks
+    /// The Sections of a chunk, stored as a stack of CHUNK_SECTION_AXIS_SIZE^3 regions of block
     sections: Vec<ChunkSection>,
     /// The signed 3d vector of the chunks position
     position: ChunkPos,
-    /// The heightmap of the chunk, tells where the topmost transparent and opaque blocks of the world are located.
+    /// The heightmap of the chunk, tells where the topmost transparent and opaque block of the world are located.
     heightmap: ChunkHeightmapStorageType,
 
     dirty: bool,

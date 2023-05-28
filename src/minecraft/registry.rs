@@ -1,13 +1,14 @@
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
 use crate::{block::Block, minecraft::identifier::Identifier, game_version::GameVersion};
 use crate::client::textures::TextureObject;
 
-/** Represents the total registered blocks, items, [tile]entities, dimensions, and any other object
+use rustc_hash::FxHashMap as HashMap;
+
+/** Represents the total registered block, items, [tile]entities, dimensions, and any other object
  * that needs to be referenced.
- *
- *
  */
+
 pub struct Registry {
     // items: Vec<Item>,
     blocks: Register<Block>,
@@ -16,12 +17,14 @@ pub struct Registry {
 }
 
 impl Registry {
-    /** Creates a new registery
-     * Automatically 256 elements to the register
+    /**
+     * Creates a new registry
+     * Automatically allocated space for 256 elements
      */
     pub fn new() -> Self {
         let blocks = Register::<Block>::new(256);
-        Self { blocks, textures: HashMap::new() }
+        let textures = HashMap::default();
+        Self { blocks, textures }
     }
 
     pub fn load_from(version: GameVersion) -> Self {
@@ -53,11 +56,11 @@ impl Registry {
     }
 
     pub fn reset(&mut self) {
-        self.blocks.reset();
+        self.blocks.clear();
     }
 }
 
-/** Represents types that can be registered for indexing by indentifiers
+/** Represents types that can be registered for indexing by identifiers
  *
  */
 pub trait Registerable {
@@ -77,7 +80,7 @@ pub struct Register<T: Registerable> {
 impl<T: Registerable> Register<T> {
     fn new(default_capacity: usize) -> Self {
         let collection = Vec::with_capacity(default_capacity);
-        let id_map = HashMap::with_capacity(default_capacity);
+        let id_map = HashMap::default();
         let current_id = 0;
 
         Self {
@@ -102,7 +105,7 @@ impl<T: Registerable> Register<T> {
      * Might be used to implement run-time reloading of packs from the server
      *
      */
-    pub fn reset(&mut self) {
+    pub fn clear(&mut self) {
         self.current_id = 0;
         self.collection.clear();
         self.id_map.clear();

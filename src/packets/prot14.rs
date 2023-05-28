@@ -55,7 +55,7 @@ pub enum Packet {
     MultiBlockChange { chunk_x: i32, chunk_z: i32, coords_type_metadata_array: MultiBlockChangeData } = 0x34,
     BlockChange { x: i32, y: i8, z: i32, block_type: i8, metadata: i8 } = 0x35,
     BlockAction { x: i32, y: i16, z: i32, instrument_or_state: i8, pitch_or_direction: i8 } = 0x36,
-    // Variable data, blocks is an array of set of positions in (byte byte byte) as (x y z) offset
+    // Variable data, block is an array of set of positions in (byte byte byte) as (x y z) offset
     Explosion { x: f64, y: f64, z: f64, radius: f32, explosion_data: ExplosionData } = 0x3C,
     SoundEffect { effect_id: i32, x: i32, y: i8, z: i32, data: i32 } = 0x3D,
     BedWeatherState { state_reason: i8 } = 0x46,

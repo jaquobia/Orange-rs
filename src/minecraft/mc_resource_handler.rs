@@ -258,15 +258,25 @@ pub fn generate_terrain_transparent_pipeline(client: &mut Client) {
 }
 
 pub fn generate_lightmap_texture(client: &mut Client) {
-    let mut rgb_tex = Rgb32FImage::new(16, 16);
+    let width = 16;
+    let height = 1;
+    let widthpheight = (width - 1) + (height - 1);
+    let mut rgb_tex = Rgb32FImage::new(width, height);
 
-    for x in 0..16 {
-        for y in 0..16 {
-            rgb_tex.put_pixel(x, y, image::Rgb::<f32>([1.0, 1.0, 1.0]));
+    for x in 0..width {
+        for y in 0..height {
+            let xf: f32 = x as f32;
+            let r = xf / 15.0;
+            let px = r / ((3.0 - 3.0 * r) + 1.0) * 0.95 + 0.05;
+            rgb_tex.put_pixel(x, y, image::Rgb::<f32>([px, px, px]));
         }
     }
 
+
+
     let tex = DynamicImage::ImageRgb32F(rgb_tex);
+
+    tex.to_rgb16().save_with_format("assets/minecraft/textures/lightmap.png", image::ImageFormat::Png).unwrap();
 
     let dims = tex.dimensions();
     let width = dims.0;
@@ -305,9 +315,9 @@ pub fn generate_lightmap_texture(client: &mut Client) {
         address_mode_u: wgpu::AddressMode::ClampToEdge,
         address_mode_v: wgpu::AddressMode::ClampToEdge,
         address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Nearest,
-        min_filter: wgpu::FilterMode::Nearest,
-        mipmap_filter: wgpu::FilterMode::Nearest,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Linear,
         ..Default::default()
     });
 

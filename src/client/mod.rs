@@ -171,18 +171,22 @@ impl Client {
 
     pub fn toggle_cursor_visible(&mut self) {
         self.cursor_visible = !self.cursor_visible;
-        self.window
-            .set_cursor_grab(if self.cursor_visible {
-                CursorGrabMode::None
-            } else {
-                CursorGrabMode::Locked
-            })
+        if self.cursor_visible {
+            self.window
+            .set_cursor_grab(CursorGrabMode::None)
             .unwrap();
+        } else {
+            self.window
+                .set_cursor_grab(CursorGrabMode::Locked)
+                .or_else(|_e| self.window.set_cursor_grab(CursorGrabMode::Confined))
+                .unwrap();
+        }
+
         self.window.set_cursor_visible(self.cursor_visible);
         self.camera_controller.reset_mouse();
     }
 
-    pub fn is_cursor_visible(&mut self) -> bool {
+    pub fn is_cursor_visible(&self) -> bool {
         self.cursor_visible
     } 
 }
