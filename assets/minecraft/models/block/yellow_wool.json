@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:template/cube_all",
+    "textures": {
+        "all": "minecraft:yellow_wool"
+    }
+}

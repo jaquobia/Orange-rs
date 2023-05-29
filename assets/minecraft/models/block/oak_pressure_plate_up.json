@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:block/template/pressure_plate_up_all",
+    "textures": {
+        "all": "minecraft:oak_plank"
+    }
+}

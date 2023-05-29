@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:block/template/torch",
+    "textures": {
+        "all": "minecraft:redstone_torch_off"
+    }
+}

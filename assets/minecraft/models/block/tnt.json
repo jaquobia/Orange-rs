@@ -1,0 +1,8 @@
+{
+    "parent": "minecraft:block/template/cube_column_top_bottom",
+    "textures": {
+        "up": "minecraft:tnt_top",
+        "down": "minecraft:tnt_bottom",
+        "side": "minecraft:tnt_side"
+    }
+}

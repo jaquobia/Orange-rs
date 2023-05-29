@@ -1,3 +1,4 @@
+use rustc_hash::FxHashMap as HashMap;
 use serde_derive::{Serialize, Deserialize};
 
 use super::identifier::Identifier;
@@ -84,4 +85,58 @@ pub struct NonUniformAtlasTextureType {
      */
     pub uv: [f32; 4],
     pub identifier: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MCModelFile {
+    /** Identifier of a source model to load elements from, will be overriden if elements is also
+     * defined
+     */
+    parent: Option<String>,
+    /** Whether or not to use ambient occlusion (only works in the parent model file)
+     */
+    ambient_occlusion: Option<bool>,
+    /** A mapping of the texture variables to resource locations or another texture variable
+     */
+    textures: Option<HashMap<String, String>>,
+    /** Defines how the model is displayed in different contexts: thirdperson_righthand,
+     * thirdperson_lefthand, firstperson_righthand, firstperson_lefthand, gui, head, ground, fixed
+    */
+    display: Option<HashMap<String, MCModelDisplay>>,
+    /** The list of elements in the model, overrides a parent elements tag
+     */
+    elements: Option<Vec<MCModelElement>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MCModelElement {
+    from: [f32; 3],
+    to: [f32; 3],
+    rotation: MCModelRotation,
+    shade: Option<bool>,
+    faces: HashMap<String, MCModelFace>, 
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MCModelRotation {
+    origin: [f32; 3],
+    axis: String,
+    angle: f32,
+    rescale: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MCModelFace {
+    uv: Option<[f32; 4]>,
+    texture: String,
+    cullface: Option<String>,
+    rotation: Option<f32>,
+    tintindex: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MCModelDisplay {
+    rotation: [f32; 3],
+    translation: [f32; 3],
+    scale: [f32; 3],
 }

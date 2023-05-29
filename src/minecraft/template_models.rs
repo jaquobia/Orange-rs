@@ -142,7 +142,6 @@ lazy_static! {
         .with_texture("east", "#side");
 
         let stair_template = VoxelModel::new()
-        .with_texture("particle", "#all")
         .with_element(VoxelElement::new([0.0, 0.0, 0.0], [16.0, 8.0, 16.0])
             .with_face(VoxelFace::new("#down").with_cullface(Direction::Down), Direction::Down)
             .with_face(VoxelFace::new("#up").with_cullface(Direction::Up), Direction::Up)

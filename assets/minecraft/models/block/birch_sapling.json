@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:block/template/cross",
+    "textures": {
+        "cross": "minecraft:birch_sapling"
+    }
+}

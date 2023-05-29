@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::ops::{Rem};
-use log::warn;
 use ultraviolet::{Mat4, Vec2, Vec3};
 
 use crate::direction::{Direction, DIRECTIONS};

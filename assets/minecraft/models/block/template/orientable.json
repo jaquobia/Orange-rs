@@ -1,0 +1,9 @@
+{
+    "parent": "minecraft:template/cube",
+    "textures": {
+        "north": "#front",
+        "south": "#side",
+        "east": "#side",
+        "west": "#side"
+    }
+}

@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:block/template/stair_all",
+    "textures": {
+        "all": "minecraft:cobblestone"
+    }
+}

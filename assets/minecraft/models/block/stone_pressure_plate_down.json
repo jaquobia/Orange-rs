@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:block/template/pressure_plate_down_all",
+    "textures": {
+        "all": "minecraft:stone"
+    }
+}

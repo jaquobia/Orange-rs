@@ -1,0 +1,38 @@
+{
+    "ambient_occlusion": false,
+    "elements": [
+        {
+            "from": [0, 3, 0],
+            "to": [16, 10, 16],
+            "faces": {
+                "up": { "texture": "minecraft:bed_top_foot" },
+                "down": { "texture": "minecraft:oak_plank" },
+                "north": { "texture": "minecraft:bed_side_foot", "cullface": "north", "uv": [0, 7, 16, 13] },
+                "south": { "texture": "minecraft:bed_side_foot", "cullface": "south", "uv": [16, 7, 0, 13] },
+                "east": { "texture": "minecraft:bed_side_foot_front", "cullface": "east", "uv": [0, 7, 16, 13] }
+            }
+        },
+        {
+            "from": [0, 0, 0],
+            "to": [3, 3, 3],
+            "faces": {
+                "down": { "texture": "minecraft:bed_side_foot_front", "cullface": "down", "uv": [0, 13, 3, 16] },
+                "north": { "texture": "minecraft:bed_side_foot", "uv": [0, 13, 3, 16] },
+                "south": { "texture": "minecraft:bed_side_foot", "uv": [3, 13, 0, 16] },
+                "east": { "texture": "minecraft:bed_side_foot_front", "uv": [13, 13, 16, 16] },
+                "west": { "texture": "minecraft:bed_side_foot_front", "uv": [13, 13, 0, 16] }
+            }
+        },
+        {
+            "from": [13, 0, 0],
+            "to": [16, 3, 3],
+            "faces": {
+                "down": { "texture": "minecraft:bed_side_foot_front", "cullface": "down", "uv": [0, 13, 3, 16] },
+                "north": { "texture": "minecraft:bed_side_foot", "uv": [3, 13, 0, 16] },
+                "south": { "texture": "minecraft:bed_side_foot", "uv": [3, 13, 0, 16] },
+                "east": { "texture": "minecraft:bed_side_foot_front", "uv": [0, 13, 3, 16] },
+                "west": { "texture": "minecraft:bed_side_foot_front", "uv": [13, 13, 16, 16] }
+            }
+        }
+    ]
+}

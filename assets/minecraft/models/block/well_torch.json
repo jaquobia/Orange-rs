@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:block/template/wall_torch",
+    "textures": {
+        "all": "minecraft:torch"
+    }
+}

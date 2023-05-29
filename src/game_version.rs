@@ -46,6 +46,8 @@ fn non_full_cull(_: Direction) -> bool {
     false
 }
 
+
+
 fn load_b173(registry: &mut Registry) {
 
     let textures = registry.get_texture_register_mut();
@@ -58,6 +60,8 @@ fn load_b173(registry: &mut Registry) {
         let tex = make_atlas_tex(cell as usize);
         textures.insert(Identifier::from_str(identifier.as_str()), tex);
     }
+
+
     
     // Blocks & Items
     let blocks = registry.get_block_register_mut();
@@ -930,6 +934,7 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("torch_redstone_off")
                 .hardness(0.0)
                 .model(|_| {
+                    // TODO: Wall varients
                     torch().clone().with_texture("torch", "minecraft:redstone_torch_off").bake()
                 })
                 .side_cull_fn(non_full_cull)
@@ -938,6 +943,7 @@ fn load_b173(registry: &mut Registry) {
             BlockFactory::new("torch_redstone_on")
                 .hardness(0.0)
                 .model(|_| {
+                    // TODO: Wall varients
                     torch().clone().with_texture("torch", "minecraft:redstone_torch_on").bake()
                 })
                 .side_cull_fn(non_full_cull)

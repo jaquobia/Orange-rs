@@ -1,0 +1,7 @@
+{
+    "parent": "minecraft:block/template/cube_column",
+    "textures": {
+        "up": "minecraft:stone_slab_top",
+        "side": "minecraft:stone_slab_side"
+    }
+}
