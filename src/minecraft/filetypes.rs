@@ -1,5 +1,6 @@
 use rustc_hash::FxHashMap as HashMap;
 use serde_derive::{Serialize, Deserialize};
+use serde_json::Value;
 
 use super::identifier::Identifier;
 
@@ -112,7 +113,7 @@ pub struct MCModelFile {
 pub struct MCModelElement {
     from: [f32; 3],
     to: [f32; 3],
-    rotation: MCModelRotation,
+    rotation: Option<MCModelRotation>,
     shade: Option<bool>,
     faces: HashMap<String, MCModelFace>, 
 }
@@ -139,4 +140,10 @@ pub struct MCModelDisplay {
     rotation: [f32; 3],
     translation: [f32; 3],
     scale: [f32; 3],
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum MCBlockstateType {
+    variants(HashMap<String, Value>),
+    multipart(Vec<Value>),
 }

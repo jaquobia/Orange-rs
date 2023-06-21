@@ -49,15 +49,25 @@ impl Identifier {
             (String::from("minecraft"), String::from(nn[0]))
         };
 
+        let total_id = format!("{namespace}:{name}");
+
         Self {
             namespace,
             name,
-            total_id: String::from(identifier),
+            total_id,
         }
     }
 
-    pub fn get_total_identifier(&self) -> &String {
+    pub fn get_identifier(&self) -> &String {
         &self.total_id
+    }
+
+    pub fn get_namespace(&self) -> &String {
+        &self.namespace
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.name
     }
 }
 

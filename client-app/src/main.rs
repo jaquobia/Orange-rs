@@ -543,6 +543,7 @@ fn main() {
                     let textures = registry.get_texture_register();
                     // The maximum number of tessellations to be done every frame
                     let max_tessellations = 8;
+                    let max_tessellations = 256;
                     let mut num_tessellations = 0;
                     if let Ok(server_world) = test_world.read() {
                         let mut tessellator = shared_tessellator.write().unwrap();

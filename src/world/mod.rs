@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+// use std::collections::HashMap;
+use rustc_hash::FxHashMap as HashMap;
 use ultraviolet::IVec3;
 use crate::direction::DIRECTIONS;
 pub mod chunk;
@@ -143,7 +144,7 @@ impl<ChunkType> ChunkStoragePlanar<ChunkType> {
         Self {
             height,
             chunk_stacks: chunks,
-            stack_pos_to_index_map: HashMap::new(),
+            stack_pos_to_index_map: HashMap::default(),
         }
     }
 

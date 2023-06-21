@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "": {
+        "model": "minecraft:farmland_dry"
+    },
+    "moisture=0": {
+        "model": "minecraft:farmland_wet"
+    }
+  }
+}

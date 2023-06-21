@@ -1,6 +1,5 @@
 use std::io::Read;
 use legion::EntityStore;
-use log::warn;
 use ultraviolet::{IVec2, IVec3, Vec3};
 use orange_rs::entities::{EntityController, EntityTransform};
 use orange_rs::packets::prot14::MultiBlockChangeData;

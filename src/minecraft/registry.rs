@@ -1,5 +1,6 @@
-// use std::collections::HashMap;
-
+use crate::block::BlockState;
+use crate::block::properties::PropertyDefinition;
+use crate::client::models::model::BakedModel;
 use crate::{block::Block, minecraft::identifier::Identifier, game_version::GameVersion};
 use crate::client::textures::TextureObject;
 
@@ -13,6 +14,9 @@ pub struct Registry {
     // items: Vec<Item>,
     blocks: Register<Block>,
     textures: HashMap<Identifier, TextureObject>,
+    properties: Register<PropertyDefinition>,
+    blockstates: Register<BlockState>,
+    models: HashMap<Identifier, BakedModel>,
     // dimension: Vec<Dimension>,
 }
 
@@ -24,7 +28,10 @@ impl Registry {
     pub fn new() -> Self {
         let blocks = Register::<Block>::new(256);
         let textures = HashMap::default();
-        Self { blocks, textures }
+        let properties = Register::<PropertyDefinition>::new(256);
+        let blockstates = Register::<BlockState>::new(256);
+        let models = HashMap::default();
+        Self { blocks, textures, properties, blockstates, models }
     }
 
     pub fn load_from(version: GameVersion) -> Self {
@@ -44,6 +51,7 @@ impl Registry {
     pub fn get_block_register(&self) -> &Register<Block> {
         return &self.blocks;
     }
+
     pub fn get_texture_register(&self) -> &HashMap<Identifier, TextureObject> {
         return &self.textures;
     }
@@ -51,8 +59,33 @@ impl Registry {
     pub fn get_block_register_mut(&mut self) -> &mut Register<Block> {
         return &mut self.blocks;
     }
+
     pub fn get_texture_register_mut(&mut self) -> &mut HashMap<Identifier, TextureObject> {
         return &mut self.textures;
+    }
+
+    pub fn get_property_register(&self) -> &Register<PropertyDefinition> {
+        &self.properties
+    }
+
+    pub fn get_property_register_mut(&mut self) -> &mut Register<PropertyDefinition> {
+        &mut self.properties
+    }
+
+    pub fn get_blockstate_register(&self) -> &Register<BlockState> {
+        &self.blockstates
+    }
+
+    pub fn get_blockstate_register_mut(&mut self) -> &mut Register<BlockState> {
+        &mut self.blockstates
+    }
+
+    pub fn get_model_register(&self) -> &HashMap<Identifier, BakedModel> {
+        &self.models
+    }
+
+    pub fn get_model_register_mut(&mut self) -> &mut HashMap<Identifier, BakedModel> {
+        &mut self.models
     }
 
     pub fn reset(&mut self) {
@@ -123,5 +156,9 @@ impl<T: Registerable> Register<T> {
         *self.id_map
             .get(&ident.into().to_string())
             .unwrap_or(&0)
+    }
+
+    pub fn get_elements(&self) -> &Vec<T> {
+        &self.collection
     }
 }

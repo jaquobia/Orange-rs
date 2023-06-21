@@ -4,7 +4,7 @@
             "from": [0, 0, 0],
             "to": [3, 16, 16],
             "faces": {
-                "down": { "texture": "#door_face", "cullface": "down", "uv": [0, 3, 16, 0], "rotation": "90" },
+                "down": { "texture": "#door_face", "cullface": "down", "uv": [0, 3, 16, 0], "rotation": 90 },
                 "north": { "texture": "#door_face", "cullface": "north", "uv": [0, 0, 0, 16] },
                 "south": { "texture": "#door_face", "cullface": "south", "uv": [16, 0, 0, 16] },
                 "east": { "texture": "#door_face", "uv": [3, 0, 0, 16] },
