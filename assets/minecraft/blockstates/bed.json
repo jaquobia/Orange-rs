@@ -1,7 +1,52 @@
 {
   "variants": {
-    "": {
-      "model": "minecraft:bed"
+    "part=foot,occupied=false,facing=north": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=true,facing=north": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=false,facing=south": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=true,facing=south": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=false,facing=east": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=true,facing=east": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=false,facing=west": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=foot,occupied=true,facing=west": {
+        "model": "minecraft:bed_foot"
+    },
+    "part=head,occupied=false,facing=north": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=true,facing=north": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=false,facing=south": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=true,facing=south": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=false,facing=east": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=true,facing=east": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=false,facing=west": {
+        "model": "minecraft:bed_head"
+    },
+    "part=head,occupied=true,facing=west": {
+        "model": "minecraft:bed_head"
     }
   }
 }

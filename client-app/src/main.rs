@@ -88,7 +88,7 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
 
 /**
  * Thigs to work on:  
- * - Uv correction (rotation lock),
+ * - Uv correction (rotation/uv lock),
  * - Model caching (integration with blockstates), 
  * - Finish models for block, 
  * - Tints for leaves and grass (implement the entire biome system...),
@@ -159,7 +159,7 @@ fn main() {
     
     let username = String::from("TT3");
     let port = 25565;
-    let mut test_world = TestWorld::new(chunk_height);
+    let mut test_world = TestWorld::new(chunk_height, &registry.read().unwrap());
     let mut network_thread = match join_server(username, 14, param_ip.clone(), port, &mut test_world) {
         Ok(network_thread) => {
             network_thread
@@ -312,11 +312,11 @@ fn main() {
                         test_world.handle_map_chunk(x, y as i32, z, size_x, size_y, size_z, compressed_data);
                     },
                     Packet::MultiBlockChange { chunk_x, chunk_z, coords_type_metadata_array } => {
-                        warn!("Multi Block Change");
+                        // warn!("Multi Block Change");
                         test_world.set_blocks(chunk_x, chunk_z, coords_type_metadata_array);
                     },
                     Packet::BlockChange { x, y, z, block_type, metadata } => {
-                        warn!("Block Change");
+                        // warn!("Block Change");
                         test_world.set_block(x, y as i32, z, block_type as u8, metadata as u8);
                     },
                     Packet::BlockAction { x, y, z, instrument_or_state, pitch_or_direction } => {
@@ -536,14 +536,15 @@ fn main() {
                     }
                 }
                 {
-                    // minecraft.process_chunks(min_extent.clone(), max_extent.clone());
                     
                     let registry = registry.read().unwrap();
                     let blocks = registry.get_block_register();
+                    let states = registry.get_blockstate_register();
                     let textures = registry.get_texture_register();
+                    let models = registry.get_model_register();
                     // The maximum number of tessellations to be done every frame
                     let max_tessellations = 8;
-                    let max_tessellations = 256;
+                    // let max_tessellations = 256;
                     let mut num_tessellations = 0;
                     if let Ok(server_world) = test_world.read() {
                         let mut tessellator = shared_tessellator.write().unwrap();
@@ -557,9 +558,9 @@ fn main() {
                                             let section_position = NewChunkPosition::new(x, y, z).to_entity_pos();
 
                                             // let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos);
-                                            tessellator.tessellate_chunk_section(chunk, section_position, pos, blocks, textures, &server_world.chunk_storage);
+                                            tessellator.tessellate_chunk_section(chunk, section_position, pos, blocks, states, models, textures, &server_world.chunk_storage);
                                             let mesh = tessellator.build(&client.gpu.device);
-                                            minecraft.client_chunk_storage.set_chunk(mesh, pos);
+                                            minecraft.client_chunk_storage.set_chunk(mesh, pos).unwrap();
                                             tessellate_queue.push_back(pos);
                                         },
                                         _ => {}

@@ -17,3 +17,4 @@ instant = { version = "0.1", features = ["stdweb"] }
 orange_networking = { path = "../../orange_networking" }
 legion = "0.4"
 flate2 = "1.0.25"
+rustc-hash = "1.1.0"

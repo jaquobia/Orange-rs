@@ -1,5 +1,5 @@
-use std::cell::{Cell, RefCell};
-use std::sync::{Arc, Mutex};
+use std::{sync::Mutex, ops::AddAssign};
+use rustc_hash::FxHashMap as HashMap;
 
 /// This module represents the data types for a chunk, which is defined as a column of 'chunk sections',
 /// each of which stores the data for block, light, and metadata in an array of 16^3 elements, and
@@ -11,74 +11,226 @@ use std::sync::{Arc, Mutex};
 ///
 /// Chunks will treat their data as elements in the range of 0..ChunkSectionAxisSize for XZ and
 /// 0..chunk_sections*ChunkSectionAxisSize for Y with no concept of negative positions
-use ultraviolet::{IVec2, UVec3};
+use ultraviolet::UVec3;
 
-use crate::util::pos::{ChunkPos, InnerChunkPos, InnerChunkPosTrait};
+use crate::util::nibble;
 
-/// These constants defines the overall size of a chunk section, and to keep in line with minecraft, it will
+/// These constants defines the overall size of a chunk, and to keep in line with minecraft, it will
 /// be 16 or a power of 2
 
 /**
- *  The total number of elements along an axis of a chunk section
+ *  The total number of elements along an axis of a chunk
+ *  16 by default, 32 on feature large_chunks
  */
-
 pub const CHUNK_SECTION_AXIS_SIZE: usize = if cfg!(feature = "large_chunks") {
     32
 } else {
     16
 };
 
+/**  
+ * The size of an axis of the chunk minus one
+ * 15 by default, 31 on feature large_chunks
+ */
 pub const CHUNK_SECTION_AXIS_SIZE_M1: usize = CHUNK_SECTION_AXIS_SIZE - 1;
 /**
- *  The total number of elements in a plane in a chunk section
+ *  The total number of elements in a plane in a chunk
+ *  Represents 16^2 by default, and 32^2 on feature large_chunks
  */
 const CHUNK_SECTION_PLANE_SIZE: usize = CHUNK_SECTION_AXIS_SIZE * CHUNK_SECTION_AXIS_SIZE;
 
 /**
- *  The total number of elements in a chunk section
+ *  The total number of elements in a chunk
+ *
  */
 const CHUNK_SECTION_DIMENSION_SIZE: usize =
     CHUNK_SECTION_AXIS_SIZE * CHUNK_SECTION_AXIS_SIZE * CHUNK_SECTION_AXIS_SIZE;
 
-/// 8 bits block id, 4 bits metadata, 4 bits blocklight
-/// But in actuality, a u16 will be used because it is the smallest integer type that will encompass
-/// The 16^3 and 32^3 region, representing possible blockstates
-pub type ChunkDataType = u16;
-pub type ChunkDataUnpackedType = (usize, ChunkDataType, ChunkDataType);
+pub type TBlockData = u16;
 
 /// The chunk sections will be stored as vectors to be managed on the heap, but never be resized
-type ChunkSectionDataStorageType = Vec<ChunkDataType>;
-type LightmapType = u8;
-type ChunkSectionLightmapStorageType = Vec<LightmapType>;
+pub type TLightData = u8;
+type TChunkLightStorage = Vec<TLightData>;
 
-pub struct ChunkSection {
-    /// The blockdata of the chunk, storing block light, metadata, blockid, and whatever else can
-    /// fit into a u64. 
-    /// The data outside of the id might be moved into a mojang inspired bitarray
-    /// where the number of bits needed to store all the associated data is measured in bits, allocated by bytes, 
-    /// and indexed by bit to byte conversions.
-    data: ChunkSectionDataStorageType,
+type TGlobalId = usize;
+type TLocalId = u16;
+type TLocalToGlobalMap = Vec<TGlobalId>;
+type TGlobalToLocalMap = HashMap<TGlobalId, TLocalId>;
+
+#[derive(PartialEq, PartialOrd)]
+enum BlockStorage {
+    Empty {},
+    Nibble { blocks: Vec<u8> },
+    Byte { blocks: Vec<u8> },
+    Short { blocks: Vec<u16> },
+}
+
+impl BlockStorage {
+    fn get_local_id(&self, index: usize) -> TLocalId {
+        match self {
+            Self::Empty {} => { 0 },
+            Self::Nibble { blocks } => { nibble::nibble_get(blocks, index).into() },
+            Self::Byte { blocks } => { blocks[index].into() },
+            Self::Short { blocks } => { blocks[index].into() }
+        }
+    }
+
+    fn get_limit(&self) -> usize {
+        match self {
+            Self::Empty {} => { 0 },
+            Self::Nibble { .. } => { 16 },
+            Self::Byte { .. } => { 256 },
+            Self::Short { .. } => { 4096 }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.get_limit() == 0
+    }
+
+    fn is_nibble(&self) -> bool {
+        self.get_limit() == 16
+    }
+
+    fn is_byte(&self) -> bool {
+        self.get_limit() == 256
+    }
+
+    fn is_short(&self) -> bool {
+        self.get_limit() == 4096
+    }
+
+    fn upgrade(&mut self) {
+        if self.is_empty() {
+            // log::warn!("Empty to Nibble Upgrade!");
+            *self = Self::Nibble { blocks: vec![0; 2048] }
+        }
+        if self.is_nibble() {
+            // log::warn!("Nibble to Byte Upgrade!");
+            let mut new_data = Self::Byte { blocks: vec![0; 4096] };
+            for index in 0..CHUNK_SECTION_DIMENSION_SIZE {
+                new_data.set_local_id(index, self.get_local_id(index));
+            }
+            *self = new_data;
+        }
+        if self.is_byte() {
+            // log::warn!("Byte to Short Upgrade!");
+            let mut new_data = Self::Short { blocks: vec![0; 4096] };
+            for index in 0..CHUNK_SECTION_DIMENSION_SIZE {
+                new_data.set_local_id(index, self.get_local_id(index));
+            }
+            *self = new_data;
+        }
+    }
+
+    fn downgrade(&mut self) {
+        // log::warn!("Downgrade!");
+        if self.is_nibble() {
+            *self = Self::Empty {};
+        }
+        if self.is_byte() {
+            let mut new_data = Self::Nibble { blocks: vec![0; 2048] };
+            for index in 0..CHUNK_SECTION_DIMENSION_SIZE {
+                new_data.set_local_id(index, self.get_local_id(index));
+            }
+            *self = new_data;
+        }
+        if self.is_short() {
+            let mut new_data = Self::Byte { blocks: vec![0;4096] };
+            for index in 0..CHUNK_SECTION_DIMENSION_SIZE {
+                new_data.set_local_id(index, self.get_local_id(index));
+            }
+            *self = new_data;
+        }
+    }
+
+    fn set_local_id(&mut self, index: usize, local_id: TLocalId) {
+        match self {
+            Self::Empty {} => {},
+            Self::Nibble { blocks } => { nibble::nibble_set(blocks, index, local_id as u8) },
+            Self::Byte { blocks } => { blocks[index] = local_id as u8 },
+            Self::Short { blocks } => { blocks[index] = local_id }
+        }
+    }
+
+    fn get_block(&self, index: usize, local_to_global_map: &TLocalToGlobalMap) -> usize {
+        let local_id = self.get_local_id(index);
+        // log::warn!("Getting block of {}L, map is {:?}", local_id, local_to_global_map);
+        local_to_global_map[local_id as usize]
+    }
+
+    fn set_block(&mut self, index: usize, block: TGlobalId, local_to_global_map: &mut TLocalToGlobalMap, global_to_local_map: &mut TGlobalToLocalMap) {
+
+        if self.is_empty() && block != 0 {
+            // upgrade and return
+            self.upgrade();
+        } else if self.is_empty() {
+            return;
+        }
+
+        let local_id = global_to_local_map.get(&block).cloned().unwrap_or_else(|| {
+            // find next local id
+            let new_local_id = local_to_global_map.len() as u16;
+            global_to_local_map.insert(block, new_local_id);
+            local_to_global_map.insert(new_local_id as usize, block);
+            // log::warn!("Mapping {}L to {}G", new_local_id, block);
+            new_local_id
+        });
+        
+        // let old_local_id = self.get_local_id(index);
+        self.set_local_id(index, local_id);
+
+        /*  This is actually a performance tank lol
+        // Optimizer
+        let old_local_id_count = self.count_local_id(old_local_id);
+        if old_local_id_count == 0 {
+            // we've replaced all instances of the old id, swap ids
+            self.set_local_id(index, old_local_id);
+            local_to_global_map.swap_remove(old_local_id as usize);
+        }
+        */
+        // Expander/Shrinker
+        let container_limit = self.get_limit();
+
+        let block_count = local_to_global_map.len();
+        if block_count > container_limit {
+            // upgrade
+            self.upgrade();
+        } else if block_count <= container_limit / 16 {
+            // downgrade
+            self.downgrade();
+        }
+    }
+
+}
+
+pub struct Chunk {
+    /// Self explanitory
+    block_storage: BlockStorage,
+    /// Maps the value stored in the block storage to a state id
+    local_to_global_map: TLocalToGlobalMap,
+    /// Maps the state id to a value for the block storage
+    global_to_local_map: TGlobalToLocalMap,
+    /// Contains both skylight and blocklight
     /// Represents the inverse maximum skylight value of the chunk, so where a skylight value would
     /// only be able to be a maximum of 2, the stored value would be 13, and be calculated as
     /// (skylight(15) - lightmap_value(13)) = 2 | 14 - 13 = 1 | 13 - 13 = 0 | [0, 12] < 13 = 0.
-    lightmap: ChunkSectionLightmapStorageType,
+    lightmap: TChunkLightStorage,
+    /// Chunk data has been changed, related constructs need to be rebuilt
     dirty: Mutex<bool>,
 }
 
-impl ChunkSection {
+impl Chunk {
     pub fn is_dirty(&self) -> bool { *self.dirty.lock().unwrap() }
     pub fn set_dirty(&self, dirty: bool) { *self.dirty.lock().unwrap() = dirty; }
 
     /// Create and return an empty chunk section for generation
     pub fn create_empty() -> Self {
-        let data: ChunkSectionDataStorageType = vec![0; CHUNK_SECTION_DIMENSION_SIZE];
         let lightmap = vec![0; CHUNK_SECTION_DIMENSION_SIZE];
-        Self { data, lightmap, dirty: Mutex::new(false) }
-    }
-
-    /// Create and return a chunk section from existing data
-    fn from_data(data: ChunkSectionDataStorageType, lightmap: ChunkSectionLightmapStorageType) -> Self {
-        Self { data, lightmap, dirty: Mutex::new(true) }
+        let block_storage = BlockStorage::Empty {  };
+        let local_to_global_map = vec![0]; // default map air to 0
+        let global_to_local_map = TGlobalToLocalMap::default();
+        Self { block_storage, local_to_global_map, global_to_local_map, lightmap, dirty: Mutex::new(false) }
     }
 
     /// Get the index of block in storage from a 3d position
@@ -98,198 +250,73 @@ impl ChunkSection {
     }
 
     /// Get the data of a block from an index
-    fn get_index(&self, index: usize) -> ChunkDataType {
-        return self.data[index];
+    fn get_block_at_index(&self, index: usize) -> TBlockData {
+        return self.block_storage.get_block(index, &self.local_to_global_map).try_into().unwrap();
     }
 
     /// Get the data of an element from an unsigned 3d position
-    pub fn get_pos(&self, x: u32, y: u32, z: u32) -> ChunkDataType {
+    pub fn get_block_at_pos(&self, x: u32, y: u32, z: u32) -> TBlockData {
         let index = Self::calc_element_index_from_pos(x, y, z);
-        self.get_index(index)
+        self.get_block_at_index(index)
     }
 
     /// Get the data of an element from an unsigned 3d vector
-    pub fn get_vec(&self, pos: UVec3) -> ChunkDataType {
-        self.get_pos(pos.x, pos.y, pos.z)
+    pub fn get_block_at_vec(&self, pos: UVec3) -> TBlockData {
+        self.get_block_at_pos(pos.x, pos.y, pos.z)
     }
 
     /// Set the data of an element from an index
-    fn set_index(&mut self, index: usize, data: ChunkDataType) {
-        self.data[index] = data;
+    fn set_block_at_index(&mut self, index: usize, data: TBlockData) {
+        self.block_storage.set_block(index, data.into(), &mut self.local_to_global_map, &mut self.global_to_local_map)
     }
 
     /// Set the data of an element from an unsigned 3d position
-    pub fn set_pos(&mut self, x: u32, y: u32, z: u32, data: ChunkDataType) {
+    pub fn set_block_at_pos(&mut self, x: u32, y: u32, z: u32, data: TBlockData) {
         let index = Self::calc_element_index_from_pos(x, y, z);
-        self.set_index(index, data);
+        self.set_block_at_index(index, data);
     }
 
     /// Set the data of an element from an unsigned 3d vector
-    pub fn set_vec(&mut self, pos: UVec3, data: ChunkDataType) {
-        self.set_pos(pos.x, pos.y, pos.z, data);
+    pub fn set_block_at_vec(&mut self, pos: UVec3, data: TBlockData) {
+        self.set_block_at_pos(pos.x, pos.y, pos.z, data);
     }
 
-    pub fn get_lightmap_pos(&self, x: u32, y: u32, z: u32) -> LightmapType {
+    pub fn get_light_at_pos(&self, x: u32, y: u32, z: u32) -> (u8, u8) {
         let index = Self::calc_element_index_from_pos(x, y, z);
-        self.lightmap[index]
-    }
-
-    pub fn set_lightmap_pos(&mut self, x: u32, y: u32, z: u32, lightmap_value: LightmapType) {
-        let index = Self::calc_element_index_from_pos(x, y, z);
-        self.lightmap[index] = lightmap_value;
+        let light_data = self.lightmap[index];
+        (light_data & 0b00001111, (light_data >> 4) & 0b00001111)
     }
     
-    pub fn get_lightmap_vec(&self, pos: UVec3) -> LightmapType {
-        let index = Self::calc_element_index_from_pos(pos.x, pos.y, pos.z);
-        self.lightmap[index]
+    pub fn get_light_at_vec(&self, pos: UVec3) -> (TLightData, TLightData) {
+        self.get_light_at_pos(pos.x, pos.y, pos.z)
     }
 
-    pub fn set_lightmap_vec(&mut self, pos: UVec3, lightmap_value: LightmapType) {
-        let index = Self::calc_element_index_from_pos(pos.x, pos.y, pos.z);
-        self.lightmap[index] = lightmap_value;
+    pub fn set_skylight_at_pos(&mut self, x: u32, y: u32, z: u32, light_value: TLightData) {
+        let index = Self::calc_element_index_from_pos(x, y, z);
+        let bs_light = self.lightmap[index];
+        let b_light = bs_light & 0b11110000;
+        let s_light = light_value & 0b00001111;
+        self.lightmap[index] = b_light | s_light;
     }
+
+    pub fn set_skylight_at_vec(&mut self, pos: UVec3, light_value: TLightData) {
+        self.set_skylight_at_pos(pos.x, pos.y, pos.z, light_value);
+    }
+
+    pub fn set_blocklight_at_pos(&mut self, x: u32, y: u32, z: u32, light_value: TLightData) {
+        let index = Self::calc_element_index_from_pos(x, y, z);
+        let bs_light = self.lightmap[index];
+        let b_light = light_value << 4;
+        let s_light = bs_light & 0b00001111;
+        self.lightmap[index] = b_light | s_light;
+    }
+
+    pub fn set_blocklight_at_vec(&mut self, pos: UVec3, light_value: TLightData) {
+        self.set_blocklight_at_pos(pos.x, pos.y, pos.z, light_value);
+    }
+
 }
 
 /// The type of value stored in the heighmap - a tuple of topmost (opaque, transparent) - will help
 /// with 
 pub type ChunkHeightmapType = (i32, i32);
-type ChunkHeightmapStorageType = Vec<ChunkHeightmapType>;
-
-pub struct Chunk {
-    /// The Sections of a chunk, stored as a stack of CHUNK_SECTION_AXIS_SIZE^3 regions of block
-    sections: Vec<ChunkSection>,
-    /// The signed 3d vector of the chunks position
-    position: ChunkPos,
-    /// The heightmap of the chunk, tells where the topmost transparent and opaque block of the world are located.
-    heightmap: ChunkHeightmapStorageType,
-
-    dirty: bool,
-}
-
-impl Chunk {
-    pub fn new(position: ChunkPos, num_section: usize) -> Self {
-        let mut sections = Vec::with_capacity(num_section);
-        for _ in 0..num_section {
-            sections.push(ChunkSection::create_empty());
-        }
-        let heightmap = vec![(0, 0); CHUNK_SECTION_PLANE_SIZE];
-        Self { sections, position, heightmap, dirty: false }
-    }
-
-    /// Get the data of the chunk at an unsigned 3d position
-    /// Returns the data if the chunksection is present, or 0 (air) if not
-    pub fn get_block_at_pos(&self, x: u32, y: u32, z: u32, section_index: u32) -> ChunkDataType {
-        let section = self.sections.get(section_index as usize);
-        // fancy ternery + unwrap operation
-        return if let Some(section) = section {
-            section.get_pos(x, y, z)
-        } else {
-            0
-        };
-    }
-
-    /// Get the data of the chunk as an unsigned 3d vector
-    pub fn get_block_at_vec(&self, pos: InnerChunkPos) -> ChunkDataType {
-        self.get_block_at_pos(pos.x(), pos.y(), pos.z(), pos.1)
-    }
-
-    /// Set the data of the chunk at an unsigned 3d position
-    pub fn set_block_at_pos(&mut self, data: ChunkDataType, x: u32, y: u32, z: u32) {
-        let section_index = y as usize / CHUNK_SECTION_AXIS_SIZE;
-        let section = self.sections.get_mut(section_index);
-
-        if let Some(section) = section {
-            section.set_pos(x, y % (CHUNK_SECTION_AXIS_SIZE as u32), z, data)
-        }
-    }
-
-    /// Set the data of the chunk at an unsigned 3d vector
-    pub fn set_block_at_vec(&mut self, data: ChunkDataType, pos: UVec3) {
-        self.set_block_at_pos(data, pos.x, pos.y, pos.z)
-    }
-
-    /// Get the lightmap value of the chunk as an unsigned 3d position
-    pub fn get_lightmap_at_pos(&self, x: u32, y: u32, z: u32) -> LightmapType {
-        let section_index = y as usize / CHUNK_SECTION_AXIS_SIZE;
-        let section = self.sections.get(section_index);
-        // fancy ternery + unwrap operation
-        return if let Some(section) = section {
-            section.get_lightmap_pos(x, y % (CHUNK_SECTION_AXIS_SIZE as u32), z)
-        } else {
-            0
-        };
-    }
-
-    /// Get the lightmap value of the chunk as an unsigned 3d vector
-    pub fn get_lightmap_at_vec(&self, pos: UVec3) -> LightmapType {
-        self.get_lightmap_at_pos(pos.x, pos.y, pos.z)
-    }
-
-    /// Set the lightmap value of the chunk at an unsigned 3d position
-    pub fn set_lightmap_at_pos(&mut self, data: LightmapType, x: u32, y: u32, z: u32) {
-        let section_index = y as usize / CHUNK_SECTION_AXIS_SIZE;
-        let section = self.sections.get_mut(section_index);
-
-        if let Some(section) = section {
-            section.set_lightmap_pos(x, y % (CHUNK_SECTION_AXIS_SIZE as u32), z, data)
-        }
-    }
-
-    /// Set the lightmap value of the chunk at an unsigned 3d vector
-    pub fn set_lightmap_at_vec(&mut self, data: LightmapType, pos: UVec3) {
-        self.set_lightmap_at_pos(data, pos.x, pos.y, pos.z)
-    }
-
-    pub fn get_heightmap(&self, x: u32, z: u32) -> ChunkHeightmapType {
-        let index = z as usize + (x as usize * CHUNK_SECTION_AXIS_SIZE);
-        self.heightmap[index]
-    }
-
-    pub fn set_heightmap(&mut self, x: u32, z: u32, data: ChunkHeightmapType) {
-        let index = z as usize + (x as usize * CHUNK_SECTION_AXIS_SIZE);
-        self.heightmap[index] = data;
-    }
-
-    pub fn get_pos(&self) -> IVec2 {
-        self.position
-    }
-
-    const BLOCK_MASK: ChunkDataType         = 0b0000000011111111;
-    const META_MASK: ChunkDataType          = 0b0000111100000000;
-    const BLOCK_LIGHT_MASK: ChunkDataType   = 0b1111000000000000;
-    // const BLOCK_OFFSET: ChunkDataType = 0;
-    const META_OFFSET: ChunkDataType = 8;
-    const BLOCK_LIGHT_OFFSET: ChunkDataType = 12;
-
-
-    pub fn chunk_data_helper(data: ChunkDataType) -> ChunkDataUnpackedType {
-        let chunk_block = data & Chunk::BLOCK_MASK;
-        let metadata = (data & Chunk::META_MASK) >> Chunk::META_OFFSET;
-        let block_light = (data & Chunk::BLOCK_LIGHT_MASK) >> Chunk::BLOCK_LIGHT_OFFSET;
-        (chunk_block as usize, metadata, block_light)
-    }
-
-    pub fn data_set_block(block_data: ChunkDataType, block: usize) -> ChunkDataType {
-        (block_data & !Chunk::BLOCK_MASK) | (block as ChunkDataType & Chunk::BLOCK_MASK)
-    }
-
-    pub fn data_set_meta(block_data: ChunkDataType, meta: ChunkDataType) -> ChunkDataType {
-        (block_data & !Chunk::META_MASK) | ((meta << Chunk::META_OFFSET) & Chunk::META_MASK)
-    }
-
-    pub fn data_set_block_light(block_data: ChunkDataType, block_light: ChunkDataType) -> ChunkDataType {
-        (block_data & !Chunk::BLOCK_LIGHT_MASK) | ((block_light << Chunk::BLOCK_LIGHT_OFFSET) & Chunk::BLOCK_LIGHT_MASK)
-    }
-
-    pub fn get_sections(&self) -> &Vec<ChunkSection> {
-        &self.sections
-    }
-
-    pub fn get_dirty(&self) -> bool {
-        self.dirty
-    }
-
-    pub fn set_dirty(&mut self, dirty: bool) {
-        self.dirty = dirty;
-    }
-}

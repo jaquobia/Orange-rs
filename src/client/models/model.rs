@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use std::ops::{Rem};
+use std::ops::Rem;
 use ultraviolet::{Mat4, Vec2, Vec3};
+use rustc_hash::FxHashMap as HashMap;
 
 use crate::direction::{Direction, DIRECTIONS};
 
@@ -85,7 +85,7 @@ impl BakedModel {
     pub fn new() -> Self {
         Self {
             quads: vec![],
-            textures: HashMap::new(),
+            textures: HashMap::default(),
             ambient_occlusion: true,
         }
     }
@@ -150,7 +150,7 @@ fn get_face_vertices_on_cuboid(face: Direction, points: &[Vec3; 8]) -> [Vec3; 4]
 impl VoxelModel {
     pub fn new() -> Self {
         Self {
-            textures: HashMap::new(),
+            textures: HashMap::default(),
             elements: Vec::new(),
             ambient_occlusion: true,
         }
@@ -172,6 +172,19 @@ impl VoxelModel {
     pub fn with_ambient_occlusion(mut self, ambient_occlusion: bool) -> Self {
         self.ambient_occlusion = ambient_occlusion;
         self
+    }
+
+    pub fn with_texture_nc(&mut self, texture_variable: impl Into<String>, texture_id: impl Into<String>) {
+        self.with_texture_inner_nc(texture_variable.into(), texture_id.into());
+    }
+    fn with_texture_inner_nc(&mut self, texture_variable: String, texture_id: String) {
+        self.textures.insert(texture_variable, texture_id);
+    }
+    pub fn with_element_nc(&mut self, element: VoxelElement) {
+        self.elements.push(element);
+    }
+    pub fn with_ambient_occlusion_nc(&mut self, ambient_occlusion: bool) {
+        self.ambient_occlusion = ambient_occlusion;
     }
 
     fn rotate_points(points: &mut [Vec3; 8], rescale: bool, angle: f32, axis: u8, origin: Vec3) {
@@ -219,6 +232,10 @@ impl VoxelModel {
             },
             None => None,
         }
+    }
+
+    pub fn clear_elements(&mut self) {
+        self.elements.clear();
     }
 
     pub fn bake(self) -> BakedModel {
@@ -318,6 +335,16 @@ impl VoxelElement {
         self.shade = shade;
         self
     }
+
+    pub fn with_face_nc(&mut self, face: VoxelFace, side: Direction) {
+        self.faces[side.ordinal()] = Some(face);
+    }
+    pub fn with_rotation_nc(&mut self, rotation: VoxelRotation) {
+        self.rotation = Some(rotation);
+    }
+    pub fn with_shade_nc(&mut self, shade: bool) {
+        self.shade = shade;
+    }
 }
 
 #[derive(Clone)]
@@ -364,6 +391,25 @@ impl VoxelFace {
         let scaled_rotation = normalized_rotation / 90.;
         self.rotation = scaled_rotation as u8;
         self
+    }
+
+    pub fn with_uv_nc(&mut self, u: impl Into<Vec2>, v: impl Into<Vec2>) {
+        self.with_uv_inner_nc(u.into(), v.into())
+    }
+    fn with_uv_inner_nc(&mut self, u: Vec2, v: Vec2) {
+        self.uv = Some([u, v]);
+    }
+    pub fn with_cullface_nc(&mut self, cullface: Direction) {
+        self.cullface = Some(cullface);
+    }
+    pub fn with_tint_nc(&mut self, tint: i32) {
+        self.tint_index = tint;
+    }
+
+    pub fn with_rotation_nc(&mut self, rotation: f32) {
+        let normalized_rotation = (rotation).rem(360.0);
+        let scaled_rotation = normalized_rotation / 90.;
+        self.rotation = scaled_rotation as u8;
     }
 }
 

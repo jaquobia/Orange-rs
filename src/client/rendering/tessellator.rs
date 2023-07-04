@@ -1,18 +1,17 @@
-use std::collections::HashMap;
 use std::ops::Add;
-use rustc_hash::FxHashMap;
+use rustc_hash::FxHashMap as HashMap;
 
 use ultraviolet::{IVec3, Vec2, Vec3};
 use wgpu::{Device, util::DeviceExt};
 
-use crate::{block::Block, direction::DIRECTIONS, world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkSection}};
-use crate::client::models::model::{BakedModel, ModelQuad, ModelShape};
+use crate::{block::{Block, BlockState}, direction::DIRECTIONS, world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, TLightData}};
+use crate::client::models::model::{BakedModel, ModelShape};
 use crate::client::textures::TextureObject;
 use crate::direction::{DirectionAll, DIRECTIONS_ALL};
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::registry::Register;
 
-use crate::world::chunk::ChunkDataType;
+use crate::world::chunk::TBlockData;
 use crate::world::{ChunkStorage, ChunkStorageTrait};
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
@@ -244,11 +243,10 @@ impl TerrainTessellator {
     //     self.index_buffer.clear();
     // }
 
-    fn get_occlusions(nearby_blocks: &[ChunkDataType; 26], blocks: &Register<Block>, source_block_transparent: bool, source_block_id: usize) -> u32 {
+    fn get_occlusions(nearby_blocks: &[TBlockData; 26], blocks: &Register<Block>, source_block_transparent: bool, source_block_id: usize) -> u32 {
         let mut occlusions = 0u32;
         for dir in &DIRECTIONS {
-            let chunk_data = nearby_blocks[dir.ordinal()];
-            let (block_id, _metadata, _block_light) = Chunk::chunk_data_helper(chunk_data);
+            let block_id = nearby_blocks[dir.ordinal()] as usize;
             if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
                 let block_transparent = block.is_transparent();
 
@@ -277,7 +275,7 @@ impl TerrainTessellator {
     }
 
     //Vec<Option<&ChunkSection>>
-    fn get_nearby_blocks(chunk: &ChunkSection, nearby_chunks: &ChunkStorage<ChunkSection>, intra_chunk_position: IVec3, chunk_position: IVec3) -> [ChunkDataType; 26] {
+    fn get_nearby_blocks(chunk: &Chunk, nearby_chunks: &ChunkStorage<Chunk>, intra_chunk_position: IVec3, chunk_position: IVec3) -> [TBlockData; 26] {
         let mut nearby_blocks = [0; 26];
         for dir in &DIRECTIONS_ALL {
             let dir_index = dir.ordinal();
@@ -290,29 +288,49 @@ impl TerrainTessellator {
 
             nearby_blocks[dir_index] =  if cx | cy | cz != 0 {
                 if let Ok(chunk) = nearby_chunks.get_chunk(chunk_position + IVec3::new(cx, cy, cz)) {
-                    chunk.get_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15)
+                    chunk.get_block_at_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15)
                 } else {
                     continue;
                 }
             } else {
-                chunk.get_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32)
+                chunk.get_block_at_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32)
             };
         }
         nearby_blocks
     }
 
-    fn ao_inside(block: &Block) -> u8 {
+    fn get_nearby_lights(chunk: &Chunk, nearby_chunks: &ChunkStorage<Chunk>, intra_chunk_position: IVec3, chunk_position: IVec3) -> [TLightData; 26] {
+        let mut nearby_blocks = [0u8; 26];
+        for dir in &DIRECTIONS_ALL {
+            let dir_index = dir.ordinal();
+            let new_pos = intra_chunk_position + dir.get_int_vector();
+
+            // 16 -> 1, -1 -> -1, [0, 15] -> 0
+            let cx = new_pos.x >> 4;
+            let cy = new_pos.y >> 4;
+            let cz = new_pos.z >> 4;
+
+            nearby_blocks[dir_index] =  if cx | cy | cz != 0 {
+                if let Ok(chunk) = nearby_chunks.get_chunk(chunk_position + IVec3::new(cx, cy, cz)) {
+                    chunk.get_light_at_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15).1
+                } else {
+                    continue;
+                }
+            } else {
+                chunk.get_light_at_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32).1
+            };
+        }
+        nearby_blocks
+    }
+
+    fn ao_inside(block: std::rc::Rc<Block>) -> u8 {
         block.is_full_block() as u8
     }
 
-    fn get_ao_for_corner(side1: ChunkDataType, side2: ChunkDataType, corner: ChunkDataType, blocks: &Register<Block> ) -> u8 {
-        let a = Chunk::chunk_data_helper(side1);
-        let b = Chunk::chunk_data_helper(side2);
-        let c = Chunk::chunk_data_helper(corner);
-
-        let a = blocks.get_element_from_index(a.0).map(Self::ao_inside).unwrap_or(1u8);
-        let b = blocks.get_element_from_index(b.0).map(Self::ao_inside).unwrap_or(1u8);
-        let c = blocks.get_element_from_index(c.0).map(Self::ao_inside).unwrap_or(1u8);
+    fn get_ao_for_corner(side1: TBlockData, side2: TBlockData, corner: TBlockData, blocks: &Register<Block> ) -> u8 {
+        let a = blocks.get_element_from_index(side1 as usize).map(Self::ao_inside).unwrap_or(1u8);
+        let b = blocks.get_element_from_index(side2 as usize).map(Self::ao_inside).unwrap_or(1u8);
+        let c = blocks.get_element_from_index(corner as usize).map(Self::ao_inside).unwrap_or(1u8);
 
         if a + b == 2 {
             return 0u8;
@@ -321,90 +339,42 @@ impl TerrainTessellator {
         3 - (a + b + c)
     }
 
-    fn get_lights_for_corner(corner: DirectionAll, nearby_blocks: &[ChunkDataType; 26], block_light: u16) -> u8 {
-        let (a, b, c, d, e, f, g) = match corner {
+    fn get_lights_for_corner(corner: DirectionAll, nearby_blocks: &[TLightData; 26], block_light: u8) -> u8 {
+        let dirs = match corner {
             DirectionAll::NED => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NED.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NE.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::ND.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::ED.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::North.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::East.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Down.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::NED.ordinal(), DirectionAll::NE.ordinal(), DirectionAll::ND.ordinal(), DirectionAll::ED.ordinal(), DirectionAll::North.ordinal(), DirectionAll::East.ordinal(), DirectionAll::Down.ordinal() ]
             },
             DirectionAll::NWD => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NWD.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NW.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::ND.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::WD.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::North.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::West.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Down.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::NWD.ordinal(), DirectionAll::NW.ordinal(), DirectionAll::ND.ordinal(), DirectionAll::WD.ordinal(), DirectionAll::North.ordinal(), DirectionAll::West.ordinal(), DirectionAll::Down.ordinal() ]
             },
             DirectionAll::NEU => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NEU.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NE.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NU.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::EU.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::North.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::East.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Up.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::NEU.ordinal(), DirectionAll::NE.ordinal(), DirectionAll::NU.ordinal(), DirectionAll::EU.ordinal(), DirectionAll::North.ordinal(), DirectionAll::East.ordinal(), DirectionAll::Up.ordinal() ]
             },
             DirectionAll::NWU => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NWU.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NW.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::NU.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::WU.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::North.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::West.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Up.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::NWU.ordinal(), DirectionAll::NW.ordinal(), DirectionAll::NU.ordinal(), DirectionAll::WU.ordinal(), DirectionAll::North.ordinal(), DirectionAll::West.ordinal(), DirectionAll::Up.ordinal() ]
             },
             DirectionAll::SED => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SED.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SE.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SD.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::ED.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::South.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::East.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Down.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::SED.ordinal(), DirectionAll::SE.ordinal(), DirectionAll::SD.ordinal(), DirectionAll::ED.ordinal(), DirectionAll::South.ordinal(), DirectionAll::East.ordinal(), DirectionAll::Down.ordinal() ]
             },
             DirectionAll::SWD => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SWD.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SW.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SD.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::WD.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::South.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::West.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Down.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::SWD.ordinal(), DirectionAll::SW.ordinal(), DirectionAll::SD.ordinal(), DirectionAll::WD.ordinal(), DirectionAll::South.ordinal(), DirectionAll::West.ordinal(), DirectionAll::Down.ordinal() ]
             },
             DirectionAll::SEU => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SEU.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SE.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SU.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::EU.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::South.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::East.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Up.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::SEU.ordinal(), DirectionAll::SE.ordinal(), DirectionAll::SU.ordinal(), DirectionAll::EU.ordinal(), DirectionAll::South.ordinal(), DirectionAll::East.ordinal(), DirectionAll::Up.ordinal() ]
             },
             DirectionAll::SWU => {
-                let (_, _, a) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SWU.ordinal()]);
-                let (_, _, b) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SW.ordinal()]);
-                let (_, _, c) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::SU.ordinal()]);
-                let (_, _, d) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::WU.ordinal()]);
-                let (_, _, e) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::South.ordinal()]);
-                let (_, _, f) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::West.ordinal()]);
-                let (_, _, g) = Chunk::chunk_data_helper(nearby_blocks[DirectionAll::Up.ordinal()]);
-                (a, b, c, d, e, f, g)
+                [ DirectionAll::SWU.ordinal(), DirectionAll::SW.ordinal(), DirectionAll::SU.ordinal(), DirectionAll::WU.ordinal(), DirectionAll::South.ordinal(), DirectionAll::West.ordinal(), DirectionAll::Up.ordinal() ]
             },
-            _ => (0, 0, 0, 0, 0, 0, 0),
+            _ => [0, 0, 0, 0, 0, 0, 0],
         };
+
+        let a = nearby_blocks[dirs[0]];
+        let b = nearby_blocks[dirs[1]];
+        let c = nearby_blocks[dirs[2]];
+        let d = nearby_blocks[dirs[3]];
+        let e = nearby_blocks[dirs[4]];
+        let f = nearby_blocks[dirs[5]];
+        let g = nearby_blocks[dirs[6]];
 
         let mut denom = 0;
         if a > 0 { denom += 1; }
@@ -419,7 +389,7 @@ impl TerrainTessellator {
         ((a + b + c + d + e + f + g + block_light) / denom) as u8
     }
 
-    fn get_nearby_lighting_data(nearby_blocks: &[ChunkDataType; 26], block_light: u16) -> [u8; 8] {
+    fn get_nearby_lighting_data(nearby_blocks: &[TLightData; 26], block_light: u8) -> [u8; 8] {
         [
             Self::get_lights_for_corner(DirectionAll::NED, nearby_blocks, block_light),
             Self::get_lights_for_corner(DirectionAll::NWD, nearby_blocks, block_light),
@@ -429,20 +399,10 @@ impl TerrainTessellator {
             Self::get_lights_for_corner(DirectionAll::SWD, nearby_blocks, block_light),
             Self::get_lights_for_corner(DirectionAll::SEU, nearby_blocks, block_light),
             Self::get_lights_for_corner(DirectionAll::SWU, nearby_blocks, block_light),
-
-
-            // Self::get_lights_for_corner(DirectionAll::SWD, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::SED, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::SWU, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::SEU, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::NWD, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::NED, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::NWU, nearby_blocks, block_light),
-            // Self::get_lights_for_corner(DirectionAll::NEU, nearby_blocks, block_light),
         ]
     }
 
-    fn get_nearby_ao_data(nearby_blocks: &[ChunkDataType; 26], blocks: &Register<Block>) -> [u8; 24] {
+    fn get_nearby_ao_data(nearby_blocks: &[TBlockData; 26], blocks: &Register<Block>) -> [u8; 24] {
         let mut ao = [3; 24];
         // north
         ao[0] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], blocks);
@@ -541,34 +501,49 @@ impl TerrainTessellator {
     }
 
     // Vec<Option<&ChunkSection>>
-    pub fn tessellate_chunk_section(&mut self, section: &ChunkSection, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, textures: &FxHashMap<Identifier, TextureObject>, nearby_chunks: &ChunkStorage<ChunkSection>) {
+    pub fn tessellate_chunk_section(&mut self, section: &Chunk, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, states: &Register<BlockState>, models: &HashMap<Identifier, BakedModel>, textures: &HashMap<Identifier, TextureObject>, nearby_chunks: &ChunkStorage<Chunk>) {
         let smooth_shading = true;
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
                 for z in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
                     let real_relative_position = Vec3::new(x as f32, y as f32, z as f32);
                     let real_world_position = chunk_real_position + real_relative_position;
-                    let (block_id, metadata, block_light) = Chunk::chunk_data_helper(section.get_pos(x, y, z));
+                    let state_id = section.get_block_at_pos(x, y, z);
+                    // let metadata = (block_id >> 8) & 0b00001111;
+                    // let block_id = (state_id & 0b0000000011111111) as usize;
+                    let (sky_light, block_light) = section.get_light_at_pos(x, y, z);
                     // Air, stop
-                    if block_id == 0 { continue; }
+                    if state_id == 0 { continue; }
 
-                    let block = blocks.get_element_from_index(block_id);
-                    let (block_model, is_transparent) = if let Some(block) = block.as_ref() {
-                        let model = block.get_model(metadata as u32);
-                        let is_transparent = block.is_transparent();
-                        (model, is_transparent)
-                    } else { (BakedModel::new(), false) };
+                    let state = match states.get_element_from_index(state_id.into()) {
+                        Some(state) => state,
+                        _ => continue,
+                    };
+
+                    let block_id = blocks.get_index_from_identifier(state.get_block_identifier());
+                    let block = match blocks.get_element_from_index(block_id) {
+                        Some(block) => block,
+                        _ => continue,
+                    };
+
+                    let is_transparent = block.is_transparent();
+
+                    let model = match models.get(state.get_state_identifier()) {
+                        Some(model) => model,
+                        _ => continue,
+                    };
 
                     let intra_chunk_position = IVec3::new(x as i32, y as i32, z as i32);
                     let nearby_blocks = Self::get_nearby_blocks(section, &nearby_chunks, intra_chunk_position, chunk_pos);
+                    let nearby_lights = Self::get_nearby_lights(section, &nearby_chunks, intra_chunk_position, chunk_pos);
                     let occlusions = Self::get_occlusions(&nearby_blocks, blocks, is_transparent, block_id);
 
-                    let lights = Self::get_nearby_lighting_data(&nearby_blocks, block_light);
-                    let ao = if block_model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, blocks) } else { [3; 24] };
+                    let lights = Self::get_nearby_lighting_data(&nearby_lights, block_light);
+                    let ao = if model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, blocks) } else { [3; 24] };
 
-                    let model_textures = block_model.textures();
+                    let model_textures = model.textures();
 
-                    for face in block_model.shapes() {
+                    for face in model.shapes() {
                         match face {
                             ModelShape::Quad {quad} => {
                                 if let Some(dir) = quad.cullface {

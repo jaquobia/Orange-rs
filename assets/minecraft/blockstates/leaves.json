@@ -1,7 +1,22 @@
 {
   "variants": {
-    "": {
-      "model": "minecraft:leaves"
+    "tree=oak,decay=0": {
+      "model": "minecraft:oak_leaves"
+    },
+    "tree=oak,decay=1": {
+      "model": "minecraft:oak_leaves"
+    },
+    "tree=spruce,decay=0": {
+      "model": "minecraft:spruce_leaves"
+    },
+    "tree=spruce,decay=1": {
+      "model": "minecraft:spruce_leaves"
+    },
+    "tree=birch,decay=0": {
+      "model": "minecraft:birch_leaves"
+    },
+    "tree=birch,decay=1": {
+      "model": "minecraft:birch_leaves"
     }
   }
 }

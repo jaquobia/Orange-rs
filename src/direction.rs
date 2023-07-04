@@ -116,6 +116,21 @@ impl Direction {
     }
 }
 
+impl TryFrom<&str> for Direction {
+    type Error = &'static str;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "north" => Ok(Direction::North),
+            "south" => Ok(Direction::South),
+            "east" => Ok(Direction::East),
+            "west" => Ok(Direction::West),
+            "up" => Ok(Direction::Up),
+            "down" => Ok(Direction::Down),
+            _ => Err("Not a direction")
+        }
+    }
+}
+
 impl PropertyEnum for Direction {
     fn get_values() -> Vec<u32> {
         DIRECTIONS.iter().map(|dir| dir.ordinal() as u32).collect()

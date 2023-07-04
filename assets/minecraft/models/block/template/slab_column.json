@@ -1,5 +1,5 @@
 {
-    "parent": "minecraft:template/slab",
+    "parent": "minecraft:block/template/slab",
     "textures": {
         "particle": "#up",
         "down": "#up",

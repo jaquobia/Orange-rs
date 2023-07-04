@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::block::BlockState;
 use crate::block::properties::PropertyDefinition;
 use crate::client::models::model::BakedModel;
@@ -105,7 +107,7 @@ pub trait Registerable {
  *  index,
  */
 pub struct Register<T: Registerable> {
-    collection: Vec<T>,
+    collection: Vec<Rc<T>>,
     id_map: HashMap<String, usize>,
     current_id: usize,
 }
@@ -126,13 +128,27 @@ impl<T: Registerable> Register<T> {
     /** Puts the registerable into the register
      *
      */
-    pub fn insert(&mut self, registerable: T) {
+    pub fn insert(&mut self, registerable: T) -> usize {
         let index = self.current_id;
         let identifier = registerable.get_identifier().to_string();
         self.current_id += 1;
-        self.collection.push(registerable);
+        self.collection.push(Rc::new(registerable));
         self.id_map.insert(identifier, index);
+        index
     }
+
+    /** Puts the registerable into the register
+     *
+     */
+    pub fn insert_pointer(&mut self, registerable: Rc<T>) -> usize {
+        let index = self.current_id;
+        let identifier = registerable.get_identifier().to_string();
+        self.current_id += 1;
+        self.collection.push(registerable.clone());
+        self.id_map.insert(identifier, index);
+        index
+    }
+
 
     /** Clears the register, but keeps allocated memory
      * Might be used to implement run-time reloading of packs from the server
@@ -144,21 +160,25 @@ impl<T: Registerable> Register<T> {
         self.id_map.clear();
     }
 
-    pub fn get_element_from_identifier(&self, ident: impl Into<Identifier>) -> Option<&T> {
-        self.collection.get(self.get_index_from_identifier(ident))
+    pub fn get_element_from_identifier(&self, ident: &Identifier) -> Option<Rc<T>> {
+        self.collection.get(self.get_index_from_identifier(ident)).cloned()
     }
 
-    pub fn get_element_from_index(&self, index: usize) -> Option<&T> {
-        self.collection.get(index)
+    pub fn get_element_from_index(&self, index: usize) -> Option<Rc<T>> {
+        self.collection.get(index).cloned()
     }
 
-    pub fn get_index_from_identifier(&self, ident: impl Into<Identifier>) -> usize {
+    pub fn get_index_from_identifier(&self, ident: &Identifier) -> usize {
         *self.id_map
-            .get(&ident.into().to_string())
+            .get(&ident.to_string())
             .unwrap_or(&0)
     }
 
-    pub fn get_elements(&self) -> &Vec<T> {
+    pub fn get_elements(&self) -> &Vec<Rc<T>> {
         &self.collection
+    }
+
+    pub fn get_next_index(&self) -> usize {
+        self.current_id
     }
 }

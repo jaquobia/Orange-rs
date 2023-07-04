@@ -2,6 +2,8 @@ use rustc_hash::FxHashMap as HashMap;
 use serde_derive::{Serialize, Deserialize};
 use serde_json::Value;
 
+use crate::{client::models::model::{VoxelFace, VoxelRotation, VoxelElement}, direction::Direction};
+
 use super::identifier::Identifier;
 
 #[derive(Serialize, Deserialize)]
@@ -109,37 +111,118 @@ pub struct MCModelFile {
     elements: Option<Vec<MCModelElement>>,
 }
 
-#[derive(Serialize, Deserialize)]
+impl MCModelFile {
+    pub fn get_parent(&self) -> Option<String> {
+        self.parent.clone()
+    }
+
+    pub fn get_ambient_occlusion(&self) -> bool {
+        self.ambient_occlusion.unwrap_or(true)
+    }
+
+    pub fn textures(&self) -> HashMap<String, String> {
+        match &self.textures {
+            Some(textures) => textures.clone(),
+            None => HashMap::default(),
+        }
+    }
+
+    pub fn display(&self) -> HashMap<String, MCModelDisplay> {
+        match &self.display {
+            Some(display) => display.clone(),
+            None => HashMap::default(),
+        }
+    }
+
+    pub fn elements(&self) -> Vec<MCModelElement> {
+        match &self.elements {
+            Some(elements) => elements.to_vec(),
+            None => vec![],
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MCModelElement {
-    from: [f32; 3],
-    to: [f32; 3],
-    rotation: Option<MCModelRotation>,
-    shade: Option<bool>,
-    faces: HashMap<String, MCModelFace>, 
+    pub from: [f32; 3],
+    pub to: [f32; 3],
+    pub rotation: Option<MCModelRotation>,
+    pub shade: Option<bool>,
+    pub faces: HashMap<String, MCModelFace>, 
 }
 
-#[derive(Serialize, Deserialize)]
+impl MCModelElement {
+    pub fn to_voxel_element(&self) -> VoxelElement {
+        let mut voxel_element = VoxelElement::new( self.from, self.to );
+        voxel_element.with_shade_nc(self.shade.unwrap_or(true));
+        if let Some(rotation) = &self.rotation {
+            voxel_element.with_rotation_nc(rotation.to_voxel_rotation());
+        }         
+        for (face_name, face_dir) in [("north", Direction::North), ("south", Direction::South), ("east", Direction::East), ("west", Direction::West), ("up", Direction::Up), ("down", Direction::Down)] {
+            if let Some(face) = self.faces.get(&face_name.to_string()) {
+                let voxel_face = face.to_voxel_face();
+                voxel_element.with_face_nc(voxel_face,face_dir);
+            }
+        }
+        voxel_element
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MCModelRotation {
-    origin: [f32; 3],
-    axis: String,
-    angle: f32,
-    rescale: Option<bool>,
+    pub origin: [f32; 3],
+    pub axis: String,
+    pub angle: f32,
+    pub rescale: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize)]
+impl MCModelRotation {
+    pub fn to_voxel_rotation(&self) -> VoxelRotation {
+        let axis = match self.axis.as_str() {
+            "x" => { 0 },
+            "y" => { 1 },
+            "z" => { 2 },
+            _ => { 0 },
+        };
+        VoxelRotation::new(self.angle, axis, self.origin, self.rescale.unwrap_or(false))
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MCModelFace {
-    uv: Option<[f32; 4]>,
-    texture: String,
-    cullface: Option<String>,
-    rotation: Option<f32>,
-    tintindex: Option<i32>,
+    pub uv: Option<[f32; 4]>,
+    pub texture: String,
+    pub cullface: Option<String>,
+    pub rotation: Option<f32>,
+    pub tintindex: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
+impl MCModelFace {
+    pub fn to_voxel_face(&self) -> VoxelFace {
+        let mut voxel_face = VoxelFace::new(self.texture.clone());
+        if let Some(uv) = self.uv {
+            voxel_face.with_uv_nc((uv[0], (uv[1])), (uv[2], uv[3]));
+        }
+        if let Some(rotation) = self.rotation {
+            voxel_face.with_rotation_nc(rotation);
+        }
+        if let Some(cullface) = &self.cullface {
+            if let Ok(cullface) = Direction::try_from(cullface.as_str()) {
+                voxel_face.with_cullface_nc(cullface);
+            }
+        }
+        if let Some(tint) = self.tintindex {
+            voxel_face.with_tint_nc(tint);
+        }
+        voxel_face
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MCModelDisplay {
-    rotation: [f32; 3],
-    translation: [f32; 3],
-    scale: [f32; 3],
+    pub rotation: [f32; 3],
+    pub translation: [f32; 3],
+    pub scale: [f32; 3],
 }
 
 #[derive(Serialize, Deserialize)]

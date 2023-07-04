@@ -1,11 +1,15 @@
 use std::io::Read;
 use legion::EntityStore;
+use orange_rs::minecraft::prot14::generate_block_to_state_map;
+use orange_rs::minecraft::registry::Registry;
+use orange_rs::util::nibble;
 use ultraviolet::{IVec2, IVec3, Vec3};
 use orange_rs::entities::{EntityController, EntityTransform};
 use orange_rs::packets::prot14::MultiBlockChangeData;
 use orange_rs::util::pos::{BlockPos, EntityPos, NewChunkPosition};
-use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, ChunkDataType, ChunkSection};
+use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE};
 use orange_rs::world::{ChunkStorage, ChunkStoragePlanar, ChunkStorageTrait};
+use rustc_hash::FxHashMap as HashMap;
 
 pub struct TestWorld {
     height: usize,
@@ -14,15 +18,18 @@ pub struct TestWorld {
     dimension_id: i8,
     seed: i64,
     has_weather: bool,
-    pub chunk_storage: ChunkStorage<ChunkSection>,
+    pub chunk_storage: ChunkStorage<Chunk>,
     pub entities: legion::World,
 
     pub player: Option<legion::Entity>,
+
+    block_to_state_map: HashMap<u16, usize>,
 }
 
 impl TestWorld {
-    pub fn new(height: usize) -> Self {
+    pub fn new(height: usize, registry: &Registry) -> Self {
         let entity_world = legion::World::default();
+        let block_to_state_map = generate_block_to_state_map(registry);
 
         Self {
             height,
@@ -34,6 +41,7 @@ impl TestWorld {
             chunk_storage: ChunkStorage::Planar(ChunkStoragePlanar::new(height)),
             entities: entity_world,
             player: None,
+            block_to_state_map,
         }
     }
 
@@ -168,10 +176,10 @@ impl TestWorld {
         let cpos = (x >> 4, y >> 4, z >> 4);
         match self.chunk_storage.get_chunk_mut(cpos.into()) {
             Ok(chunk) => {
-                let block_data = Chunk::data_set_meta(block as ChunkDataType, meta as ChunkDataType);
+                let block_data = block as u16 | ((meta as u16) << 8);
                 let (ix, iy, iz) = (x & 15, y  & 15, z & 15);
                 // warn!("Block Change 2: ({ix}, {iy}, {iz})|({:?}) <- {block}|{meta}", cpos);
-                chunk.set_pos(ix as u32, iy as u32, iz as u32, block_data);
+                chunk.set_block_at_pos(ix as u32, iy as u32, iz as u32, block_data);
                 chunk.set_dirty(true);
             },
             _ => {}
@@ -186,9 +194,9 @@ impl TestWorld {
             let y = (coords & 0b0000000011111111) as i32;
             let meta = data.metadata[index];
             // println!("Setting ({x}, {y}, {z})|() <- {block} |{}", data.metadata[index]);
-            let block_data = Chunk::data_set_meta(block as ChunkDataType, meta as ChunkDataType);
+            let block_data = block as u16 | ((meta as u16) << 8);
             if let Ok(chunk) = self.chunk_storage.get_chunk_mut(IVec3::new(cx, y >> 4, cz)) {
-                chunk.set_pos(x, (y & 15) as u32, z, block_data);
+                chunk.set_block_at_pos(x, (y & 15) as u32, z, block_data);
                 chunk.set_dirty(true);
             }
         }
@@ -221,6 +229,11 @@ impl TestWorld {
         let mut raw_data = vec![0; expected_size];
         let num_bytes = inflater.read(&mut raw_data).unwrap();
 
+        let block_bytes = &raw_data[0..meta_start];
+        let meta_bytes = &raw_data[meta_start..block_light_start];
+        let block_light_bytes = &raw_data[block_light_start..sky_light_start];
+        let sky_light_bytes = &raw_data[sky_light_start..];
+
         for y in 0..size_y {
 
             let actual_y = chunk_y_start + y as u32;
@@ -228,7 +241,7 @@ impl TestWorld {
             let local_y = actual_y % CHUNK_SECTION_AXIS_SIZE as u32;
 
             let chunk_pos = NewChunkPosition::new(chunk_x, chunk_index, chunk_z);
-            let chunk = match self.chunk_storage.get_or_create_chunk(chunk_pos.vec, || { ChunkSection::create_empty() }) {
+            let chunk = match self.chunk_storage.get_or_create_chunk(chunk_pos.vec, || { Chunk::create_empty() }) {
                 Ok(chunk) => chunk,
                 _ => continue,
             };
@@ -237,29 +250,30 @@ impl TestWorld {
                 for z in 0..size_z {
 
                     let block_index = y + (z * size_y) + (x * size_y * size_z);
-                    let nibble_byte_index = block_index >> 1;   // nibbles are half as large as a byte
-                    let shift_index = block_index % 2;          // but we have to put 2 nibbles in a single byte
+                    let data: u16 = block_bytes[block_index].into();
 
-                    let meta_index = meta_start + nibble_byte_index;
-                    let block_light_index = block_light_start + nibble_byte_index;
-                    let sky_light_index =  sky_light_start + nibble_byte_index;
+                    let meta = nibble::nibble_get(meta_bytes, block_index);
+                    let block_light = nibble::nibble_get(block_light_bytes, block_index);
+                    let sky_light = nibble::nibble_get(sky_light_bytes, block_index);
+                    let data = data | ((meta as u16) << 8);
 
-                    const NIBBLE_MASK: u8 = 0b00001111;
-                    let data = raw_data[block_index].into();
+                    let data = match self.block_to_state_map.get(&data) {
+                        Some(state) => *state,
+                        _ => { log::error!("Failed to find id: {}|{}", data & 0b11111111, data >> 8); continue; }
+                    };
 
-                    let meta = if shift_index == 0 { raw_data[meta_index] & NIBBLE_MASK } else { raw_data[meta_index] >> 4 };
-                    let block_light = if shift_index == 0 { raw_data[block_light_index] & NIBBLE_MASK } else { raw_data[block_light_index] >> 4 };
-                    let sky_light = if shift_index == 0 { raw_data[sky_light_index] & NIBBLE_MASK } else { raw_data[sky_light_index] >> 4 };
-                    let data = Chunk::data_set_meta(data, meta as ChunkDataType);
-                    let data = Chunk::data_set_block_light(data, block_light as ChunkDataType);
-
-                    // let block_light = raw_data[block_light_index];
-                    // let sky_light = raw_data[sky_light_index];
-                    chunk.set_pos(chunk_x_start + x as u32, local_y as u32, chunk_z_start + z as u32, data);
+                    let x = chunk_x_start + x as u32;
+                    let y = local_y as u32;
+                    let z = chunk_z_start + z as u32;
+                    chunk.set_block_at_pos(x, y, z, data as u16);
+                    chunk.set_blocklight_at_pos(x, y, z, block_light);
+                    chunk.set_skylight_at_pos(x, y, z, sky_light);
                 } // for z
             } // for x
             chunk.set_dirty(true);
         } // for y
+
+        // Dirty Neighbors
         let updated_nearby_chunk_position = [IVec2::new(chunk_x + 1, chunk_z), IVec2::new(chunk_x - 1, chunk_z), IVec2::new(chunk_x, chunk_z + 1), IVec2::new(chunk_x, chunk_z - 1)];
         let a = chunk_y_start as i32 / CHUNK_SECTION_AXIS_SIZE as i32;
         let b = (chunk_y_start as i32 + size_y as i32) / CHUNK_SECTION_AXIS_SIZE as i32;
