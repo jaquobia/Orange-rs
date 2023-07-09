@@ -122,7 +122,9 @@ fn main() {
     let _args: Vec<String> = std::env::args().collect();
     println!("Args: {:?}", _args);
 
-    let param_ip = &_args[1];
+    let ip_params: Vec<&str> = _args[1].as_str().split(":").collect();
+    let param_ip = ip_params.get(0).map_or_else(|| "localhost".to_string(), |v| v.to_string());
+    let param_port = ip_params.get(1).and_then(|v|v.parse().ok()).unwrap_or(25565);
 
     let event_loop = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
@@ -158,9 +160,8 @@ fn main() {
     minecraft.set_screen::<MainMenu>();
     
     let username = String::from("TT3");
-    let port = 25565;
     let mut test_world = TestWorld::new(chunk_height, &registry.read().unwrap());
-    let mut network_thread = match join_server(username, 14, param_ip.clone(), port, &mut test_world) {
+    let mut network_thread = match join_server(username, 14, param_ip.clone(), param_port, &mut test_world) {
         Ok(network_thread) => {
             network_thread
         },

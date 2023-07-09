@@ -1,7 +1,0 @@
-{
-    "parent": "minecraft:block/template/cube_column",
-    "textures": {
-        "up": "minecraft:oak_plank",
-        "side": "minecraft:bookshelf"
-    }
-}

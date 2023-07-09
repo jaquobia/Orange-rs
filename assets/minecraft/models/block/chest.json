@@ -1,9 +1,0 @@
-{
-    "parent": "minecraft:block/template/orientable",
-    "textures": {
-        "up": "minecraft:chest_top",
-        "down": "minecraft:chest_top",
-        "front": "minecraft:chest_front",
-        "side": "minecraft:chest_side_single"
-    }
-}

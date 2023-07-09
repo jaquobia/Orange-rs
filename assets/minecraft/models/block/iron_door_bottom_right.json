@@ -1,6 +1,0 @@
-{
-    "parent": "minecraft:block/template/door_bottom_right",
-    "textures": {
-        "door_face": "minecraft:iron_door_bottom"
-    }
-}

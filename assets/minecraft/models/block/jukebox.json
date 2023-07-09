@@ -1,8 +1,0 @@
-{
-    "parent": "minecraft:block/template/cube_column_top_bottom",
-    "textures": {
-        "top": "minecraft:jukebox_top",
-        "bottom": "minecraft:jukebox_side",
-        "side": "minecraft:jukebox_side"
-    }
-}

@@ -120,7 +120,7 @@ pub fn generate_terrain_opaque_pipeline(client: &mut Client) {
     let device = client.get_device();
 
     let mut shader_data = String::new();
-    let mut shader_file = File::open("./assets/shaders/shader.wgsl").unwrap();
+    let mut shader_file = File::open("../orange-mc-assets/assets/shaders/shader.wgsl").unwrap();
     shader_file.read_to_string(&mut shader_data).unwrap();
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -191,7 +191,7 @@ pub fn generate_terrain_transparent_pipeline(client: &mut Client) {
     let device = client.get_device();
 
     let mut shader_data = String::new();
-    let mut shader_file = File::open("./assets/shaders/shader_transparent.wgsl").unwrap();
+    let mut shader_file = File::open("../orange-mc-assets/assets/shaders/shader_transparent.wgsl").unwrap();
     shader_file.read_to_string(&mut shader_data).unwrap();
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -276,7 +276,7 @@ pub fn generate_lightmap_texture(client: &mut Client) {
 
     let tex = DynamicImage::ImageRgb32F(rgb_tex);
 
-    tex.to_rgb16().save_with_format("assets/minecraft/textures/lightmap.png", image::ImageFormat::Png).unwrap();
+    tex.to_rgb16().save_with_format("../orange-mc-assets/assets/minecraft/textures/lightmap.png", image::ImageFormat::Png).unwrap();
 
     let dims = tex.dimensions();
     let width = dims.0;
@@ -338,6 +338,8 @@ pub fn load_binary_resources(client: &mut Client) {
         if path.ends_with(".txt") || path.ends_with(".lang") {
             continue;
         }
+        let resource_dir = "./resources";
+        let bytes = std::fs::read([resource_dir, path].join("/")).unwrap();
         let reader = image::io::Reader::new(std::io::Cursor::new(bytes))
             .with_guessed_format()
             .expect("Cursor io never fails");
@@ -416,420 +418,420 @@ pub fn load_mc_tex(dir: &PathBuf) -> DynamicImage {
         .unwrap_or_else(create_missing_tex)
 }
 
-pub const DEFAULT_RESOURCES: [(&str, &str, &[u8]); 83] = [
+pub const DEFAULT_RESOURCES: [(&str, &str, &str); 83] = [
     (
         "terrain.png",
         "terrain",
-        include_bytes!("../../resources/terrain.png"),
+        "terrain.png",
     ),
     (
         "pack.png",
         "pack",
-        include_bytes!("../../resources/pack.png"),
+        "pack.png",
     ),
     (
         "font.txt",
         "font",
-        include_bytes!("../../resources/font.txt"),
+        "font.txt",
     ),
     (
         "pack.txt",
         "pack",
-        include_bytes!("../../resources/pack.txt"),
+        "pack.txt",
     ),
     (
         "particles.png",
         "particles",
-        include_bytes!("../../resources/particles.png"),
+        "particles.png",
     ),
     (
         "achievement/bg.png",
         "bg",
-        include_bytes!("../../resources/achievement/bg.png"),
+        "achievement/bg.png",
     ),
     (
         "achievement/icons.png",
         "icons",
-        include_bytes!("../../resources/achievement/icons.png"),
+        "achievement/icons.png",
     ),
     (
         "achievement/map.txt",
         "map",
-        include_bytes!("../../resources/achievement/map.txt"),
+        "achievement/map.txt",
     ),
     (
         "armor/chain_1.png",
         "chain_1",
-        include_bytes!("../../resources/armor/chain_1.png"),
+        "armor/chain_1.png",
     ),
     (
         "armor/chain_2.png",
         "chain_2",
-        include_bytes!("../../resources/armor/chain_2.png"),
+        "armor/chain_2.png",
     ),
     (
         "armor/cloth_1.png",
         "cloth_1",
-        include_bytes!("../../resources/armor/cloth_1.png"),
+        "armor/cloth_1.png",
     ),
     (
         "armor/cloth_2.png",
         "cloth_2",
-        include_bytes!("../../resources/armor/cloth_2.png"),
+        "armor/cloth_2.png",
     ),
     (
         "armor/diamond_1.png",
         "diamond_1",
-        include_bytes!("../../resources/armor/diamond_1.png"),
+        "armor/diamond_1.png",
     ),
     (
         "armor/diamond_2.png",
         "diamond_2",
-        include_bytes!("../../resources/armor/diamond_2.png"),
+        "armor/diamond_2.png",
     ),
     (
         "armor/gold_1.png",
         "gold_1",
-        include_bytes!("../../resources/armor/gold_1.png"),
+        "armor/gold_1.png",
     ),
     (
         "armor/gold_2.png",
         "gold_2",
-        include_bytes!("../../resources/armor/gold_2.png"),
+        "armor/gold_2.png",
     ),
     (
         "armor/iron_1.png",
         "iron_1",
-        include_bytes!("../../resources/armor/iron_1.png"),
+        "armor/iron_1.png",
     ),
     (
         "armor/iron_2.png",
         "iron_2",
-        include_bytes!("../../resources/armor/iron_2.png"),
+        "armor/iron_2.png",
     ),
     (
         "armor/power.png",
         "power",
-        include_bytes!("../../resources/armor/power.png"),
+        "armor/power.png",
     ),
     (
         "art/kz.png",
         "kz",
-        include_bytes!("../../resources/art/kz.png"),
+        "art/kz.png",
     ),
     (
         "environment/clouds.png",
         "clouds",
-        include_bytes!("../../resources/environment/clouds.png"),
+        "environment/clouds.png",
     ),
     (
         "environment/rain.png",
         "rain",
-        include_bytes!("../../resources/environment/rain.png"),
+        "environment/rain.png",
     ),
     (
         "environment/snow.png",
         "snow",
-        include_bytes!("../../resources/environment/snow.png"),
+        "environment/snow.png",
     ),
     (
         "font/default.png",
         "default",
-        include_bytes!("../../resources/font/default.png"),
+        "font/default.png",
     ),
     (
         "gui/background.png",
         "background",
-        include_bytes!("../../resources/gui/background.png"),
+        "gui/background.png",
     ),
     (
         "gui/container.png",
         "container",
-        include_bytes!("../../resources/gui/container.png"),
+        "gui/container.png",
     ),
     (
         "gui/crafting.png",
         "crafting",
-        include_bytes!("../../resources/gui/crafting.png"),
+        "gui/crafting.png",
     ),
     (
         "gui/furnace.png",
         "furnace",
-        include_bytes!("../../resources/gui/furnace.png"),
+        "gui/furnace.png",
     ),
     (
         "gui/gui.png",
         "gui",
-        include_bytes!("../../resources/gui/gui.png"),
+        "gui/gui.png",
     ),
     (
         "gui/icons.png",
         "icons",
-        include_bytes!("../../resources/gui/icons.png"),
+        "gui/icons.png",
     ),
     (
         "gui/inventory.png",
         "inventory",
-        include_bytes!("../../resources/gui/inventory.png"),
+        "gui/inventory.png",
     ),
     (
         "gui/items.png",
         "items",
-        include_bytes!("../../resources/gui/items.png"),
+        "gui/items.png",
     ),
     (
         "gui/logo.png",
         "logo",
-        include_bytes!("../../resources/gui/logo.png"),
+        "gui/logo.png",
     ),
     (
         "gui/particles.png",
         "particles",
-        include_bytes!("../../resources/gui/particles.png"),
+        "gui/particles.png",
     ),
     (
         "gui/slot.png",
         "slot",
-        include_bytes!("../../resources/gui/slot.png"),
+        "gui/slot.png",
     ),
     (
         "gui/trap.png",
         "trap",
-        include_bytes!("../../resources/gui/trap.png"),
+        "gui/trap.png",
     ),
     (
         "gui/unknown_pack.png",
         "unknown_pack",
-        include_bytes!("../../resources/gui/unknown_pack.png"),
+        "gui/unknown_pack.png",
     ),
     (
         "item/arrows.png",
         "arrows",
-        include_bytes!("../../resources/item/arrows.png"),
+        "item/arrows.png",
     ),
     (
         "item/boat.png",
         "boat",
-        include_bytes!("../../resources/item/boat.png"),
+        "item/boat.png",
     ),
     (
         "item/cart.png",
         "cart",
-        include_bytes!("../../resources/item/cart.png"),
+        "item/cart.png",
     ),
     (
         "item/door.png",
         "door",
-        include_bytes!("../../resources/item/door.png"),
+        "item/door.png",
     ),
     (
         "item/sign.png",
         "sign",
-        include_bytes!("../../resources/item/sign.png"),
+        "item/sign.png",
     ),
     (
         "lang/en_US.lang",
         "en_US",
-        include_bytes!("../../resources/lang/en_US.lang"),
+        "lang/en_US.lang",
     ),
     (
         "lang/stats_US.lang",
         "stats_US",
-        include_bytes!("../../resources/lang/stats_US.lang"),
+        "lang/stats_US.lang",
     ),
     (
         "misc/dial.png",
         "dial",
-        include_bytes!("../../resources/misc/dial.png"),
+        "misc/dial.png",
     ),
     (
         "misc/foliagecolor.png",
         "foliagecolor",
-        include_bytes!("../../resources/misc/foliagecolor.png"),
+        "misc/foliagecolor.png",
     ),
     (
         "misc/footprint.png",
         "footprint",
-        include_bytes!("../../resources/misc/footprint.png"),
+        "misc/footprint.png",
     ),
     (
         "misc/grasscolor.png",
         "grasscolor",
-        include_bytes!("../../resources/misc/grasscolor.png"),
+        "misc/grasscolor.png",
     ),
     (
         "misc/mapbg.png",
         "mapbg",
-        include_bytes!("../../resources/misc/mapbg.png"),
+        "misc/mapbg.png",
     ),
     (
         "misc/mapicons.png",
         "mapicons",
-        include_bytes!("../../resources/misc/mapicons.png"),
+        "misc/mapicons.png",
     ),
     (
         "misc/pumpkinblur.png",
         "pumpkinblur",
-        include_bytes!("../../resources/misc/pumpkinblur.png"),
+        "misc/pumpkinblur.png",
     ),
     (
         "misc/shadow.png",
         "shadow",
-        include_bytes!("../../resources/misc/shadow.png"),
+        "misc/shadow.png",
     ),
     (
         "misc/vignette.png",
         "vignette",
-        include_bytes!("../../resources/misc/vignette.png"),
+        "misc/vignette.png",
     ),
     (
         "misc/water.png",
         "water",
-        include_bytes!("../../resources/misc/water.png"),
+        "misc/water.png",
     ),
     (
         "misc/watercolor.png",
         "watercolor",
-        include_bytes!("../../resources/misc/watercolor.png"),
+        "misc/watercolor.png",
     ),
     (
         "mob/char.png",
         "char",
-        include_bytes!("../../resources/mob/char.png"),
+        "mob/char.png",
     ),
     (
         "mob/chicken.png",
         "chicken",
-        include_bytes!("../../resources/mob/chicken.png"),
+        "mob/chicken.png",
     ),
     (
         "mob/cow.png",
         "cow",
-        include_bytes!("../../resources/mob/cow.png"),
+        "mob/cow.png",
     ),
     (
         "mob/creeper.png",
         "creeper",
-        include_bytes!("../../resources/mob/creeper.png"),
+        "mob/creeper.png",
     ),
     (
         "mob/ghast.png",
         "ghast",
-        include_bytes!("../../resources/mob/ghast.png"),
+        "mob/ghast.png",
     ),
     (
         "mob/ghast_fire.png",
         "ghast_fire",
-        include_bytes!("../../resources/mob/ghast_fire.png"),
+        "mob/ghast_fire.png",
     ),
     (
         "mob/pig.png",
         "pig",
-        include_bytes!("../../resources/mob/pig.png"),
+        "mob/pig.png",
     ),
     (
         "mob/pigman.png",
         "pigman",
-        include_bytes!("../../resources/mob/pigman.png"),
+        "mob/pigman.png",
     ),
     (
         "mob/pigzombie.png",
         "pigzombie",
-        include_bytes!("../../resources/mob/pigzombie.png"),
+        "mob/pigzombie.png",
     ),
     (
         "mob/saddle.png",
         "saddle",
-        include_bytes!("../../resources/mob/saddle.png"),
+        "mob/saddle.png",
     ),
     (
         "mob/sheep.png",
         "sheep",
-        include_bytes!("../../resources/mob/sheep.png"),
+        "mob/sheep.png",
     ),
     (
         "mob/sheep_fur.png",
         "sheep_fur",
-        include_bytes!("../../resources/mob/sheep_fur.png"),
+        "mob/sheep_fur.png",
     ),
     (
         "mob/silverfish.png",
         "silverfish",
-        include_bytes!("../../resources/mob/silverfish.png"),
+        "mob/silverfish.png",
     ),
     (
         "mob/skeleton.png",
         "skeleton",
-        include_bytes!("../../resources/mob/skeleton.png"),
+        "mob/skeleton.png",
     ),
     (
         "mob/slime.png",
         "slime",
-        include_bytes!("../../resources/mob/slime.png"),
+        "mob/slime.png",
     ),
     (
         "mob/spider.png",
         "spider",
-        include_bytes!("../../resources/mob/spider.png"),
+        "mob/spider.png",
     ),
     (
         "mob/spider_eyes.png",
         "spider_eyes",
-        include_bytes!("../../resources/mob/spider_eyes.png"),
+        "mob/spider_eyes.png",
     ),
     (
         "mob/squid.png",
         "squid",
-        include_bytes!("../../resources/mob/squid.png"),
+        "mob/squid.png",
     ),
     (
         "mob/wolf.png",
         "wolf",
-        include_bytes!("../../resources/mob/wolf.png"),
+        "mob/wolf.png",
     ),
     (
         "mob/wolf_angry.png",
         "wolf_angry",
-        include_bytes!("../../resources/mob/wolf_angry.png"),
+        "mob/wolf_angry.png",
     ),
     (
         "mob/wolf_tame.png",
         "wolf_tame",
-        include_bytes!("../../resources/mob/wolf_tame.png"),
+        "mob/wolf_tame.png",
     ),
     (
         "mob/zombie.png",
         "zombie",
-        include_bytes!("../../resources/mob/zombie.png"),
+        "mob/zombie.png",
     ),
     (
         "terrain/moon.png",
         "moon",
-        include_bytes!("../../resources/terrain/moon.png"),
+        "terrain/moon.png",
     ),
     (
         "terrain/sun.png",
         "sun",
-        include_bytes!("../../resources/terrain/sun.png"),
+        "terrain/sun.png",
     ),
     (
         "title/black.png",
         "black",
-        include_bytes!("../../resources/title/black.png"),
+        "title/black.png",
     ),
     (
         "title/mclogo.png",
         "mclogo",
-        include_bytes!("../../resources/title/mclogo.png"),
+        "title/mclogo.png",
     ),
     (
         "title/mojang.png",
         "mojang",
-        include_bytes!("../../resources/title/mojang.png"),
+        "title/mojang.png",
     ),
     (
         "title/splashes.txt",
         "splashes",
-        include_bytes!("../../resources/title/splashes.txt"),
+        "title/splashes.txt",
     ),
 ];

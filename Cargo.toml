@@ -1,5 +1,5 @@
 [workspace]
-members = ["client-app", "web-client-app", "download_assets", "server-app"]
+members = ["client-app", "download_assets"]
 
 [package]
 name = "orange_rs"

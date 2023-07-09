@@ -7,7 +7,7 @@ use ultraviolet::{IVec2, IVec3, Vec3};
 use orange_rs::entities::{EntityController, EntityTransform};
 use orange_rs::packets::prot14::MultiBlockChangeData;
 use orange_rs::util::pos::{BlockPos, EntityPos, NewChunkPosition};
-use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE};
+use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, TBlockData};
 use orange_rs::world::{ChunkStorage, ChunkStoragePlanar, ChunkStorageTrait};
 use rustc_hash::FxHashMap as HashMap;
 
@@ -178,8 +178,15 @@ impl TestWorld {
             Ok(chunk) => {
                 let block_data = block as u16 | ((meta as u16) << 8);
                 let (ix, iy, iz) = (x & 15, y  & 15, z & 15);
+
+                let block_data = match self.block_to_state_map.get(&block_data) {
+                    Some(state) => *state,
+                    _ => { log::error!("Failed to find id: {}|{}", block_data & 0b11111111, block_data >> 8); return; }
+                };
+
+
                 // warn!("Block Change 2: ({ix}, {iy}, {iz})|({:?}) <- {block}|{meta}", cpos);
-                chunk.set_block_at_pos(ix as u32, iy as u32, iz as u32, block_data);
+                chunk.set_block_at_pos(ix as u32, iy as u32, iz as u32, block_data as TBlockData);
                 chunk.set_dirty(true);
             },
             _ => {}
@@ -195,8 +202,14 @@ impl TestWorld {
             let meta = data.metadata[index];
             // println!("Setting ({x}, {y}, {z})|() <- {block} |{}", data.metadata[index]);
             let block_data = block as u16 | ((meta as u16) << 8);
+
+            let block_data = match self.block_to_state_map.get(&block_data) {
+                    Some(state) => *state,
+                    _ => { log::error!("Failed to find id: {}|{}", block_data & 0b11111111, block_data >> 8); return; }
+                };
+
             if let Ok(chunk) = self.chunk_storage.get_chunk_mut(IVec3::new(cx, y >> 4, cz)) {
-                chunk.set_block_at_pos(x, (y & 15) as u32, z, block_data);
+                chunk.set_block_at_pos(x, (y & 15) as u32, z, block_data as TBlockData);
                 chunk.set_dirty(true);
             }
         }
@@ -265,7 +278,7 @@ impl TestWorld {
                     let x = chunk_x_start + x as u32;
                     let y = local_y as u32;
                     let z = chunk_z_start + z as u32;
-                    chunk.set_block_at_pos(x, y, z, data as u16);
+                    chunk.set_block_at_pos(x, y, z, data as TBlockData);
                     chunk.set_blocklight_at_pos(x, y, z, block_light);
                     chunk.set_skylight_at_pos(x, y, z, sky_light);
                 } // for z

@@ -13,7 +13,7 @@ use crate::direction::Direction;
 use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType, MCModelFile, MCBlockstateType};
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::registry::Registry;
-use crate::minecraft::template_models::{cube_all, door_bottom_left, door_bottom_right, door_top_left, door_top_right, missing, orientable, pressure_plate_down, pressure_plate_up, torch, wall_torch};
+use crate::minecraft::template_models::{cube_all, missing, pressure_plate_down, pressure_plate_up, torch, wall_torch};
 
 pub enum GameVersion {
     B173,
@@ -89,6 +89,7 @@ fn register_properties(registry: &mut Registry) {
         ("minecraft:bed_part", &["foot", "head"]),
         ("minecraft:tall_grass_type", &["grass", "fern", "dead_bush"]),
         ("minecraft:tree_type", &["oak", "spruce", "birch"]),
+        ("minecraft:slab_type", &["stone", "sandstone", "plank", "cobblestone"]),
         ("minecraft:color", &["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]),
     ];
     for property_def in property_list {
@@ -222,21 +223,6 @@ let block_register_list = vec![
             BlockFactory::new("dispenser")
                 .hardness(3.5)
                 .properties(&vec![("facing", "minecraft:facing_horizontal")])
-                .model(|meta| {
-                    let rotation = match meta {
-                        2 => 270.,
-                        3 => 90.,
-                        4 => 0.,
-                        5 => 180.,
-                        _ => return missing().clone().bake(),
-                    };
-                    orientable().clone()
-                        .with_texture("up", "minecraft:furnace_top")
-                        .with_texture("down", "minecraft:furnace_top")
-                        .with_texture("front", "minecraft:dispenser_front")
-                        .with_texture("side", "minecraft:furnace_side")
-                        .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
-                })
                 .build(),
             BlockFactory::new("sandstone")
                 .hardness(0.8)
@@ -247,73 +233,6 @@ let block_register_list = vec![
             BlockFactory::new("bed")
                 .hardness(0.2)
                 .properties(&vec![("facing", "minecraft:facing_horizontal"), ("part", "minecraft:bed_part"), ("occupied", "minecraft:boolean")])
-                .model(|meta| {
-                    let rotation = match meta & 3 {
-                        0 => 0.,
-                        1 => 270.,
-                        2 => 180.,
-                        3 => 90.,
-                        _ => 0.,
-                    };
-                    match meta & 8 == 0 {
-                        true => {
-                            // foot
-                            VoxelModel::new()
-                                .with_element(VoxelElement::new([0.0, 3.0, 0.0], [16.0, 10.0, 16.0])
-                                    .with_face(VoxelFace::new("minecraft:bed_top_foot"), Direction::Up)
-                                    .with_face(VoxelFace::new("minecraft:oak_plank"), Direction::Down)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot").with_uv([0., 7.], [16., 13.]).with_cullface(Direction::North), Direction::North)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot").with_uv([16., 7.], [0., 13.]).with_cullface(Direction::South), Direction::South)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([0., 7.], [16., 13.]).with_cullface(Direction::East), Direction::East)
-                                    // .with_face(VoxelFace::new("minecraft:bed_top_head").with_uv([16., 7.], [0., 13.]).with_cullface(Direction::West), Direction::West)
-                                )
-                                .with_element(VoxelElement::new([0.0, 0.0, 0.0], [3.0, 3.0, 3.0])
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([0., 13.], [3., 16.]).with_cullface(Direction::Down), Direction::Down)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot").with_uv([0., 13.], [3., 16.]), Direction::North)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot").with_uv([3., 13.], [0., 16.]), Direction::South)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([13., 13.], [16., 16.]), Direction::East)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([3., 13.], [0., 16.]), Direction::West)
-                                )
-                                .with_element(VoxelElement::new([13.0, 0.0, 0.0], [16.0, 3.0, 3.0])
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([0., 13.], [3., 16.]).with_cullface(Direction::Down), Direction::Down)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot").with_uv([3., 13.], [0., 16.]), Direction::North)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot").with_uv([3., 13.], [0., 16.]), Direction::South)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([0., 13.], [3., 16.]), Direction::East)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_foot_front").with_uv([13., 13.], [16., 16.]), Direction::West)
-                                )
-                                .with_ambient_occlusion(false)
-                                .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
-                        },
-                        false => {
-                            // head
-                            VoxelModel::new()
-                                .with_element(VoxelElement::new([0.0, 3.0, 0.0], [16.0, 10.0, 16.0])
-                                    .with_face(VoxelFace::new("minecraft:bed_top_head"), Direction::Up)
-                                    .with_face(VoxelFace::new("minecraft:oak_plank"), Direction::Down)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([0., 7.], [16., 13.]).with_cullface(Direction::North), Direction::North)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([16., 7.], [0., 13.]).with_cullface(Direction::South), Direction::South)
-                                    // .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([0., 7.], [16., 13.]).with_cullface(Direction::East), Direction::East)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 7.], [16., 13.]).with_cullface(Direction::West), Direction::West)
-                                )
-                                .with_element(VoxelElement::new([0.0, 0.0, 13.0], [3.0, 3.0, 16.0])
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]).with_cullface(Direction::Down), Direction::Down)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([13., 13.], [16., 16.]), Direction::North)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([16., 13.], [13., 16.]), Direction::South)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([3., 13.], [0., 16.]), Direction::East)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]), Direction::West)
-                                )
-                                .with_element(VoxelElement::new([13.0, 0.0, 13.0], [16.0, 3.0, 16.0])
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]).with_cullface(Direction::Down), Direction::Down)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([16., 13.], [13., 16.]), Direction::North)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head").with_uv([16., 13.], [13., 16.]), Direction::South)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]), Direction::East)
-                                    .with_face(VoxelFace::new("minecraft:bed_side_head_front").with_uv([0., 13.], [3., 16.]), Direction::West)
-                                )
-                                .with_ambient_occlusion(false)
-                                .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
-                        }
-                    }
-                })
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -433,13 +352,15 @@ let block_register_list = vec![
                 .hardness(5.0)
                 .resistance(10.0)
                 .build(),
-            BlockFactory::new("double_stair") // double stone slab block
+            BlockFactory::new("double_slab") // double stone slab block
                 .hardness(2.0)
                 .resistance(10.0)
+                .properties(&vec![("type", "minecraft:slab_type")])
                 .build(),
-            BlockFactory::new("single_stair") // single stone slab block
+            BlockFactory::new("slab") // single stone slab block
                 .hardness(2.0)
                 .resistance(10.0)
+                .properties(&vec![("type", "minecraft:slab_type")])
                 .side_cull_fn(slab_cull)
                 .full_block(false)
                 .build(),
@@ -463,19 +384,7 @@ let block_register_list = vec![
                 .build(),
             BlockFactory::new("torch")
                 .hardness(0.0)
-                .model(|meta| {
-                    match meta {
-                        5 => VoxelModel::from_template(torch()).with_texture("torch", "minecraft:torch").bake(),
-                        1 => VoxelModel::from_template(wall_torch()).with_texture("torch", "minecraft:torch").bake(),
-                        2 => VoxelModel::from_template(wall_torch()).with_texture("torch", "minecraft:torch")
-                            .bake_with_rotate(Some(VoxelRotation::new(180., 1, Vec3::new(8.0, 8.0, 8.0), false))),
-                        3 => VoxelModel::from_template(wall_torch()).with_texture("torch", "minecraft:torch")
-                            .bake_with_rotate(Some(VoxelRotation::new(270., 1, Vec3::new(8.0, 8.0, 8.0), false))),
-                        4 => VoxelModel::from_template(wall_torch()).with_texture("torch", "minecraft:torch")
-                            .bake_with_rotate(Some(VoxelRotation::new(90., 1, Vec3::new(8.0, 8.0, 8.0), false))),
-                        _ => missing().clone().bake(),
-                    }
-                })
+                .properties(&vec![("meta", "minecraft:count_4")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -515,6 +424,7 @@ let block_register_list = vec![
                 .build(),
             BlockFactory::new("crops")
                 .hardness(0.0)
+                .properties(&vec![("stage", "minecraft:count_7")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -526,40 +436,10 @@ let block_register_list = vec![
             BlockFactory::new("furnace")
                 .properties(&vec![("facing", "minecraft:facing_horizontal")])
                 .hardness(3.5)
-                .model(|meta| {
-                    let rotation = match meta {
-                        2 => 270.,
-                        3 => 90.,
-                        4 => 0.,
-                        5 => 180.,
-                        _ => return missing().clone().bake(),
-                    };
-                    orientable().clone()
-                        .with_texture("up", "minecraft:furnace_top")
-                        .with_texture("down", "minecraft:furnace_top")
-                        .with_texture("front", "minecraft:furnace_front")
-                        .with_texture("side", "minecraft:furnace_side")
-                        .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
-                })
                 .build(),
             BlockFactory::new("furnace_active")
                 .properties(&vec![("facing", "minecraft:facing_horizontal")])
                 .hardness(3.5)
-                .model(|meta| {
-                    let rotation = match meta {
-                        2 => 270.,
-                        3 => 90.,
-                        4 => 0.,
-                        5 => 180.,
-                        _ => return missing().clone().bake(),
-                    };
-                    orientable().clone()
-                        .with_texture("up", "minecraft:furnace_top")
-                        .with_texture("down", "minecraft:furnace_top")
-                        .with_texture("front", "minecraft:furnace_front_lit")
-                        .with_texture("side", "minecraft:furnace_side")
-                        .bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8.0, 8.0, 8.0], false)))
-                })
                 .build(),
             BlockFactory::new("sign")
                 .hardness(1.0)
@@ -570,29 +450,6 @@ let block_register_list = vec![
                 .hardness(3.0)
                 .side_cull_fn(non_full_cull)
                 .properties(&vec![("facing", "minecraft:facing_horizontal"), ("half", "minecraft:block_half"), ("powered", "minecraft:boolean")])
-                .model(|meta| {
-                    let is_bottom = meta & 8 == 0;
-                    // is_open and is_right are the same thing in b1.7.3
-                    let is_open = meta & 4 > 0;
-                    let is_right = is_open;
-                    let rotation_modifier = (meta & 4) >> 2;
-                    let angle = (((meta & 3) + rotation_modifier) & 3) as f32 * -90.;
-                    let voxel_rotation = Some(VoxelRotation::new(angle, 1, [8., 8., 8.], false));
-
-                    if is_bottom {
-                        if is_open {
-                            door_bottom_right().clone()
-                        } else {
-                            door_bottom_left().clone()
-                        }.with_texture("door_face", "minecraft:oak_door_bottom")
-                    } else { // is top
-                        if is_open {
-                            door_top_right().clone()
-                        } else {
-                            door_top_left().clone()
-                        }.with_texture("door_face", "minecraft:oak_door_top")
-                    }.bake_with_rotate(voxel_rotation)
-                })
                 .full_block(false)
                 .build(),
             BlockFactory::new("ladder")
@@ -606,7 +463,8 @@ let block_register_list = vec![
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
-            BlockFactory::new("cobblestone_stair")
+            BlockFactory::new("cobblestone_stairs")
+                .properties(&vec![("facing", "minecraft:facing_horizontal")])
                 .hardness(3.0)
                 .build(),
             BlockFactory::new("wall_sign")
@@ -622,6 +480,7 @@ let block_register_list = vec![
             BlockFactory::new("stone_pressure_plate")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
+                .properties(&vec![("powered", "minecraft:boolean")])
                 .model(|meta| {
                     if meta == 0 {
                         pressure_plate_up().clone()
@@ -634,34 +493,12 @@ let block_register_list = vec![
             BlockFactory::new("iron_door")
                 .hardness(3.0)
                 .side_cull_fn(non_full_cull)
-                .properties(&vec![("facing", "minecraft:facing_horizontal")])
-                .model(|meta| {
-                    let is_bottom = meta & 8 == 0;
-                    // is_open and is_right are the same thing in b1.7.3
-                    let is_open = meta & 4 > 0;
-                    let is_right = is_open;
-                    let rotation_modifier = if is_open { 1 } else { 0 };
-                    let angle = (((meta & 3) + rotation_modifier) & 3) as f32 * -90.;
-                    let voxel_rotation = Some(VoxelRotation::new(angle, 1, [8., 8., 8.], false));
-
-                    if is_bottom {
-                        if is_open {
-                            door_bottom_right().clone()
-                        } else {
-                            door_bottom_left().clone()
-                        }.with_texture("door_face", "minecraft:iron_door_bottom")
-                    } else { // is top
-                        if is_open {
-                            door_top_right().clone()
-                        } else {
-                            door_top_left().clone()
-                        }.with_texture("door_face", "minecraft:iron_door_top")
-                    }.bake_with_rotate(voxel_rotation)
-                })
+                .properties(&vec![("facing", "minecraft:facing_horizontal"), ("half", "minecraft:block_half"), ("powered", "minecraft:boolean")])
                 .build(),
             BlockFactory::new("wooden_pressure_plate")
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
+                .properties(&vec![("powered", "minecraft:boolean")])
                 .model(|meta| {
                     if meta == 0 {
                         pressure_plate_up().clone()
@@ -700,10 +537,10 @@ let block_register_list = vec![
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
-            BlockFactory::new("snow_layer")
+            BlockFactory::new("snow_layer") // TODO: Check for culling, seems to not cull other snow layers
                 .hardness(0.1)
                 .side_cull_fn(slab_cull)
-                .side_cull_fn(non_full_cull)
+                // .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("ice")
@@ -898,7 +735,7 @@ fn load_b173(registry: &mut Registry) {
 
     let namespace = "minecraft";
     let context = "models";
-    let assets_dir = ".";
+    let assets_dir = "../orange-mc-assets";
 
     let read_dir = format!("{}/assets/{}/{}/", assets_dir, namespace, context);
     iter_files_recursive(read_dir.clone().into(), &mut |entry| {
@@ -906,7 +743,7 @@ fn load_b173(registry: &mut Registry) {
             match serde_json::from_str::<MCModelFile>(fs::read_to_string(entry.path()).unwrap().as_str()) {
                 Ok(model_file) => {
                     let resource_extension = entry.path().extension().map(|ext| format!(".{}", ext.to_string_lossy().to_string())).unwrap_or("".to_string());
-                    let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "");
+                    let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "").replace("\\", "/");
                     let resource_id = Identifier::new(namespace.to_string(), resource_path.clone());
                     // log::warn!("Adding block model {} with id {}", resource_path, resource_id);
                     model_files.insert(resource_id, model_file);
@@ -925,7 +762,7 @@ fn load_b173(registry: &mut Registry) {
             match serde_json::from_str::<MCBlockstateType>(fs::read_to_string(entry.path()).unwrap().as_str()) {
                 Ok(blockstate_file) => {
                     let resource_extension = entry.path().extension().map(|ext| format!(".{}", ext.to_string_lossy().to_string())).unwrap_or("".to_string());
-                    let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "");
+                    let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "").replace("\\", "/");
                     let resource_id = Identifier::new(namespace.to_string(), resource_path);
                     blockstate_files.insert(resource_id, blockstate_file);
                 },
@@ -934,7 +771,7 @@ fn load_b173(registry: &mut Registry) {
         }
     });
 
-    let atlas_texture_json_str = fs::read_to_string("assets/minecraft/textures/block/terrain.mcatlas")
+    let atlas_texture_json_str = fs::read_to_string([assets_dir, "assets/minecraft/textures/block/terrain.mcatlas"].join("/"))
         .expect("Should have been able to read the file");
     let atlas_textures: MCAtlasTextureFile = serde_json::from_str(atlas_texture_json_str.as_str()).unwrap();
 
@@ -964,6 +801,7 @@ fn load_b173(registry: &mut Registry) {
         let blockstate_model = match &blockstate_file {
             MCBlockstateType::variants(variants) => {
                 let mut t_variant_model = Identifier::from_str(variants.get("").map(|v| v["model"].as_str().unwrap()).unwrap_or("minecraft:missing"));
+                let mut rotation_axis_angle = None;
                 for (property_list, variant_model) in variants {
                     let mut valid_variant = true;
                     for variant_property in property_list.split(",") {
@@ -971,11 +809,24 @@ fn load_b173(registry: &mut Registry) {
                     }
                     if valid_variant {
                         t_variant_model = Identifier::from(variant_model["model"].as_str().unwrap());
+                        if variant_model["x"].is_number() {
+                            rotation_axis_angle = Some((0, variant_model["x"].as_f64()));
+                        } else if variant_model["y"].is_number() {
+                            rotation_axis_angle = Some((1, variant_model["y"].as_f64()));
+                        } else if variant_model["z"].is_number() {
+                            rotation_axis_angle = Some((2, variant_model["z"].as_f64()));
+                        }
                     }
                 }
+
                 if !t_variant_model.get_name().starts_with("block/") {
                     t_variant_model = Identifier::new(t_variant_model.get_namespace().clone(), format!("block/{}", t_variant_model.get_name()));
                 }
+
+                if t_variant_model.get_identifier() == "minecraft:missing" {
+                    log::warn!("Using missing model for {}", identifier);
+                }
+
                 let model = match voxel_models.get(&t_variant_model) {
                     Some(model_file) => {
                         log::info!("Using model {} for blockstate {}", t_variant_model, identifier);
@@ -986,14 +837,14 @@ fn load_b173(registry: &mut Registry) {
                         missing_model_file
                     }
                 };
-                model
+                let rotation = rotation_axis_angle.map(|(axis, angle)| { VoxelRotation::new(angle.unwrap_or(0.) as f32, axis, [8., 8., 8.], false) });
+                model.clone().bake_with_rotate(rotation)
             },
             MCBlockstateType::multipart(multiparts) => {
-                missing_model_file
+                missing_model_file.clone().bake()
             }
         };
-        // registry.get_model_register_mut().insert;
-        mapped_models.push((state.get_state_identifier().clone(), blockstate_model.clone().bake()));
+        mapped_models.push((state.get_state_identifier().clone(), blockstate_model));
     }
 
     for mapped_model in mapped_models {

@@ -1,7 +1,6 @@
 pub mod block_factory;
 pub mod properties;
 
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -14,7 +13,7 @@ use crate::minecraft::registry::{Registerable, Registry};
 use crate::minecraft::template_models;
 
 use self::block_factory::BlockSettings;
-use self::properties::PropertyValueType;
+use self::properties::{PropertyValueType, PropertyDefinition};
 
 pub type ModelSupplierType = fn(u32) -> BakedModel;
 pub type SideCullFunctionType = fn(Direction) -> bool;
@@ -166,6 +165,8 @@ impl Block {
         {
             let mut state_manager = block.state_manager.borrow_mut();
             state_manager.siblings = weak_states;
+            state_manager.state_indicies = varient_indexs;
+            state_manager.properties = properties.iter().map(|(name, def)| (name.clone(), registry.get_property_register().get_element_from_identifier(&def).unwrap().clone())).collect::<Vec<(String, Rc<PropertyDefinition>)>>();
         }
         
         states
@@ -183,6 +184,8 @@ pub type BlockStatePropertyMap = HashMap<String, (PropertyValueType, Identifier)
 
 pub struct StateManager {
     siblings: Vec<Weak<BlockState>>,
+    state_indicies: Vec<usize>,
+    properties: Vec<(String, Rc<PropertyDefinition>)>,
     default_index: usize,
 }
 
@@ -190,6 +193,8 @@ impl StateManager {
     fn new() -> Self {
         Self {
             siblings: vec![],
+            state_indicies: vec![],
+            properties: vec![],
             default_index: 0,
         }
     }
@@ -199,7 +204,20 @@ impl StateManager {
     }
 
     fn inner_with(&self, old_properties: &BlockStatePropertyMap, name: &str, value: &str) -> Rc<BlockState> {
-        let state_index = 0;
+        let mut state_index = 0;
+        for (index, property) in self.properties.iter().enumerate() {
+            let property_offset: usize = self.state_indicies.get(index).cloned().unwrap_or(0);
+            if property.0 == name {
+                let a: usize = match property.1.name_to_value(value) {
+                    Ok(value) => value as usize,
+                    Err(e) => { log::error!("No legal value \"{}\" for property \"{}\"", value, name); continue; }
+                };
+                state_index += a * property_offset;
+                // Find the value of the new property...
+            } else {
+                state_index += old_properties.get(&property.0).unwrap().0 as usize * property_offset;
+            }
+        }
         self.siblings[state_index].upgrade().unwrap()
     }
 
@@ -241,6 +259,10 @@ impl BlockState {
 
     pub fn get_properties(&self) -> &BlockStatePropertyMap {
         &self.property_map
+    }
+
+    pub fn get_block(&self) -> Rc<Block> {
+        self.block.clone()
     }
 
     pub fn get_block_identifier(&self) -> &Identifier {

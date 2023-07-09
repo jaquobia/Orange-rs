@@ -1,9 +1,0 @@
-{
-    "parent": "minecraft:block/template/orientable",
-    "textures": {
-        "up": "minecraft:furnace_top",
-        "down": "minecraft:furnace_top",
-        "front": "minecraft:furnace_front",
-        "side": "minecraft:furnace_side"
-    }
-}

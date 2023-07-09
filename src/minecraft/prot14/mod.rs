@@ -123,16 +123,16 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (26, 13, "minecraft:bed", vec![("facing", "west"),  ("part", "head"), ("occupied", "true")]),
         (26, 14, "minecraft:bed", vec![("facing", "south"), ("part", "head"), ("occupied", "true")]),
         (26, 15, "minecraft:bed", vec![("facing", "east"),  ("part", "head"), ("occupied", "true")]),
-        (27, 0, "minecraft:powered_rail", vec![]),
-        (28, 0, "minecraft:detector_rail", vec![]),
-        (29, 0, "minecraft:sticky_piston", vec![]),
+        (27, 0, "minecraft:powered_rail", vec![]), // meta
+        (28, 0, "minecraft:detector_rail", vec![]), // meta
+        (29, 0, "minecraft:sticky_piston", vec![]), // meta
         (30, 0, "minecraft:web", vec![]),
         (31, 0, "minecraft:tall_grass", vec![("type", "dead_bush")]),
-        (31, 1, "minecraft:tall_grass", vec![("type", "tall_grass")]),
+        (31, 1, "minecraft:tall_grass", vec![("type", "grass")]),
         (31, 2, "minecraft:tall_grass", vec![("type", "fern")]),
         (32, 0, "minecraft:dead_bush", vec![]),
-        (33, 0, "minecraft:piston", vec![]),
-        (34, 0, "minecraft:piston_extension", vec![]),
+        (33, 0, "minecraft:piston", vec![]), // meta
+        (34, 0, "minecraft:piston_extension", vec![]), // meta
         (35, 0, "minecraft:wool", vec![("color", "white")]),
         (35, 1, "minecraft:wool", vec![("color", "orange")]),
         (35, 2, "minecraft:wool", vec![("color", "magenta")]),
@@ -156,38 +156,60 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (40, 0, "minecraft:red_mushroom", vec![]),
         (41, 0, "minecraft:block_gold", vec![]),
         (42, 0, "minecraft:block_iron", vec![]),
-        (43, 0, "minecraft:double_stair", vec![]), // stone
-        (43, 1, "minecraft:double_stair", vec![]), // sandstone
-        (43, 2, "minecraft:double_stair", vec![]), // plank
-        (43, 3, "minecraft:double_stair", vec![]), // cobble
-        (44, 0, "minecraft:single_stair", vec![]), // stone
-        (44, 1, "minecraft:single_stair", vec![]), // sandstone
-        (44, 2, "minecraft:single_stair", vec![]), // plank
-        (44, 3, "minecraft:single_stair", vec![]), // cobble
+        (43, 0, "minecraft:double_slab", vec![("type", "stone")]), // stone
+        (43, 1, "minecraft:double_slab", vec![("type", "sandstone")]), // sandstone
+        (43, 2, "minecraft:double_slab", vec![("type", "plank")]), // plank
+        (43, 3, "minecraft:double_slab", vec![("type", "cobblestone")]), // cobble
+        (44, 0, "minecraft:slab", vec![("type", "stone")]), // stone
+        (44, 1, "minecraft:slab", vec![("type", "sandstone")]), // sandstone
+        (44, 2, "minecraft:slab", vec![("type", "plank")]), // plank
+        (44, 3, "minecraft:slab", vec![("type", "cobblestone")]), // cobble
         (45, 0, "minecraft:brick_block", vec![]),
         (46, 0, "minecraft:tnt", vec![]),
         (47, 0, "minecraft:bookshelf", vec![]),
         (48, 0, "minecraft:mossy_cobblestone", vec![]),
         (49, 0, "minecraft:obsidian", vec![]),
-        (50, 0, "minecraft:torch", vec![]),
-        (50, 1, "minecraft:torch", vec![]), // wall varients
-        (50, 2, "minecraft:torch", vec![]),
-        (50, 3, "minecraft:torch", vec![]),
-        (50, 4, "minecraft:torch", vec![]),
+        // (50, 0, "minecraft:torch", vec![]),
+        (50, 1, "minecraft:torch", vec![("meta", "0")]), // wall varients
+        (50, 2, "minecraft:torch", vec![("meta", "1")]),
+        (50, 3, "minecraft:torch", vec![("meta", "2")]),
+        (50, 4, "minecraft:torch", vec![("meta", "3")]),
+        (50, 5, "minecraft:torch", vec![("meta", "4")]),
         (51, 0, "minecraft:fire", vec![]), // meta
         (52, 0, "minecraft:mob_spawner", vec![]),
-        (53, 0, "minecraft:wooden_stairs", vec![]), // meta
+        (53, 0, "minecraft:wooden_stairs", vec![("facing", "north")]),
+        (53, 1, "minecraft:wooden_stairs", vec![("facing", "south")]),
+        (53, 2, "minecraft:wooden_stairs", vec![("facing", "west")]),
+        (53, 3, "minecraft:wooden_stairs", vec![("facing", "east")]),
         (54, 0, "minecraft:chest", vec![]),
         (55, 0, "minecraft:redstone_dust", vec![]), // Check power levels as meta
         (56, 0, "minecraft:ore_diamond", vec![]),
         (57, 0, "minecraft:block_diamond", vec![]),
         (58, 0, "minecraft:workbench", vec![]),
-        (59, 0, "minecraft:crops", vec![]), // meta
-        (60, 0, "minecraft:farmland", vec![]), // meta
+        (59, 0, "minecraft:crops", vec![("stage", "0")]),
+        (59, 1, "minecraft:crops", vec![("stage", "1")]),
+        (59, 2, "minecraft:crops", vec![("stage", "2")]),
+        (59, 3, "minecraft:crops", vec![("stage", "3")]),
+        (59, 4, "minecraft:crops", vec![("stage", "4")]),
+        (59, 5, "minecraft:crops", vec![("stage", "5")]),
+        (59, 6, "minecraft:crops", vec![("stage", "6")]),
+        (59, 7, "minecraft:crops", vec![("stage", "7")]),
+        (60, 0, "minecraft:farmland", vec![("moisture", "0")]),
+        (60, 1, "minecraft:farmland", vec![("moisture", "1")]),
+        (60, 2, "minecraft:farmland", vec![("moisture", "2")]),
+        (60, 3, "minecraft:farmland", vec![("moisture", "3")]),
+        (60, 4, "minecraft:farmland", vec![("moisture", "4")]),
+        (60, 5, "minecraft:farmland", vec![("moisture", "5")]),
+        (60, 6, "minecraft:farmland", vec![("moisture", "6")]),
+        (60, 7, "minecraft:farmland", vec![("moisture", "7")]),
+        (61, 0, "minecraft:furnace", vec![("facing", "north")]),
+        (61, 1, "minecraft:furnace", vec![("facing", "north")]),
         (61, 2, "minecraft:furnace", vec![("facing", "west")]),
         (61, 3, "minecraft:furnace", vec![("facing", "east")]),
         (61, 4, "minecraft:furnace", vec![("facing", "north")]),
         (61, 5, "minecraft:furnace", vec![("facing", "south")]),
+        (62, 0, "minecraft:furnace_active", vec![("facing", "north")]),
+        (62, 1, "minecraft:furnace_active", vec![("facing", "north")]),
         (62, 2, "minecraft:furnace_active", vec![("facing", "west")]),
         (62, 3, "minecraft:furnace_active", vec![("facing", "east")]),
         (62, 4, "minecraft:furnace_active", vec![("facing", "north")]),
@@ -214,12 +236,32 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (65, 4, "minecraft:ladder", vec![("facing", "east")]),
         (65, 5, "minecraft:ladder", vec![("facing", "west")]),
         (66, 0, "minecraft:rail", vec![]),
-        (67, 0, "minecraft:cobblestone_stairs", vec![]), // meta
+        (67, 0, "minecraft:cobblestone_stairs", vec![("facing", "north")]),
+        (67, 1, "minecraft:cobblestone_stairs", vec![("facing", "south")]),
+        (67, 2, "minecraft:cobblestone_stairs", vec![("facing", "west")]),
+        (67, 3, "minecraft:cobblestone_stairs", vec![("facing", "east")]),
         (68, 0, "minecraft:wall_sign", vec![]), // meta
         (69, 0, "minecraft:lever", vec![]), // meta
-        (70, 0, "minecraft:stone_pressure_plate", vec![]), // meta
-        (71, 0, "minecraft:iron_door", vec![]), // meta
-        (72, 0, "minecraft:wooden_pressure_plate", vec![]), // meta 
+        (70, 0, "minecraft:stone_pressure_plate", vec![("powered", "false")]),
+        (70, 1, "minecraft:stone_pressure_plate", vec![("powered", "true")]),
+        (71, 0, "minecraft:iron_door", vec![("facing", "north"), ("half", "bottom"), ("powered", "false")]),
+        (71, 1, "minecraft:iron_door", vec![("facing", "west"), ("half", "bottom"), ("powered", "false")]),
+        (71, 2, "minecraft:iron_door", vec![("facing", "south"), ("half", "bottom"), ("powered", "false")]),
+        (71, 3, "minecraft:iron_door", vec![("facing", "east"), ("half", "bottom"), ("powered", "false")]),
+        (71, 4, "minecraft:iron_door", vec![("facing", "north"), ("half", "bottom"), ("powered", "true")]),
+        (71, 5, "minecraft:iron_door", vec![("facing", "west"), ("half", "bottom"), ("powered", "true")]),
+        (71, 6, "minecraft:iron_door", vec![("facing", "south"), ("half", "bottom"), ("powered", "true")]),
+        (71, 7, "minecraft:iron_door", vec![("facing", "east"), ("half", "bottom"), ("powered", "true")]),
+        (71, 8, "minecraft:iron_door", vec![("facing", "north"), ("half", "top"), ("powered", "false")]),
+        (71, 9, "minecraft:iron_door", vec![("facing", "west"), ("half", "top"), ("powered", "false")]),
+        (71, 10, "minecraft:iron_door", vec![("facing", "south"), ("half", "top"), ("powered", "false")]),
+        (71, 11, "minecraft:iron_door", vec![("facing", "east"), ("half", "top"), ("powered", "false")]),
+        (71, 12, "minecraft:iron_door", vec![("facing", "north"), ("half", "top"), ("powered", "true")]),
+        (71, 13, "minecraft:iron_door", vec![("facing", "west"), ("half", "top"), ("powered", "true")]),
+        (71, 14, "minecraft:iron_door", vec![("facing", "south"), ("half", "top"), ("powered", "true")]),
+        (71, 15, "minecraft:iron_door", vec![("facing", "east"), ("half", "top"), ("powered", "true")]),
+        (72, 0, "minecraft:wooden_pressure_plate", vec![("powered", "false")]),
+        (72, 1, "minecraft:wooden_pressure_plate", vec![("powered", "true")]),
         (73, 0, "minecraft:ore_redstone", vec![]),
         (74, 0, "minecraft:ore_redstone_glowing", vec![]),
         (75, 0, "minecraft:redstone_torch_off", vec![]),
@@ -227,7 +269,7 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (77, 0, "minecraft:button", vec![]),
         (78, 0, "minecraft:snow_layer", vec![]),
         (79, 0, "minecraft:ice", vec![]),
-        (80, 0, "minecraft:snow_block", vec![]),
+        (80, 0, "minecraft:snow", vec![]),
         (81, 0, "minecraft:cactus", vec![]),
         (82, 0, "minecraft:clay_block", vec![]),
         (83, 0, "minecraft:reed", vec![]),
@@ -241,7 +283,10 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (88, 0, "minecraft:soulsand", vec![]),
         (89, 0, "minecraft:glowstone_block", vec![]),
         (90, 0, "minecraft:portal", vec![]),
-        (91, 0, "minecraft:pumpkin_lantern", vec![]),
+        (91, 0, "minecraft:pumpkin_lantern", vec![("facing", "east")]),
+        (91, 1, "minecraft:pumpkin_lantern", vec![("facing", "north")]),
+        (91, 2, "minecraft:pumpkin_lantern", vec![("facing", "west")]),
+        (91, 3, "minecraft:pumpkin_lantern", vec![("facing", "south")]),
         (92, 0, "minecraft:cake", vec![]),
         (93, 0, "minecraft:repeater_off", vec![]),
         (94, 0, "minecraft:repeater_on", vec![]),

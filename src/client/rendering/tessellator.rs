@@ -243,11 +243,14 @@ impl TerrainTessellator {
     //     self.index_buffer.clear();
     // }
 
-    fn get_occlusions(nearby_blocks: &[TBlockData; 26], blocks: &Register<Block>, source_block_transparent: bool, source_block_id: usize) -> u32 {
+    // TODO: Use states rather than blocks
+    fn get_occlusions(nearby_blocks: &[TBlockData; 26], blocks: &Register<Block>, states: &Register<BlockState>, source_block_transparent: bool, source_block_id: usize) -> u32 {
         let mut occlusions = 0u32;
         for dir in &DIRECTIONS {
-            let block_id = nearby_blocks[dir.ordinal()] as usize;
-            if let Some(block) = blocks.get_element_from_index(block_id).as_ref() {
+            let state_id = nearby_blocks[dir.ordinal()] as usize;
+            if let Some(state) = states.get_element_from_index(state_id).as_ref() {
+                let block = state.get_block();
+                let block_id = blocks.get_index_from_identifier(state.get_block_identifier());
                 let block_transparent = block.is_transparent();
 
                 let both_transparent = block_transparent && block_transparent == source_block_transparent;
@@ -299,8 +302,8 @@ impl TerrainTessellator {
         nearby_blocks
     }
 
-    fn get_nearby_lights(chunk: &Chunk, nearby_chunks: &ChunkStorage<Chunk>, intra_chunk_position: IVec3, chunk_position: IVec3) -> [TLightData; 26] {
-        let mut nearby_blocks = [0u8; 26];
+    fn get_nearby_lights(chunk: &Chunk, nearby_chunks: &ChunkStorage<Chunk>, intra_chunk_position: IVec3, chunk_position: IVec3) -> [(TLightData, TLightData); 26] {
+        let mut nearby_blocks = [(0u8, 0u8); 26];
         for dir in &DIRECTIONS_ALL {
             let dir_index = dir.ordinal();
             let new_pos = intra_chunk_position + dir.get_int_vector();
@@ -312,12 +315,12 @@ impl TerrainTessellator {
 
             nearby_blocks[dir_index] =  if cx | cy | cz != 0 {
                 if let Ok(chunk) = nearby_chunks.get_chunk(chunk_position + IVec3::new(cx, cy, cz)) {
-                    chunk.get_light_at_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15).1
+                    chunk.get_light_at_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15)
                 } else {
                     continue;
                 }
             } else {
-                chunk.get_light_at_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32).1
+                chunk.get_light_at_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32)
             };
         }
         nearby_blocks
@@ -339,7 +342,7 @@ impl TerrainTessellator {
         3 - (a + b + c)
     }
 
-    fn get_lights_for_corner(corner: DirectionAll, nearby_blocks: &[TLightData; 26], block_light: u8) -> u8 {
+    fn get_lights_for_corner(corner: DirectionAll, nearby_blocks: &[(TLightData, TLightData); 26], block_light: u8, sky_light: u8) -> (u8, u8) {
         let dirs = match corner {
             DirectionAll::NED => {
                 [ DirectionAll::NED.ordinal(), DirectionAll::NE.ordinal(), DirectionAll::ND.ordinal(), DirectionAll::ED.ordinal(), DirectionAll::North.ordinal(), DirectionAll::East.ordinal(), DirectionAll::Down.ordinal() ]
@@ -368,13 +371,13 @@ impl TerrainTessellator {
             _ => [0, 0, 0, 0, 0, 0, 0],
         };
 
-        let a = nearby_blocks[dirs[0]];
-        let b = nearby_blocks[dirs[1]];
-        let c = nearby_blocks[dirs[2]];
-        let d = nearby_blocks[dirs[3]];
-        let e = nearby_blocks[dirs[4]];
-        let f = nearby_blocks[dirs[5]];
-        let g = nearby_blocks[dirs[6]];
+        let (a, a1) = nearby_blocks[dirs[0]];
+        let (b, b1) = nearby_blocks[dirs[1]];
+        let (c, c1) = nearby_blocks[dirs[2]];
+        let (d, d1) = nearby_blocks[dirs[3]];
+        let (e, e1) = nearby_blocks[dirs[4]];
+        let (f, f1) = nearby_blocks[dirs[5]];
+        let (g, g1) = nearby_blocks[dirs[6]];
 
         let mut denom = 0;
         if a > 0 { denom += 1; }
@@ -385,20 +388,22 @@ impl TerrainTessellator {
         if f > 0 { denom += 1; }
         if g > 0 { denom += 1; }
         if block_light > 0 { denom += 1; }
-        if denom == 0 { return 0; }
-        ((a + b + c + d + e + f + g + block_light) / denom) as u8
+        if denom == 0 { return (0, 0); }
+        let block_light = ((a + b + c + d + e + f + g + block_light) / denom) as u8;
+        let sky_light = ((a1 + b1 + c1 + d1 + e1 + f1 + g1 + sky_light) / denom) as u8;
+        (block_light, sky_light)
     }
 
-    fn get_nearby_lighting_data(nearby_blocks: &[TLightData; 26], block_light: u8) -> [u8; 8] {
+    fn get_nearby_lighting_data(nearby_blocks: &[(TLightData, TLightData); 26], block_light: u8, sky_light: u8) -> [(TLightData, TLightData); 8] {
         [
-            Self::get_lights_for_corner(DirectionAll::NED, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::NWD, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::NEU, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::NWU, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::SED, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::SWD, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::SEU, nearby_blocks, block_light),
-            Self::get_lights_for_corner(DirectionAll::SWU, nearby_blocks, block_light),
+            Self::get_lights_for_corner(DirectionAll::NED, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::NWD, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::NEU, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::NWU, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::SED, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::SWD, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::SEU, nearby_blocks, block_light, sky_light),
+            Self::get_lights_for_corner(DirectionAll::SWU, nearby_blocks, block_light, sky_light),
         ]
     }
 
@@ -481,22 +486,29 @@ impl TerrainTessellator {
         c0 * (1.0 - yd) + c1 * yd
     }
 
-    pub fn sample_light_for_pos(pos: Vec3, lights: &[f32; 8], ao: u32) -> u32 {
+    pub fn sample_light_for_pos(pos: Vec3, lights: &[f32; 8], sky_lights: &[f32; 8], ao: u32) -> u32 {
         let a = (Self::trilinear_interpolate(pos, &lights) as u32) & 0b1111;
         // let b = (Self::trilinear_interpolate(pos, &ao) as u32) << 4;
         let b = (ao & 0b1111) << 4;
-        let c = (0 & 0b1111) << 8;
+        let c = (Self::trilinear_interpolate(pos, &sky_lights) as u32) & 0b1111;
+        let c = c << 8;
         a | b | c
     }
 
-    pub fn sample_light_for_pos_multiple(pos: &[Vec3; 4], lights: &[u8; 8], ao: &[u8]) -> [u32; 4] {
-        let floating_lights = [lights[0] as f32, lights[1] as f32, lights[2] as f32, lights[3] as f32, lights[4] as f32, lights[5] as f32, lights[6] as f32, lights[7] as f32];
+    pub fn sample_light_for_pos_multiple(pos: &[Vec3; 4], lights: &[(u8, u8); 8], ao: &[u8]) -> [u32; 4] {
+        let mut floating_lights = [0.; 8];
+        let mut floating_sky_lights = [0.; 8];
+        for i in 0..8 {
+            let (block_light, sky_light) = lights[i];
+            floating_lights[i] = block_light as f32;
+            floating_sky_lights[i] = sky_light as f32;
+        }
         // let floating_ao = [ao[0] as f32, ao[1] as f32, ao[2] as f32, ao[3] as f32, ao[4] as f32, ao[5] as f32, ao[6] as f32, ao[7] as f32];
         [
-            Self::sample_light_for_pos(pos[0], &floating_lights, ao[0] as u32),
-            Self::sample_light_for_pos(pos[1], &floating_lights, ao[1] as u32),
-            Self::sample_light_for_pos(pos[2], &floating_lights, ao[2] as u32),
-            Self::sample_light_for_pos(pos[3], &floating_lights, ao[3] as u32)
+            Self::sample_light_for_pos(pos[0], &floating_lights, &floating_sky_lights, ao[0] as u32),
+            Self::sample_light_for_pos(pos[1], &floating_lights, &floating_sky_lights, ao[1] as u32),
+            Self::sample_light_for_pos(pos[2], &floating_lights, &floating_sky_lights, ao[2] as u32),
+            Self::sample_light_for_pos(pos[3], &floating_lights, &floating_sky_lights, ao[3] as u32)
         ]
     }
 
@@ -536,9 +548,9 @@ impl TerrainTessellator {
                     let intra_chunk_position = IVec3::new(x as i32, y as i32, z as i32);
                     let nearby_blocks = Self::get_nearby_blocks(section, &nearby_chunks, intra_chunk_position, chunk_pos);
                     let nearby_lights = Self::get_nearby_lights(section, &nearby_chunks, intra_chunk_position, chunk_pos);
-                    let occlusions = Self::get_occlusions(&nearby_blocks, blocks, is_transparent, block_id);
+                    let occlusions = Self::get_occlusions(&nearby_blocks, blocks, states, is_transparent, block_id);
 
-                    let lights = Self::get_nearby_lighting_data(&nearby_lights, block_light);
+                    let lights = Self::get_nearby_lighting_data(&nearby_lights, block_light, sky_light);
                     let ao = if model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, blocks) } else { [3; 24] };
 
                     let model_textures = model.textures();
@@ -555,9 +567,12 @@ impl TerrainTessellator {
                                 let positions: [Vec3; 4] = [quad.pos[0] + real_world_position, quad.pos[1] + real_world_position, quad.pos[2] + real_world_position, quad.pos[3] + real_world_position];
                                 let texture = Self::find_texture_in_map(model_textures, quad.texture.clone());
                                 let texture_id = Identifier::from(texture);
-                                let (uv_min, uv_max) = if let TextureObject::AtlasTexture { internal_uv } = textures.get(&texture_id).expect(format!("No texture for {}", texture_id).as_str()) {
+                                let (uv_min, uv_max) = if let Some(TextureObject::AtlasTexture { internal_uv }) = textures.get(&texture_id) {
                                     (internal_uv[0], internal_uv[1])
-                                } else { (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) };
+                                } else { 
+                                    log::warn!("No texture for {}", texture_id);
+                                    (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) 
+                                };
                                 let uv_range = uv_max - uv_min;
                                 let (quad_uv_min, quad_uv_max) = (quad.u / 16.0, quad.v / 16.0);
 

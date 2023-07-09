@@ -1,6 +1,0 @@
-{
-    "parent": "minecraft:block/template/cross",
-    "textures": {
-        "cross": "minecraft:tall_grass"
-    }
-}
