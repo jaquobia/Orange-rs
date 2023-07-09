@@ -1,3 +1,6 @@
+# Notice
+The goal of this project has changed signifigantly, and this project now represents a modernization of the beta client rather than a POC for minecraft algorithms, so the following sections are partially wrong. There is now heavy focus on resourcepacks, blockstates, data-driven design, and maybe modularity.
+
 # Orange-rs
 
 A minecraft beta 1.7.3 clone written in rust
