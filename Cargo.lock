@@ -2024,6 +2024,7 @@ dependencies = [
 [[package]]
 name = "orange_networking"
 version = "0.1.0"
+source = "git+https://github.com/jaquobia/orange_networking.git#30918b62ceb8bcedde0f8c5023dc6331a15584f5"
 dependencies = [
  "byteorder",
  "log",
@@ -2035,6 +2036,7 @@ dependencies = [
 [[package]]
 name = "orange_networking_derive"
 version = "0.1.0"
+source = "git+https://github.com/jaquobia/orange_networking_derive.git#0c40cbda491cf61ab82c7ff53b0df3599cb39cbe"
 dependencies = [
  "proc-macro2",
  "quote",
