@@ -1,16 +1,130 @@
-use std::{collections::VecDeque, sync::{Arc, RwLock, mpsc}};
+mod test_world;
 
-use client::{client_world::ClientWorld, rendering::{ElapsedTime, State, tessellator::TerrainTessellator}, camera::CameraControllerMovement, Client, mc_resource_handler};
-use orange_rs::{registry::Registry, identifier::Identifier, MCThread, level::dimension::{DimensionChunkDescriptor, Dimension}};
-use ultraviolet::{DVec3, IVec2};
+use std::{collections::VecDeque, sync::{Arc, RwLock}};
+use env_logger::Builder;
+use log::{LevelFilter, warn};
+use orange_rs::{
+    client::{
+        camera::CameraControllerMovement,
+        Client,
+        gui::screen::MainMenu,
+        minecraft_client::MinecraftClient,
+        rendering::{
+            ElapsedTime,
+            tessellator::TerrainTessellator
+        }
+    },
+    entities::{EntityCamera, EntityController, EntityMotion, EntityTransform},
+    minecraft::mc_resource_handler,
+    packets::prot14::Packet,
+    util::{
+        pos::{
+            BlockPos,
+            ChunkPos,
+            EntityPos,
+            Position
+        },
+        workers::WorkerThread
+    },
+
+};
+use orange_networking::network_interface::NetworkThread;
+use ultraviolet::{DVec3, IVec3, Vec3};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
+use orange_rs::minecraft::mc_resource_handler::{CAMERA_BIND_GROUP_NAME, LIGHTMAP_TEXTURE_NAME, TERRAIN_OPAQUE_PIPELINE, TERRAIN_TRANSPARENT_PIPELINE};
+use orange_rs::minecraft::registry::Registry;
+use orange_rs::util::frustrum::Frustrum;
+use orange_rs::util::pos::NewChunkPosition;
+use orange_rs::world::ChunkStorageTrait;
+use crate::test_world::TestWorld;
+
+fn prepare_client(client: &mut Client) {
+    mc_resource_handler::create_resources(client);
+    mc_resource_handler::load_binary_resources(client);
+}
+
+#[derive(Debug)]
+enum ServerConnectError {
+    InvalidAddress,
+    UnexpectedPacket(String),
+    Kick(String),
+}
+
+fn join_server(username: String, protocol_id: i32, address: String, port: u32, world: &mut TestWorld) -> Result<NetworkThread<Packet>, ServerConnectError> {
+    let network_thread = match NetworkThread::connect_to_server(address, port) {
+        Ok(nt) => { nt },
+        Err(_) => { return Err(ServerConnectError::InvalidAddress); }
+    };
+
+    network_thread.send_packet(Packet::Handshake { handshake_data: username.clone() });
+    let mut player_id: i32 = 0;
+    world.player = Some(world.entities.push((EntityTransform { position: EntityPos::zero(), rotation: Vec3::zero() }, EntityMotion { velocity: Vec3::zero() }, EntityController { on_ground: true, stance: 1.6 }, EntityCamera { } )));
+    
+    let mut do_login = true;
+    while do_login {
+        for packet in network_thread.get_packets() {
+            match packet {
+                Packet::Handshake { handshake_data } => {
+                    let login_packet = Packet::Login{ protocol: protocol_id, username: username.clone(), seed: 0, dimension: 0 };
+                    network_thread.send_packet(login_packet); 
+                    warn!("Handshake Packet Received! {handshake_data}, sending login request as {username}.");
+                },
+                Packet::Login { protocol, seed, dimension, .. } => {
+                    player_id = protocol;
+                    world.set_dimension_id(dimension);
+                    world.set_seed(seed);
+                    do_login = false;
+                    break;
+                },
+                Packet::DisconnectKick { reason } => { return Err(ServerConnectError::Kick(reason)); }
+                _ => { return Err(ServerConnectError::UnexpectedPacket(format!("{:?}", packet))); }
+            }
+        }
+    }
+    warn!("Logged in, leaving the login sequence.");
+    Ok(network_thread)
+}
+
+/**
+ * Thigs to work on:  
+ * - Uv correction (rotation/uv lock),
+ * - Model caching (integration with blockstates), 
+ * - Finish models for block, 
+ * - Tints for leaves and grass (implement the entire biome system...),
+ * - Fix bugs in lighting and ao (artifacts at ll=0/1, ao having sharp corners)
+ * - Fix ao with model rotation
+ * - Fix rotation of elements/faces on x axis
+ * - Implement gamma curve (brightness)
+ * - Implement GUIs
+ * - Implement Huds
+ * - Implement Inventories and Interactable GUI elements
+ * - Implement Items
+ * - Implement Blockstates
+ * - Implement Blockstate model varients by rotations and multipart
+ * - Implement ResourceLoader
+ * - Generate a default resourcepack
+ * - Implement player physics
+ * - Implement Entities (models)
+ * - Implement Entity movement & physics
+ * - Maps
+ * - Sky Light (chunk light maps)
+ * - Light updates
+ *
+**/
 
 fn main() {
-    env_logger::init();
+
+    // env_logger::init();
+    Builder::new().filter_level(LevelFilter::Warn).init();
 
     // Eventually parse these for username and stuff
     let _args: Vec<String> = std::env::args().collect();
+    println!("Args: {:?}", _args);
+
+    let ip_params: Vec<&str> = _args[1].as_str().split(":").collect();
+    let param_ip = ip_params.get(0).map_or_else(|| "localhost".to_string(), |v| v.to_string());
+    let param_port = ip_params.get(1).and_then(|v|v.parse().ok()).unwrap_or(25565);
 
     let event_loop = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
@@ -19,56 +133,65 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
+    // The windowing client, manages the window and wgpu pipeline structs
     let mut client: Client = Client::new(window);
 
+    // Evaluates how much time occured between render passes
     let mut render_time = ElapsedTime::new();
-    let mut event_helper = WinitInputHelper::new();
 
-    mc_resource_handler::mc_terrain_tex_layout(&mut client);
-    mc_resource_handler::load_binary_resources(&mut client);
+    // Helps reduce winit's immediate event system into a polling type
+    let mut event_helper = WinitInputHelper::new(); 
 
-    // Layouts is created after state, but state should be part of client
-    {
-        let world_render_state = State::new(
-            &client.gpu.device,
-            &client.gpu.config,
-            &client.projection,
-            &client.camera,
-            &client.layouts["mc_terrain_tex_layout"],
-        );
-        client.state.replace(world_render_state);
-    }
+    prepare_client(&mut client);
+
+    // A registry of all the resources to be used by the client or server
     let registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
 
-    let mut shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
+    // The tessellator to be used to mesh the chunks, intended for multithreaded usage (TODO)
+    let shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
 
-    let mut generate_queue = VecDeque::<DimensionChunkDescriptor>::new();
-    let mut tessellate_queue = VecDeque::<DimensionChunkDescriptor>::new();
+    let mut tessellate_queue = VecDeque::<IVec3>::new();
+ 
+    // The height of the world in chunk sections, to be used to provide compatibility with anvil
+    // and mcregion world types; but may also provide ability to configure a custom world height
+    let chunk_height: usize = 8;
 
-    // let (tx_gen, rx_gen) = mpsc::channel();
-    // let (tx_main_to_tes, rx_main_to_tes) = mpsc::channel();
-    // let (tx_tes_to_main, rx_tes_to_main) = mpsc::channel();
+    let mut minecraft = MinecraftClient::new(chunk_height);
+    minecraft.set_screen::<MainMenu>();
+    
+    let username = String::from("TT3");
+    let mut test_world = TestWorld::new(chunk_height, &registry.read().unwrap());
+    let mut network_thread = match join_server(username, 14, param_ip.clone(), param_port, &mut test_world) {
+        Ok(network_thread) => {
+            network_thread
+        },
+        Err(e) => {
+            warn!("Failed to connect to server: {:?}", e);
+            return;
+        },
+    };
+    let test_world = Arc::new(RwLock::new(test_world));
+    let mut tick_time = instant::Instant::now();
+    let one_twentieth = instant::Duration::from_secs_f64(1.0 / 20.0);
+    let test_world_copy = test_world.clone();
+    let mut server_thread = WorkerThread::new();
+    server_thread.spawn(move |running| {
+        let tick_time_now = instant::Instant::now(); 
 
-    let mut client_world = Arc::new(RwLock::new(ClientWorld::new(8)));
-
-    // Identifier, id, chunk height, chunk offset
-    let chunk_height = 8;
-    let mut level = orange_rs::level::dimension::Dimension::new(
-        Identifier::from("overworld"),
-        0,
-        chunk_height,
-        0,
-        registry.read().unwrap().get_block_register(),
-        );
-
-    client_world.write().unwrap().add_dimension(level);
-
-    use std::thread;
-    let mut server_thread_handle = Some(thread::spawn(move || {
-        while true {
-
+        if !running {
+            network_thread.stop();
+            return;
         }
-    }));
+
+        if (tick_time_now - tick_time) < one_twentieth {
+            return;
+        }
+
+        if let Ok(mut test_world) = test_world_copy.write() {
+            test_world.tick(&network_thread);
+        }
+        tick_time = tick_time_now;
+    });
     
     event_loop.run(move |event, _, control_flow| {
         if let winit::event::Event::DeviceEvent {
@@ -81,13 +204,13 @@ fn main() {
             }
         }
 
-        if event_helper.update(&event) {
-            if event_helper.quit() {
+        if event_helper.update(&event)  {
+            if event_helper.close_requested() || event_helper.destroyed() {
+                warn!("Stopping!");
                 control_flow.set_exit();
-                // Rejoin thread to
-                server_thread_handle.take().unwrap().join().expect("Couldn't properly rejoin server to main thread");
-                return;
+                server_thread.stop();
             }
+
             if event_helper.key_held(VirtualKeyCode::W) {
                 client
                     .camera_controller
@@ -108,6 +231,16 @@ fn main() {
                     .camera_controller
                     .process_keyboard(CameraControllerMovement::Right, true);
             }
+            if event_helper.key_pressed(VirtualKeyCode::G) {
+                warn!("Player Position: {:?}", client.camera.position());
+            }
+            if event_helper.key_pressed(VirtualKeyCode::H) {
+                if let Ok(test_world) = test_world.read() {
+                    if let Some(transform) = test_world.get_player_transform() {
+                        client.camera.set_position(transform.position);
+                    }
+                }
+            }
             if event_helper.key_held(VirtualKeyCode::Space) {
                 client
                     .camera_controller
@@ -127,15 +260,18 @@ fn main() {
             if let Some(size) = event_helper.window_resized() {
                 client.resize(size.into());
             }
-
+ 
             render_time.tick();
 
-            client.update(render_time.elasped_time() as f32);
+            client.update(render_time.elapsed_time() as f32);
 
             let render_result: Result<(), wgpu::SurfaceError> = {
-    
-                let player_pos = client.camera.position;
-
+                let player_pos = match test_world.read().unwrap().get_player_transform() {
+                    Some(transform) => {
+                        transform.position 
+                    },
+                    _ => { EntityPos::zero() }
+                };
                 let output = client.gpu.surface.get_current_texture().unwrap();
                 let view = output
                     .texture
@@ -147,13 +283,14 @@ fn main() {
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("Render Encoder"),
                         });
+
+                let render_distance = 10;
+                let render_distance_as_vec = ChunkPos::new(render_distance as i32, render_distance as i32);
+                let player_chunk_pos: ChunkPos = player_pos.to_chunk_pos();
+                let min_extent = player_chunk_pos - render_distance_as_vec;
+                let max_extent = player_chunk_pos + render_distance_as_vec;
                 {
-                    let client_world = client_world.read().unwrap();
-                    let render_distance = 10;
-
                     let sky_color = DVec3::new(0.1, 0.2, 0.3);
-
-
                     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Render Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -179,44 +316,101 @@ fn main() {
                         }),
                     });
 
-                    // Not sure how this would happen, but a possibility exists
-                    if client_world.get_player_dimension().is_none() {
-                        panic!("A world with no dimension?!");
-                    }
-
-                    let render_distance_as_vec = IVec2::new(render_distance as i32, render_distance as i32);
-                    let player_chunk_pos: IVec2 = Dimension::get_chunk_pos(player_pos.x as i32, player_pos.z as i32).into();
-                    let min_extent = player_chunk_pos - render_distance_as_vec;
-                    let max_extent = player_chunk_pos + render_distance_as_vec;
-
-                    let state = client.state.as_ref().unwrap();
-
-                    render_pass.set_pipeline(&state.render_pipeline);
-                    render_pass.set_bind_group(0, &state.camera_bind_group, &[]);
+                    render_pass.set_pipeline(client.get_pipeline(TERRAIN_OPAQUE_PIPELINE).unwrap());
+                    render_pass.set_bind_group(0, client.get_bind_group(CAMERA_BIND_GROUP_NAME).unwrap(), &[]);
                     render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
+                    render_pass.set_bind_group(2, client.get_texture(LIGHTMAP_TEXTURE_NAME).bind_group(), &[]);
+
+                    let directions = client.camera.vectors();
+                    let aspect = client.projection.aspect;
+                    let fovy = client.projection.fovy;
+                    let znear = client.projection.znear;
+                    let zfar = client.projection.zfar;
+                    let camera_position = client.camera.position();
+                    // warn!("Front: {:?}, right: {:?}. up: {:?}", directions.0, directions.1, directions.2);
+                    let frustrum = Frustrum::new(camera_position, directions.0, directions.1, directions.2, aspect, fovy, znear, zfar);
 
                     // AABB in frustrum culling?
-                    // self.draw_chunks_in_range(&mut render_pass, world, min_extent, max_extent);
-                    client_world.draw_chunks(min_extent.clone(), max_extent.clone(), &mut render_pass, &mut tessellate_queue);
+                    let mut render_list: Vec<IVec3> = vec![];
+                    let vec16 = Vec3::new(16.0, 16.0, 16.0);
+                    for x in min_extent.x..=max_extent.x {
+                        for z in min_extent.y..=max_extent.y {
+                            for y in 0..chunk_height as i32 {
+                                let chunk_pos_min = Vec3::new((x << 4) as f32, (y << 4) as f32, (z << 4) as f32);
+                                let chunk_pos_max = chunk_pos_min + vec16;
 
-                    std::mem::drop(render_pass);
-                }
-
-                {
-                    let mut client_world = client_world.write().unwrap();
-                    client_world.process_chunks();
-
-                    println!("Chunks To Tessellate/Generate: {}", tessellate_queue.len());
-                    if let Some(pos) = tessellate_queue.pop_front() {
-                        let dim = client_world.get_player_dimension_mut().unwrap();
-                        if dim.get_chunk_at_vec(pos.1).is_none() {
-                            dim.generate_chunk(pos.1);
+                                if !frustrum.aabb_intersects(chunk_pos_min, chunk_pos_max) { continue; }
+                                render_list.push(IVec3::new(x, y, z));
+                            }
                         }
-                        let mut tessellator = shared_tessellator.write().unwrap();
-                        let registry = registry.read().unwrap();
-                        let blocks = registry.get_block_register();
-                        client_world.tesselate_chunk(pos.1, &mut tessellator, &client.gpu.device, &blocks);
                     }
+                    let camera_pos_i = IVec3::new(camera_position.x as i32, camera_position.y as i32, camera_position.z as i32);
+                    let vec8 = IVec3::new(8, 8, 8);
+                    // Sort by center of chunks; if sorting by min point, chunks to the x+/y+/z+ are likely to be drawn before the chunk of the player
+                    render_list.sort_unstable_by(|a, b| {
+                        let dist_a = *a + vec8 - camera_pos_i;
+                        let dist_b = *b + vec8 - camera_pos_i;
+                        dist_a.mag().cmp(&dist_b.mag())
+                    });
+                    for chunk_pos in &render_list {
+                        if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(*chunk_pos) {
+                            mesh.draw(&mut render_pass);
+                        }
+                    }
+
+                    render_pass.set_pipeline(client.get_pipeline(TERRAIN_TRANSPARENT_PIPELINE).unwrap());
+                    render_list.reverse();
+                    for chunk_pos in &render_list {
+                        if let Ok(mesh) = minecraft.client_chunk_storage.get_chunk(*chunk_pos) {
+                            mesh.draw_transparent(&mut render_pass);
+                        }
+                    }
+                }
+                {
+                    
+                    let registry = registry.read().unwrap();
+                    let blocks = registry.get_block_register();
+                    let states = registry.get_blockstate_register();
+                    let textures = registry.get_texture_register();
+                    let models = registry.get_model_register();
+                    // The maximum number of tessellations to be done every frame
+                    let max_tessellations = 8;
+                    // let max_tessellations = 256;
+                    let mut num_tessellations = 0;
+                    if let Ok(server_world) = test_world.read() {
+                        let mut tessellator = shared_tessellator.write().unwrap();
+                        for x in min_extent.x..=max_extent.x {
+                            for z in min_extent.y..=max_extent.y {
+                                for y in 0..server_world.get_height() as i32 {
+                                    let pos = IVec3::new(x, y, z);
+                                    match server_world.chunk_storage.get_chunk(pos) {
+                                        Ok(chunk) if chunk.is_dirty() => {
+                                            num_tessellations += 1;
+                                            let section_position = NewChunkPosition::new(x, y, z).to_entity_pos();
+
+                                            // let nearby_chunks = server_world.chunk_storage.get_nearby_chunks(pos);
+                                            tessellator.tessellate_chunk_section(chunk, section_position, pos, blocks, states, models, textures, &server_world.chunk_storage);
+                                            let mesh = tessellator.build(&client.gpu.device);
+                                            minecraft.client_chunk_storage.set_chunk(mesh, pos).unwrap();
+                                            tessellate_queue.push_back(pos);
+                                        },
+                                        _ => {}
+                                    };
+                                    if num_tessellations > max_tessellations { break; }
+                                }
+                            }
+                        }
+                    }
+                    if tessellate_queue.len() > 0 {
+                        if let Ok(mut server_world) = test_world.write() {
+                            for pos in &tessellate_queue {
+                                if let Ok(chunk) = server_world.chunk_storage.get_chunk_mut(*pos) {
+                                    chunk.set_dirty(false);
+                                }
+                            }
+                        }
+                    }
+                    tessellate_queue.clear();
                 }
 
                 client.gpu.queue.submit(std::iter::once(encoder.finish()));

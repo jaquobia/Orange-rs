@@ -6,11 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = "0.27"
-winit_input_helper = "0.13"
-wgpu = "0.14.2"
-orange_rs = { path = "../", features = [] }
+winit = "0.28"
+winit_input_helper = "0.14"
+wgpu = "0.16.0"
+orange_rs = { path = "../", features = ["integrated"] }
 ultraviolet = {version = "0.9.0", features = ["bytemuck", "int", "f64"]}
-client = { path = "../client" }
 env_logger = "0.10.0"
 log = "0.4"
+instant = { version = "0.1", features = ["stdweb"] }
+orange_networking = { git = "https://github.com/jaquobia/orange_networking.git" }
+legion = "0.4"
+flate2 = "1.0.25"
+rustc-hash = "1.1.0"

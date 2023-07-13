@@ -1,4 +1,5 @@
-use crate::identifier::Identifier;
+use crate::block::{ModelSupplierType, SideCullFunctionType};
+use crate::minecraft::identifier::Identifier;
 
 use super::Block;
 
@@ -47,29 +48,37 @@ impl BlockFactory {
         self
     }
 
-    pub fn texture_index(mut self, f: usize) -> Self {
-        self.settings.texture_index = Some(f);
+    pub fn full_block(mut self, f: bool) -> Self {
+        self.settings.full_block = Some(f);
+        self
+    }
+
+    pub fn properties(mut self, f: &[(&str, &str)]) -> Self {
+        let mut vec: Vec<_> = f.into_iter().map(|&s| (s.0.to_string(), s.1.into())).collect();
+        vec.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        self.settings.properties = Some(vec);
+        self
+    }
+
+    pub fn model(mut self, f: ModelSupplierType) -> Self {
+        self.settings.model_supplier = Some(f);
+        self
+    }
+
+    pub fn side_cull_fn(mut self, f: SideCullFunctionType) -> Self {
+        self.settings.side_cull_fn = Some(f);
         self
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct BlockSettings {
     pub hardness: Option<f32>,
     pub resistance: Option<f32>,
     pub slipperiness: Option<f32>,
     pub transparent: Option<bool>,
-    pub texture_index: Option<usize>,
+    pub full_block: Option<bool>,
+    pub properties: Option<Vec<(String, Identifier)>>,
+    pub model_supplier: Option<ModelSupplierType>,
+    pub side_cull_fn: Option<SideCullFunctionType>,
 }
-
-// impl Default for BlockSettings {
-//     fn default() -> Self {
-//         Self {
-//             hardness: None,
-//             resistance: None,
-//             slipperiness: None,
-//             transparent: None,
-//             texture_index: None,
-//         }
-//     }
-// }
