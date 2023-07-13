@@ -745,7 +745,6 @@ fn load_b173(registry: &mut Registry) {
                     let resource_extension = entry.path().extension().map(|ext| format!(".{}", ext.to_string_lossy().to_string())).unwrap_or("".to_string());
                     let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "").replace("\\", "/");
                     let resource_id = Identifier::new(namespace.to_string(), resource_path.clone());
-                    // log::warn!("Adding block model {} with id {}", resource_path, resource_id);
                     model_files.insert(resource_id, model_file);
                 },
                 Err(e) => { log::error!("Error processing {}: {}", entry.file_name().to_string_lossy(), e) }

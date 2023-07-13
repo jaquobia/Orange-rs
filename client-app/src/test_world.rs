@@ -1,11 +1,12 @@
 use std::io::Read;
 use legion::EntityStore;
+use orange_networking::network_interface::NetworkThread;
 use orange_rs::minecraft::prot14::generate_block_to_state_map;
 use orange_rs::minecraft::registry::Registry;
 use orange_rs::util::nibble;
 use ultraviolet::{IVec2, IVec3, Vec3};
 use orange_rs::entities::{EntityController, EntityTransform};
-use orange_rs::packets::prot14::MultiBlockChangeData;
+use orange_rs::packets::prot14::{MultiBlockChangeData, Packet};
 use orange_rs::util::pos::{BlockPos, EntityPos, NewChunkPosition};
 use orange_rs::world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, TBlockData};
 use orange_rs::world::{ChunkStorage, ChunkStoragePlanar, ChunkStorageTrait};
@@ -85,8 +86,176 @@ impl TestWorld {
         self.has_weather
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self, network_thread: &NetworkThread<Packet>) {
+        let (stance, on_ground) = if let Some(controller) = self.get_player_controller() {
+            (controller.stance, controller.on_ground)
+        } else { (-1.6, false) };
 
+        let player_entity = self.player.clone().unwrap();
+        if let Some(mut entry) = self.entities.entry(player_entity) {
+            if let Ok(transform) = entry.get_component_mut::<EntityTransform>()  {
+                if !on_ground {
+                    transform.position += (0.0, -0.04, 0.0).into();
+                }
+            }
+        }
+        if let Some(transform) = self.get_player_transform() {
+            let (x, y, z) = transform.position.into();
+            let (yaw, pitch) = (transform.rotation.x, transform.rotation.y);
+            network_thread.send_packet(Packet::PlayerPositionAndLook { x: x as f64, y_c_stance_s: y as f64 - stance, stance_c_y_s: y as f64, z: z as f64, yaw: yaw as f32, pitch: pitch as f32, on_ground });
+        }
+        network_thread.send_packet(Packet::KeepAlive);
+        for packet in network_thread.get_packets() {
+            match packet {
+                Packet::KeepAlive => { network_thread.send_packet(Packet::KeepAlive {}); },
+                Packet::Handshake { handshake_data } => { log::warn!("Unexpectedly received a handshake packet! This is not supposed to happen after login!"); },
+                Packet::Login { protocol, username, seed, dimension } => { log::warn!("Unexpectedly received a login packet! This is not supposed to happen after login!"); },
+                Packet::Chat { chat_data } => { log::warn!("[Chat]{chat_data}"); },
+                Packet::TimeUpdate { time } => { self.set_time(time); },
+                Packet::EntityChangeEquipment { entity_id, equipment_slot, item_id, item_damage } => {
+                    // warn!("Entity Change Equipment");
+                },
+                Packet::SpawnPosition { x, y, z } => { self.set_spawn_point(BlockPos::new(x, y, z)); },
+                Packet::InteractWithEntity { user, entity, is_left_click } => {
+                    // warn!("Interact with entity");
+                },
+                Packet::UpdateHealth { health } => { if health == 0 { network_thread.send_packet(Packet::Respawn { world: self.get_dimension_id() }); } },
+                Packet::Respawn { world } => { self.set_dimension_id(world); }, // leave the respawn
+                Packet::PlayerOnGround { on_ground } => { self.set_player_on_ground(on_ground); },
+                Packet::PlayerPosition { x, y, stance, z, on_ground } => {
+                    // warn!("Player Position packet");
+                },
+                Packet::PlayerLook { yaw, pitch, on_ground } => {
+                    // warn!("Player Look packet");
+                },
+                Packet::PlayerPositionAndLook { x, y_c_stance_s, stance_c_y_s, z, yaw, pitch, on_ground } => {
+                    // warn!("Received Stance: {stance_c_y_s}, received y: {y_c_stance_s}");
+                    self.set_player_position(EntityPos::new(x as f32, y_c_stance_s as f32, z as f32));
+                    self.set_player_look(Vec3::new(yaw, pitch, 0.0));
+                    self.set_player_on_ground(on_ground);
+                    self.set_player_stance(y_c_stance_s - stance_c_y_s);
+                    network_thread.send_packet(Packet::PlayerPositionAndLook { x, y_c_stance_s: stance_c_y_s, stance_c_y_s: y_c_stance_s, z, yaw, pitch, on_ground });
+                },
+                Packet::PlayerDigging { status, x, y, z, face } => {
+                    // warn!("Player Digging: {status}");
+                },
+                Packet::PlayerUse { x, y, z, direction, item_data } => {
+                    // warn!("Player Use");
+                },
+                Packet::PlayerChangeSlot { slot } => {
+                    // warn!("Player Change Slot");
+                },
+                Packet::PlayerUseBed { entity, in_bed, x, y, z } => {
+                    // warn!("Player Use Bed");
+                },
+                Packet::Animation { entity, animat } => {
+                    // warn!("Animation");
+                },
+                Packet::EntityAction { entity, action } => {
+                    // warn!("Entity Action");
+                },
+                Packet::NamedEntitySpawn { entity, name, x, y, z, rotation, pitch, held_item } => {
+                    // warn!("{name} spawned");
+                },
+                Packet::PickupSpawn { entity, item, count, damage_meta, x, y, z, rotation, pitch, roll } => {
+                    // warn!("Pickup Spawned");
+                },
+                Packet::CollectItem { item_entity, collector_entity } => {
+                    // warn!("Collect Item");
+                },
+                Packet::CreateNonMobEntity { entity, entity_type, x, y, z, unknown } => {
+                    // warn!("Create NonMob Entity");
+                },
+                Packet::SpawnMob { entity, entity_type, x, y, z, yaw, pitch, meta } => {
+                    // warn!("Spawn Mob");
+                },
+                Packet::EntityPaintings { entity, title, x, y, z, direction } => {
+                    // warn!("Entity Painting {title}");
+                },
+                Packet::UpdatePosition { strafe, forward, pitch, yaw, unk, is_jumping } => {
+                    // warn!("UpdatePosition");
+                },
+                Packet::EntityVelocity { entity, vel_x, vel_y, vel_z } => {
+                    // warn!("Entity Velocity");
+                },
+                Packet::DestroyEntity { entity } => {
+                    // warn!("Destroy Entity");
+                },
+                Packet::Entity { entity } => {
+                    // warn!("Spawn {entity}");
+                },
+                Packet::EntityMoveRelative { entity, dx, dy, dz } => {
+                    // warn!("Entity Move Rel");
+                },
+                Packet::EntityLook { entity, yaw, pitch } => {
+                    // warn!("Entitiy Look");
+                },
+                Packet::EntityLookMoveRelative { entity, dx, dy, dz, yaw, pitch } => {
+                    // warn!("Entity Move Look");
+                },
+                Packet::EntityTeleport { entity, x, y, z, yaw, pitch } => {
+                    // warn!("Entity Teleport");
+                },
+                Packet::EntityStatus { entity, status } => {
+                    // warn!("Entity Status");
+                },
+                Packet::AttachEntity { entity, vehicle_entity } => {
+                    // warn!("Attach Entity");
+                },
+                Packet::EntityMeta { entity, meta } => {
+                    // warn!("Entity Meta");
+                },
+                Packet::PreChunk { x, z, mode } => {
+                },
+                Packet::MapChunk { x, y, z, size_x, size_y, size_z, compressed_data } => {
+                    self.handle_map_chunk(x, y as i32, z, size_x, size_y, size_z, compressed_data);
+                },
+                Packet::MultiBlockChange { chunk_x, chunk_z, coords_type_metadata_array } => {
+                    // warn!("Multi Block Change");
+                    self.set_blocks(chunk_x, chunk_z, coords_type_metadata_array);
+                },
+                Packet::BlockChange { x, y, z, block_type, metadata } => {
+                    // warn!("Block Change");
+                    self.set_block(x, y as i32, z, block_type as u8, metadata as u8);
+                },
+                Packet::BlockAction { x, y, z, instrument_or_state, pitch_or_direction } => {
+                    // warn!("Block Action");
+                },
+                Packet::Explosion { x, y, z, radius, explosion_data } => {
+                    // warn!("Explosion");
+                },
+                Packet::SoundEffect { effect_id, x, y, z, data } => {
+                    // warn!("Sound effect");
+                },
+                Packet::BedWeatherState { state_reason } => {
+                    // warn!("Weather State or Bed");
+                },
+                Packet::ThunderBolt { entity, unk_flag, x, y, z } => {
+                    // warn!("Thunder Bolt");
+                },
+                Packet::OpenContainerWindow { window_id, inventory_type, title, slot_count } => {  },
+                Packet::CloseContainerWindow { window_id } => {  },
+                Packet::ClickContainerWindow { window_id, slot, right_click, action, shift, item_id, item_count, item_uses } => {  },
+                Packet::SetContainerSlot { window_id, slot, item_data } => {
+                    // warn!("Set Slot Item");
+                },
+                Packet::SetWindowItems { window_id, window_data } => {
+                    // warn!("Set Window Item");
+                },
+                Packet::UpdateProgressBar { window_id, progress_bar, value } => {  },
+                Packet::Transaction { window_id, action_id, accepted } => {  },
+                Packet::UpdateSign { x, y, z, line_1, line_2, line_3, line_4 } => {  },
+                Packet::ItemData { item_type, item_id, item_data } => {
+                    // warn!("Item Data");
+                },
+                Packet::IncrementStatistic { statistic_id, amount } => {
+                    // warn!("Updating Statistic");
+                },
+                Packet::DisconnectKick { reason } => {
+                    // warn!("Disconnected: {reason}, stopping connection.");
+                }
+            }
+        }
     }
 
     fn ecs_set_entity_component<T: Sync + Send + 'static, F>(entity: legion::Entity, world: &mut legion::World, mut f: F) where F: FnMut(&mut T) {

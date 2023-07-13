@@ -334,7 +334,7 @@ pub fn generate_lightmap_texture(client: &mut Client) {
 }
 
 pub fn load_binary_resources(client: &mut Client) {
-    for (path, _name, bytes) in DEFAULT_RESOURCES {
+    for (path, _name) in DEFAULT_RESOURCES {
         if path.ends_with(".txt") || path.ends_with(".lang") {
             continue;
         }
@@ -418,420 +418,337 @@ pub fn load_mc_tex(dir: &PathBuf) -> DynamicImage {
         .unwrap_or_else(create_missing_tex)
 }
 
-pub const DEFAULT_RESOURCES: [(&str, &str, &str); 83] = [
+pub const DEFAULT_RESOURCES: [(&str, &str); 83] = [
     (
         "terrain.png",
         "terrain",
-        "terrain.png",
     ),
     (
         "pack.png",
         "pack",
-        "pack.png",
     ),
     (
         "font.txt",
         "font",
-        "font.txt",
     ),
     (
         "pack.txt",
         "pack",
-        "pack.txt",
     ),
     (
         "particles.png",
         "particles",
-        "particles.png",
     ),
     (
         "achievement/bg.png",
         "bg",
-        "achievement/bg.png",
     ),
     (
         "achievement/icons.png",
         "icons",
-        "achievement/icons.png",
     ),
     (
         "achievement/map.txt",
         "map",
-        "achievement/map.txt",
     ),
     (
         "armor/chain_1.png",
         "chain_1",
-        "armor/chain_1.png",
     ),
     (
         "armor/chain_2.png",
         "chain_2",
-        "armor/chain_2.png",
     ),
     (
         "armor/cloth_1.png",
         "cloth_1",
-        "armor/cloth_1.png",
     ),
     (
         "armor/cloth_2.png",
         "cloth_2",
-        "armor/cloth_2.png",
     ),
     (
         "armor/diamond_1.png",
         "diamond_1",
-        "armor/diamond_1.png",
     ),
     (
         "armor/diamond_2.png",
         "diamond_2",
-        "armor/diamond_2.png",
     ),
     (
         "armor/gold_1.png",
         "gold_1",
-        "armor/gold_1.png",
     ),
     (
         "armor/gold_2.png",
         "gold_2",
-        "armor/gold_2.png",
     ),
     (
         "armor/iron_1.png",
         "iron_1",
-        "armor/iron_1.png",
     ),
     (
         "armor/iron_2.png",
         "iron_2",
-        "armor/iron_2.png",
     ),
     (
         "armor/power.png",
         "power",
-        "armor/power.png",
     ),
     (
         "art/kz.png",
         "kz",
-        "art/kz.png",
     ),
     (
         "environment/clouds.png",
         "clouds",
-        "environment/clouds.png",
     ),
     (
         "environment/rain.png",
         "rain",
-        "environment/rain.png",
     ),
     (
         "environment/snow.png",
         "snow",
-        "environment/snow.png",
     ),
     (
         "font/default.png",
         "default",
-        "font/default.png",
     ),
     (
         "gui/background.png",
         "background",
-        "gui/background.png",
     ),
     (
         "gui/container.png",
         "container",
-        "gui/container.png",
     ),
     (
         "gui/crafting.png",
         "crafting",
-        "gui/crafting.png",
     ),
     (
         "gui/furnace.png",
         "furnace",
-        "gui/furnace.png",
     ),
     (
         "gui/gui.png",
         "gui",
-        "gui/gui.png",
     ),
     (
         "gui/icons.png",
         "icons",
-        "gui/icons.png",
     ),
     (
         "gui/inventory.png",
         "inventory",
-        "gui/inventory.png",
     ),
     (
         "gui/items.png",
         "items",
-        "gui/items.png",
     ),
     (
         "gui/logo.png",
         "logo",
-        "gui/logo.png",
     ),
     (
         "gui/particles.png",
         "particles",
-        "gui/particles.png",
     ),
     (
         "gui/slot.png",
         "slot",
-        "gui/slot.png",
     ),
     (
         "gui/trap.png",
         "trap",
-        "gui/trap.png",
     ),
     (
         "gui/unknown_pack.png",
         "unknown_pack",
-        "gui/unknown_pack.png",
     ),
     (
         "item/arrows.png",
         "arrows",
-        "item/arrows.png",
     ),
     (
         "item/boat.png",
         "boat",
-        "item/boat.png",
     ),
     (
         "item/cart.png",
         "cart",
-        "item/cart.png",
     ),
     (
         "item/door.png",
         "door",
-        "item/door.png",
     ),
     (
         "item/sign.png",
         "sign",
-        "item/sign.png",
     ),
     (
         "lang/en_US.lang",
         "en_US",
-        "lang/en_US.lang",
     ),
     (
         "lang/stats_US.lang",
         "stats_US",
-        "lang/stats_US.lang",
     ),
     (
         "misc/dial.png",
         "dial",
-        "misc/dial.png",
     ),
     (
         "misc/foliagecolor.png",
         "foliagecolor",
-        "misc/foliagecolor.png",
     ),
     (
         "misc/footprint.png",
         "footprint",
-        "misc/footprint.png",
     ),
     (
         "misc/grasscolor.png",
         "grasscolor",
-        "misc/grasscolor.png",
     ),
     (
         "misc/mapbg.png",
         "mapbg",
-        "misc/mapbg.png",
     ),
     (
         "misc/mapicons.png",
         "mapicons",
-        "misc/mapicons.png",
     ),
     (
         "misc/pumpkinblur.png",
         "pumpkinblur",
-        "misc/pumpkinblur.png",
     ),
     (
         "misc/shadow.png",
         "shadow",
-        "misc/shadow.png",
     ),
     (
         "misc/vignette.png",
         "vignette",
-        "misc/vignette.png",
     ),
     (
         "misc/water.png",
         "water",
-        "misc/water.png",
     ),
     (
         "misc/watercolor.png",
         "watercolor",
-        "misc/watercolor.png",
     ),
     (
         "mob/char.png",
         "char",
-        "mob/char.png",
     ),
     (
         "mob/chicken.png",
         "chicken",
-        "mob/chicken.png",
     ),
     (
         "mob/cow.png",
         "cow",
-        "mob/cow.png",
     ),
     (
         "mob/creeper.png",
         "creeper",
-        "mob/creeper.png",
     ),
     (
         "mob/ghast.png",
         "ghast",
-        "mob/ghast.png",
     ),
     (
         "mob/ghast_fire.png",
         "ghast_fire",
-        "mob/ghast_fire.png",
     ),
     (
         "mob/pig.png",
         "pig",
-        "mob/pig.png",
     ),
     (
         "mob/pigman.png",
         "pigman",
-        "mob/pigman.png",
     ),
     (
         "mob/pigzombie.png",
         "pigzombie",
-        "mob/pigzombie.png",
     ),
     (
         "mob/saddle.png",
         "saddle",
-        "mob/saddle.png",
     ),
     (
         "mob/sheep.png",
         "sheep",
-        "mob/sheep.png",
     ),
     (
         "mob/sheep_fur.png",
         "sheep_fur",
-        "mob/sheep_fur.png",
     ),
     (
         "mob/silverfish.png",
         "silverfish",
-        "mob/silverfish.png",
     ),
     (
         "mob/skeleton.png",
         "skeleton",
-        "mob/skeleton.png",
     ),
     (
         "mob/slime.png",
         "slime",
-        "mob/slime.png",
     ),
     (
         "mob/spider.png",
         "spider",
-        "mob/spider.png",
     ),
     (
         "mob/spider_eyes.png",
         "spider_eyes",
-        "mob/spider_eyes.png",
     ),
     (
         "mob/squid.png",
         "squid",
-        "mob/squid.png",
     ),
     (
         "mob/wolf.png",
         "wolf",
-        "mob/wolf.png",
     ),
     (
         "mob/wolf_angry.png",
         "wolf_angry",
-        "mob/wolf_angry.png",
     ),
     (
         "mob/wolf_tame.png",
         "wolf_tame",
-        "mob/wolf_tame.png",
     ),
     (
         "mob/zombie.png",
         "zombie",
-        "mob/zombie.png",
     ),
     (
         "terrain/moon.png",
         "moon",
-        "terrain/moon.png",
     ),
     (
         "terrain/sun.png",
         "sun",
-        "terrain/sun.png",
     ),
     (
         "title/black.png",
         "black",
-        "title/black.png",
     ),
     (
         "title/mclogo.png",
         "mclogo",
-        "title/mclogo.png",
     ),
     (
         "title/mojang.png",
         "mojang",
-        "title/mojang.png",
     ),
     (
         "title/splashes.txt",
         "splashes",
-        "title/splashes.txt",
     ),
 ];

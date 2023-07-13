@@ -7,6 +7,7 @@ pub mod util;
 pub mod server;
 pub mod packets;
 pub mod entities;
+pub mod resource_manager;
 
 #[cfg(feature = "client")]
 pub mod client;

@@ -1,4 +1,5 @@
 /target
+cargo.lock
 /legacy_resources/*
 # Temporary
 /resources/*
