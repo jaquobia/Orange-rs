@@ -105,6 +105,8 @@ struct OrangeClient {
     tessellate_queue: VecDeque<IVec3>,
 
     test_world: Arc<RwLock<TestWorld>>,
+
+    debug: bool,
 }
 
 impl OrangeClient {}
@@ -197,7 +199,7 @@ impl RineApplication for OrangeClient {
             }
             tick_time = tick_time_now;
         });
-        Self { game_state: GameState::MainMenu, render_time, client, winit_input_helper, minecraft, server_thread, registry, tessellator: shared_tessellator, tessellate_queue, test_world }
+        Self { game_state: GameState::MainMenu, render_time, client, winit_input_helper, minecraft, server_thread, registry, tessellator: shared_tessellator, tessellate_queue, test_world, debug: false }
     }
 
     fn draw(&mut self, window_client: &rine::RineWindowClient, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
@@ -393,6 +395,9 @@ impl RineApplication for OrangeClient {
                     }
                 }
             }
+            if event_helper.key_pressed(Key::F3) {
+                self.debug = !self.debug;
+            }
             if event_helper.key_held(Key::Space) {
                 client
                     .camera_controller
@@ -422,10 +427,24 @@ impl RineApplication for OrangeClient {
     #[cfg(feature = "egui-int")]
     fn egui_draw(&mut self, ctx: &rine::egui::Context) {
         use rine::egui as egui;
-        egui::Window::new("Orange Window").show(ctx, |ui| {
-                ui.label("Some Text");
-                ui.label(format!("Entity Position: {:?}", self.test_world.read().unwrap().get_player_transform().unwrap().position));
-                ui.label(format!("Camera Position: {:?}", self.client.camera.position()));
+        if !self.debug {
+            return;
+        }
+        let world = self.test_world.read();
+        if !world.is_ok() { return; }
+        let world = world.unwrap();
+        let player_pos_real = world.get_player_transform().unwrap().position;
+        let player_pos_camera = self.client.camera.position();
+        let player_pos_int = player_pos_camera.to_block_pos();
+        let player_pos_chunk = (player_pos_int.x >> 4, player_pos_int.y >> 4, player_pos_int.z >> 4).into();
+        let player_pos_chunk_inner = player_pos_int.to_inner_chunk_pos().0;
+        let player_block = world.chunk_storage.get_chunk(player_pos_chunk).map(|c| c.get_block_at_vec(player_pos_chunk_inner)).unwrap_or(0);
+        egui::Window::new("Orange Window").auto_sized().show(ctx, |ui| {
+                ui.label(format!("Entity Position: {:.2?}", player_pos_real));
+                ui.label(format!("Camera Position: {:.2?}", player_pos_camera));
+                ui.label(format!("Camera Block Position: {:?}", player_pos_int));
+                ui.label(format!("Camera Chunk: ({:?}, {:?})", player_pos_chunk, player_pos_chunk_inner));
+                ui.label(format!("Block on player: {:?}", player_block));
             });
     }
 

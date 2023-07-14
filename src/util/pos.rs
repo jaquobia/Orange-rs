@@ -23,7 +23,7 @@ impl Position for EntityPos {
         self.clone()
     }
     fn to_block_pos(&self) -> BlockPos {
-        BlockPos::new(self.x as i32, self.y as i32, self.z as i32)
+        BlockPos::new(self.x.floor() as i32, self.y.floor() as i32, self.z.floor() as i32)
     }
     fn to_chunk_pos(&self) -> ChunkPos {
         ChunkPos::new(self.x as i32 >> 4, self.z as i32 >> 4)

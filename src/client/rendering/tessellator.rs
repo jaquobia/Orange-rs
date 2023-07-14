@@ -514,7 +514,6 @@ impl TerrainTessellator {
         ]
     }
 
-    // Vec<Option<&ChunkSection>>
     pub fn tessellate_chunk_section(&mut self, section: &Chunk, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, states: &Register<BlockState>, models: &HashMap<Identifier, BakedModel>, textures: &HashMap<Identifier, TextureObject>, nearby_chunks: &ChunkStorage<Chunk>) {
         let smooth_shading = true;
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
