@@ -1,7 +1,5 @@
 use ultraviolet::UVec2;
-use wgpu::{BindGroup, BindGroupLayout, Device, Sampler, Texture, TextureFormat, TextureView};
-
-use super::wgpu_struct::WgpuData;
+use wgpu::{BindGroup, BindGroupLayout, Device, Sampler, Texture, TextureFormat, TextureView, SurfaceConfiguration};
 
 pub struct DiffuseTextureWrapper {
     texture: Texture,
@@ -75,9 +73,7 @@ pub struct DepthTextureWrapper {
 }
 
 impl DepthTextureWrapper {
-    pub fn new(gpu: &WgpuData, depth_tex_format: TextureFormat, label: &str) -> Self {
-        let config = &gpu.config;
-        let device = &gpu.device;
+    pub fn new(config: &SurfaceConfiguration, device: &Device, depth_tex_format: TextureFormat, label: &str) -> Self {
         let size = wgpu::Extent3d {
             width: config.width,
             height: config.height,

@@ -166,11 +166,10 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (44, 3, "minecraft:slab", vec![("type", "cobblestone")]), // cobble
         (45, 0, "minecraft:brick_block", vec![]),
         (46, 0, "minecraft:tnt", vec![]),
-        (47, 0, "minecraft:bookshelf", vec![]),
+        (47, 0, "minecraft:bookshelf", vec![]), // why invis?
         (48, 0, "minecraft:mossy_cobblestone", vec![]),
         (49, 0, "minecraft:obsidian", vec![]),
-        // (50, 0, "minecraft:torch", vec![]),
-        (50, 1, "minecraft:torch", vec![("meta", "0")]), // wall varients
+        (50, 1, "minecraft:torch", vec![("meta", "0")]),
         (50, 2, "minecraft:torch", vec![("meta", "1")]),
         (50, 3, "minecraft:torch", vec![("meta", "2")]),
         (50, 4, "minecraft:torch", vec![("meta", "3")]),
@@ -294,7 +293,7 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
         (96, 0, "minecraft:trapdoor", vec![]),
     ];
     
-    let air = registry.get_blockstate_register().get_index_from_identifier(&"minecraft:air".into());
+    let air = registry.get_blockstate_register().get_index_from_identifier(&"minecraft:sponge".into());
     list.into_iter().for_each(|(id, meta, block, properties)| {
         let identifier = Identifier::from_str(block);
         let blockstate = match blocks.get_element_from_identifier(&identifier) {

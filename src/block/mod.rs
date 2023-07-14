@@ -118,6 +118,7 @@ impl Block {
         // let block = self;
         let properties = &block.properties;
         let base_identifier = block.identifier.to_string();
+        let block_id = registry.get_block_register().get_index_from_identifier(block.get_identifier());
         let mut varients: Vec<BlockStatePropertyMap> = vec![HashMap::default()];
         let mut prev_varient_index = 1;
         let mut varient_indexs = vec![];
@@ -159,7 +160,7 @@ impl Block {
             (varient_name, varient)
         }).collect::<Vec<_>>();
 
-        let states = state_varients.into_iter().map(|(id, properties)| Rc::new(BlockState::new(block.clone(), id, properties))).collect::<Vec<_>>();
+        let states = state_varients.into_iter().map(|(id, properties)| Rc::new(BlockState::new(block.clone(), block_id, id, properties))).collect::<Vec<_>>();
 
         let weak_states = states.iter().map(|state| Rc::downgrade(state)).collect::<Vec<_>>();
         {
@@ -234,16 +235,18 @@ impl StateManager {
 #[derive(Clone)]
 pub struct BlockState {
     block: Rc<Block>,
+    block_id: usize,
     state_identifier: Identifier,
     property_map: BlockStatePropertyMap,
 }
 
 impl BlockState {
 
-    pub fn new(block: Rc<Block>, varient: Identifier, property_map: BlockStatePropertyMap) -> Self {
+    pub fn new(block: Rc<Block>, block_id: usize, varient: Identifier, property_map: BlockStatePropertyMap) -> Self {
         
         Self {
             block,
+            block_id,
             state_identifier: varient,
             property_map,
         }
@@ -263,6 +266,10 @@ impl BlockState {
 
     pub fn get_block(&self) -> Rc<Block> {
         self.block.clone()
+    }
+
+    pub fn get_block_id(&self) -> usize {
+        self.block_id
     }
 
     pub fn get_block_identifier(&self) -> &Identifier {

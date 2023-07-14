@@ -26,19 +26,19 @@ pub static TERRAIN_TRANSPARENT_PIPELINE: &str = "transparent_terrain_shader";
 pub static ATLAS_TEXTURE_NAME: &str = "minecraft:atlas";
 pub static LIGHTMAP_TEXTURE_NAME: &str = "minecraft:lightmap";
 
-pub fn create_resources(client: &mut Client) {
+pub fn create_resources(client: &mut Client, device: &wgpu::Device, queue: &wgpu::Queue, config: &wgpu::SurfaceConfiguration) {
 
-    generate_atlas_texture_bind_group_layout(client);
-    generate_lightmap_texture_bind_group_layout(client);
-    generate_camera_bind_group_layout(client);
+    generate_atlas_texture_bind_group_layout(client, device);
+    generate_lightmap_texture_bind_group_layout(client, device);
+    generate_camera_bind_group_layout(client, device);
 
-    generate_camera_buffer(client);
-    generate_camera_bind_group(client);
+    generate_camera_buffer(client, device);
+    generate_camera_bind_group(client, device);
 
-    generate_terrain_opaque_pipeline(client);
-    generate_terrain_transparent_pipeline(client);
+    generate_terrain_opaque_pipeline(client, device, config);
+    generate_terrain_transparent_pipeline(client, device, config);
 
-    generate_lightmap_texture(client);
+    generate_lightmap_texture(client, device, queue);
 }
 
 pub fn generate_basic_2d_texture_bind_group_layout<T: AsRef<str>>(label: T, device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -67,18 +67,18 @@ pub fn generate_basic_2d_texture_bind_group_layout<T: AsRef<str>>(label: T, devi
     })
 }
 
-pub fn generate_atlas_texture_bind_group_layout(client: &mut Client) {
-    let layout = generate_basic_2d_texture_bind_group_layout(ATLAS_LAYOUT_NAME, client.get_device());
+pub fn generate_atlas_texture_bind_group_layout(client: &mut Client, device: &wgpu::Device) {
+    let layout = generate_basic_2d_texture_bind_group_layout(ATLAS_LAYOUT_NAME, device);
     client.insert_layout(ATLAS_LAYOUT_NAME, layout);
 }
 
-pub fn generate_lightmap_texture_bind_group_layout(client: &mut Client) {
-    let layout = generate_basic_2d_texture_bind_group_layout(LIGHTMAP_LAYOUT_NAME, client.get_device());
+pub fn generate_lightmap_texture_bind_group_layout(client: &mut Client, device: &wgpu::Device) {
+    let layout = generate_basic_2d_texture_bind_group_layout(LIGHTMAP_LAYOUT_NAME, device);
     client.insert_layout(LIGHTMAP_LAYOUT_NAME, layout);
 }
 
-pub fn generate_camera_bind_group_layout(client: &mut Client) {
-    let layout = client.get_device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+pub fn generate_camera_bind_group_layout(client: &mut Client, device: &wgpu::Device) {
+    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         entries: &[wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::VERTEX,
@@ -95,8 +95,8 @@ pub fn generate_camera_bind_group_layout(client: &mut Client) {
     client.insert_layout(CAMERA_LAYOUT_NAME, layout);
 }
 
-pub fn generate_camera_buffer(client: &mut Client) {
-    let camera_buffer = client.get_device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+pub fn generate_camera_buffer(client: &mut Client, device: &wgpu::Device) {
+    let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some(CAMERA_BUFFER_NAME),
         contents: bytemuck::cast_slice(&[client.projection.calc_matrix() * client.camera.calc_matrix()]),
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -104,8 +104,8 @@ pub fn generate_camera_buffer(client: &mut Client) {
     client.insert_buffer(CAMERA_BUFFER_NAME, camera_buffer);
 }
 
-pub fn generate_camera_bind_group(client: &mut Client) {
-    let bind_group = client.get_device().create_bind_group(&wgpu::BindGroupDescriptor {
+pub fn generate_camera_bind_group(client: &mut Client, device: &wgpu::Device) {
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: client.get_layout(CAMERA_LAYOUT_NAME).unwrap(),
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
@@ -116,8 +116,7 @@ pub fn generate_camera_bind_group(client: &mut Client) {
     client.insert_bind_group(CAMERA_BIND_GROUP_NAME, bind_group);
 }
 
-pub fn generate_terrain_opaque_pipeline(client: &mut Client) {
-    let device = client.get_device();
+pub fn generate_terrain_opaque_pipeline(client: &mut Client, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) {
 
     let mut shader_data = String::new();
     let mut shader_file = File::open("../orange-mc-assets/assets/shaders/shader.wgsl").unwrap();
@@ -150,7 +149,7 @@ pub fn generate_terrain_opaque_pipeline(client: &mut Client) {
             module: &shader,
             entry_point: "fs_main",
             targets: &[Some(wgpu::ColorTargetState {
-                format: client.get_surface_configuration().format,
+                format: config.format,
                 blend: Some(wgpu::BlendState::REPLACE),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -186,9 +185,7 @@ pub fn generate_terrain_opaque_pipeline(client: &mut Client) {
     client.insert_pipeline(TERRAIN_OPAQUE_PIPELINE, pipeline);
 }
 
-pub fn generate_terrain_transparent_pipeline(client: &mut Client) {
-
-    let device = client.get_device();
+pub fn generate_terrain_transparent_pipeline(client: &mut Client, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) {
 
     let mut shader_data = String::new();
     let mut shader_file = File::open("../orange-mc-assets/assets/shaders/shader_transparent.wgsl").unwrap();
@@ -221,7 +218,7 @@ pub fn generate_terrain_transparent_pipeline(client: &mut Client) {
             module: &shader,
             entry_point: "fs_main",
             targets: &[Some(wgpu::ColorTargetState {
-                format: client.get_surface_configuration().format,
+                format: config.format,
                 blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -257,7 +254,7 @@ pub fn generate_terrain_transparent_pipeline(client: &mut Client) {
     client.insert_pipeline(TERRAIN_TRANSPARENT_PIPELINE, pipeline);
 }
 
-pub fn generate_lightmap_texture(client: &mut Client) {
+pub fn generate_lightmap_texture(client: &mut Client, device: &wgpu::Device, queue: &wgpu::Queue) {
     let width = 16;
     let height = 1;
     let widthpheight = (width - 1) + (height - 1);
@@ -289,7 +286,7 @@ pub fn generate_lightmap_texture(client: &mut Client) {
     };
     let tex_format = wgpu::TextureFormat::Rgba8UnormSrgb;
 
-    let diffuse_texture = client.get_device().create_texture(&wgpu::TextureDescriptor {
+    let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
         size: tex_dims,
         mip_level_count: 1,
         sample_count: 1,
@@ -299,7 +296,7 @@ pub fn generate_lightmap_texture(client: &mut Client) {
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         label: Some("diffuse_texture"),
     });
-    client.get_queue().write_texture(
+    queue.write_texture(
         diffuse_texture.as_image_copy(),
         tex.to_rgba8().as_bytes(),
         wgpu::ImageDataLayout {
@@ -311,7 +308,7 @@ pub fn generate_lightmap_texture(client: &mut Client) {
     );
     let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let sampler = client.get_device().create_sampler(&wgpu::SamplerDescriptor {
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
         address_mode_u: wgpu::AddressMode::ClampToEdge,
         address_mode_v: wgpu::AddressMode::ClampToEdge,
         address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -326,14 +323,14 @@ pub fn generate_lightmap_texture(client: &mut Client) {
         dims.into(),
         diffuse_texture_view,
         sampler,
-        client.get_device(),
+        device,
         client.get_layout(LIGHTMAP_LAYOUT_NAME).unwrap(),
     );
 
     client.insert_texture(LIGHTMAP_TEXTURE_NAME, texture);
 }
 
-pub fn load_binary_resources(client: &mut Client) {
+pub fn load_binary_resources(client: &mut Client, device: &wgpu::Device, queue: &wgpu::Queue) {
     for (path, _name) in DEFAULT_RESOURCES {
         if path.ends_with(".txt") || path.ends_with(".lang") {
             continue;
@@ -356,7 +353,7 @@ pub fn load_binary_resources(client: &mut Client) {
         };
         let tex_format = wgpu::TextureFormat::Rgba8UnormSrgb;
 
-        let diffuse_texture = client.get_device().create_texture(&wgpu::TextureDescriptor {
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: tex_dims,
             mip_level_count: 1,
             sample_count: 1,
@@ -366,7 +363,7 @@ pub fn load_binary_resources(client: &mut Client) {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("diffuse_texture"),
         });
-        client.get_queue().write_texture(
+        queue.write_texture(
             diffuse_texture.as_image_copy(),
             image.to_rgba8().as_bytes(),
             wgpu::ImageDataLayout {
@@ -378,7 +375,7 @@ pub fn load_binary_resources(client: &mut Client) {
         );
         let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let sampler = client.get_device().create_sampler(&wgpu::SamplerDescriptor {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -393,7 +390,7 @@ pub fn load_binary_resources(client: &mut Client) {
             dims.into(),
             diffuse_texture_view,
             sampler,
-            client.get_device(),
+            device,
             client.get_layout(ATLAS_LAYOUT_NAME).unwrap(),
         );
         client.insert_texture(path, texture);

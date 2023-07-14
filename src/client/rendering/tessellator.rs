@@ -244,13 +244,13 @@ impl TerrainTessellator {
     // }
 
     // TODO: Use states rather than blocks
-    fn get_occlusions(nearby_blocks: &[TBlockData; 26], blocks: &Register<Block>, states: &Register<BlockState>, source_block_transparent: bool, source_block_id: usize) -> u32 {
+    fn get_occlusions(nearby_blocks: &[TBlockData; 26], states: &Register<BlockState>, source_block_transparent: bool, source_block_id: usize) -> u32 {
         let mut occlusions = 0u32;
         for dir in &DIRECTIONS {
             let state_id = nearby_blocks[dir.ordinal()] as usize;
             if let Some(state) = states.get_element_from_index(state_id).as_ref() {
                 let block = state.get_block();
-                let block_id = blocks.get_index_from_identifier(state.get_block_identifier());
+                let block_id = state.get_block_id();
                 let block_transparent = block.is_transparent();
 
                 let both_transparent = block_transparent && block_transparent == source_block_transparent;
@@ -289,7 +289,7 @@ impl TerrainTessellator {
             let cy = new_pos.y >> 4;
             let cz = new_pos.z >> 4;
 
-            nearby_blocks[dir_index] =  if cx | cy | cz != 0 {
+            let state_index =  if cx | cy | cz != 0 {
                 if let Ok(chunk) = nearby_chunks.get_chunk(chunk_position + IVec3::new(cx, cy, cz)) {
                     chunk.get_block_at_pos((new_pos.x as u32) & 15, (new_pos.y as u32) & 15, (new_pos.z as u32) & 15)
                 } else {
@@ -298,6 +298,7 @@ impl TerrainTessellator {
             } else {
                 chunk.get_block_at_pos(new_pos.x as u32, new_pos.y as u32, new_pos.z as u32)
             };
+            nearby_blocks[dir_index] = state_index;
         }
         nearby_blocks
     }
@@ -330,10 +331,11 @@ impl TerrainTessellator {
         block.is_full_block() as u8
     }
 
-    fn get_ao_for_corner(side1: TBlockData, side2: TBlockData, corner: TBlockData, blocks: &Register<Block> ) -> u8 {
-        let a = blocks.get_element_from_index(side1 as usize).map(Self::ao_inside).unwrap_or(1u8);
-        let b = blocks.get_element_from_index(side2 as usize).map(Self::ao_inside).unwrap_or(1u8);
-        let c = blocks.get_element_from_index(corner as usize).map(Self::ao_inside).unwrap_or(1u8);
+    fn get_ao_for_corner(side1: TBlockData, side2: TBlockData, corner: TBlockData, states: &Register<BlockState> ) -> u8 {
+        let state_to_block_fn = |state: std::rc::Rc<BlockState>| { state.get_block() };
+        let a = states.get_element_from_index(side1 as usize).map(state_to_block_fn).map(Self::ao_inside).unwrap_or(1u8);
+        let b = states.get_element_from_index(side2 as usize).map(state_to_block_fn).map(Self::ao_inside).unwrap_or(1u8);
+        let c = states.get_element_from_index(corner as usize).map(state_to_block_fn).map(Self::ao_inside).unwrap_or(1u8);
 
         if a + b == 2 {
             return 0u8;
@@ -407,38 +409,38 @@ impl TerrainTessellator {
         ]
     }
 
-    fn get_nearby_ao_data(nearby_blocks: &[TBlockData; 26], blocks: &Register<Block>) -> [u8; 24] {
+    fn get_nearby_ao_data(nearby_blocks: &[TBlockData; 26], states: &Register<BlockState>) -> [u8; 24] {
         let mut ao = [3; 24];
         // north
-        ao[0] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], blocks);
-        ao[1] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWU.ordinal()], blocks);
-        ao[2] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NED.ordinal()], blocks);
-        ao[3] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWD.ordinal()], blocks);
+        ao[0] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], states);
+        ao[1] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWU.ordinal()], states);
+        ao[2] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NED.ordinal()], states);
+        ao[3] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWD.ordinal()], states);
         // south
-        ao[4] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWU.ordinal()], blocks);
-        ao[5] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SEU.ordinal()], blocks);
-        ao[6] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWD.ordinal()], blocks);
-        ao[7] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SED.ordinal()], blocks);
+        ao[4] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWU.ordinal()], states);
+        ao[5] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SEU.ordinal()], states);
+        ao[6] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWD.ordinal()], states);
+        ao[7] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SED.ordinal()], states);
         // east
-        ao[8] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SEU.ordinal()], blocks);
-        ao[9] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], blocks);
-        ao[10] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SED.ordinal()], blocks);
-        ao[11] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NED.ordinal()], blocks);
+        ao[8] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SEU.ordinal()], states);
+        ao[9] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], states);
+        ao[10] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::SE.ordinal()], nearby_blocks[DirectionAll::SED.ordinal()], states);
+        ao[11] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::NE.ordinal()], nearby_blocks[DirectionAll::NED.ordinal()], states);
         // west
-        ao[12] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWU.ordinal()], blocks);
-        ao[13] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWU.ordinal()], blocks);
-        ao[14] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWD.ordinal()], blocks);
-        ao[15] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWD.ordinal()], blocks);
+        ao[12] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWU.ordinal()], states);
+        ao[13] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWU.ordinal()], states);
+        ao[14] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::NW.ordinal()], nearby_blocks[DirectionAll::NWD.ordinal()], states);
+        ao[15] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::SW.ordinal()], nearby_blocks[DirectionAll::SWD.ordinal()], states);
         // up
-        ao[18] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], blocks);
-        ao[19] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::NWU.ordinal()], blocks);
-        ao[16] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::SEU.ordinal()], blocks);
-        ao[17] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::SWU.ordinal()], blocks);
+        ao[18] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::NEU.ordinal()], states);
+        ao[19] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::NU.ordinal()], nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::NWU.ordinal()], states);
+        ao[16] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::EU.ordinal()], nearby_blocks[DirectionAll::SEU.ordinal()], states);
+        ao[17] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SU.ordinal()], nearby_blocks[DirectionAll::WU.ordinal()], nearby_blocks[DirectionAll::SWU.ordinal()], states);
         // down
-        ao[20] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::SWD.ordinal()], blocks);
-        ao[21] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::SED.ordinal()], blocks);
-        ao[22] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::NWD.ordinal()], blocks);
-        ao[23] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::NED.ordinal()], blocks);
+        ao[20] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::SWD.ordinal()], states);
+        ao[21] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::SD.ordinal()], nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::SED.ordinal()], states);
+        ao[22] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::WD.ordinal()], nearby_blocks[DirectionAll::NWD.ordinal()], states);
+        ao[23] = Self::get_ao_for_corner(nearby_blocks[DirectionAll::ND.ordinal()], nearby_blocks[DirectionAll::ED.ordinal()], nearby_blocks[DirectionAll::NED.ordinal()], states);
 
         ao
     }
@@ -532,12 +534,8 @@ impl TerrainTessellator {
                         _ => continue,
                     };
 
-                    let block_id = blocks.get_index_from_identifier(state.get_block_identifier());
-                    let block = match blocks.get_element_from_index(block_id) {
-                        Some(block) => block,
-                        _ => continue,
-                    };
-
+                    let block_id = state.get_block_id();
+                    let block = state.get_block();
                     let is_transparent = block.is_transparent();
 
                     let model = match models.get(state.get_state_identifier()) {
@@ -548,10 +546,10 @@ impl TerrainTessellator {
                     let intra_chunk_position = IVec3::new(x as i32, y as i32, z as i32);
                     let nearby_blocks = Self::get_nearby_blocks(section, &nearby_chunks, intra_chunk_position, chunk_pos);
                     let nearby_lights = Self::get_nearby_lights(section, &nearby_chunks, intra_chunk_position, chunk_pos);
-                    let occlusions = Self::get_occlusions(&nearby_blocks, blocks, states, is_transparent, block_id);
+                    let occlusions = Self::get_occlusions(&nearby_blocks, states, is_transparent, block_id);
 
                     let lights = Self::get_nearby_lighting_data(&nearby_lights, block_light, sky_light);
-                    let ao = if model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, blocks) } else { [3; 24] };
+                    let ao = if model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, states) } else { [3; 24] };
 
                     let model_textures = model.textures();
 

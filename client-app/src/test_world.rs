@@ -441,7 +441,7 @@ impl TestWorld {
 
                     let data = match self.block_to_state_map.get(&data) {
                         Some(state) => *state,
-                        _ => { log::error!("Failed to find id: {}|{}", data & 0b11111111, data >> 8); continue; }
+                        _ => { log::error!("Failed to find id: {}|{}", data & 0b11111111, data >> 8); *self.block_to_state_map.get(&19).unwrap() }
                     };
 
                     let x = chunk_x_start + x as u32;

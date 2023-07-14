@@ -2,7 +2,7 @@ use std::fs::{self, DirEntry};
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap as HashMap;
-use ultraviolet::{Vec2, Vec3};
+use ultraviolet::Vec2;
 use crate::block::Block;
 use crate::block::block_factory::BlockFactory;
 use crate::block::properties::PropertyDefinition;
@@ -13,7 +13,7 @@ use crate::direction::Direction;
 use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType, MCModelFile, MCBlockstateType};
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::registry::Registry;
-use crate::minecraft::template_models::{cube_all, missing, pressure_plate_down, pressure_plate_up, torch, wall_torch};
+use crate::minecraft::template_models::{cube_all, missing, pressure_plate_down, pressure_plate_up, torch};
 
 pub enum GameVersion {
     B173,
@@ -98,7 +98,7 @@ fn register_properties(registry: &mut Registry) {
 }
 
 fn register_blocks(registry: &mut Registry) {
-let block_register_list = vec![
+    let block_register_list = vec![
             BlockFactory::new("air")
                 .hardness(0.0)
                 .resistance(0.0)
@@ -481,13 +481,6 @@ let block_register_list = vec![
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
                 .properties(&vec![("powered", "minecraft:boolean")])
-                .model(|meta| {
-                    if meta == 0 {
-                        pressure_plate_up().clone()
-                    } else {
-                        pressure_plate_down().clone()
-                    }.with_texture("all", "minecraft:stone").bake()
-                })
                 .full_block(false)
                 .build(),
             BlockFactory::new("iron_door")
@@ -499,13 +492,6 @@ let block_register_list = vec![
                 .hardness(0.5)
                 .side_cull_fn(non_full_cull)
                 .properties(&vec![("powered", "minecraft:boolean")])
-                .model(|meta| {
-                    if meta == 0 {
-                        pressure_plate_up().clone()
-                    } else {
-                        pressure_plate_down().clone()
-                    }.with_texture("all", "minecraft:oak_plank").bake()
-                })
                 .full_block(false)
                 .build(),
             BlockFactory::new("ore_redstone")
@@ -614,22 +600,6 @@ let block_register_list = vec![
             BlockFactory::new("pumpkin_lantern")
                 .hardness(1.0)
                 .properties(&vec![("facing", "minecraft:facing_horizontal")])
-                .model(|meta| {
-                    let rotation = match meta {
-                        0 => 90.,
-                        1 => 0.,
-                        2 => 270.,
-                        3 => 180.,
-                        _ => 0.
-                    };
-                    cube_all().clone()
-                        .with_texture("north", "minecraft:lantern_front")
-                        .with_texture("up", "minecraft:pumpkin_top")
-                        .with_texture("down", "minecraft:pumpkin_side")
-                        .with_texture("south", "minecraft:pumpkin_side")
-                        .with_texture("east", "minecraft:pumpkin_side")
-                        .with_texture("west", "minecraft:pumpkin_side").bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8., 8., 8.], false)))
-                })
                 .build(),
             BlockFactory::new("cake")
                 .hardness(0.5)
