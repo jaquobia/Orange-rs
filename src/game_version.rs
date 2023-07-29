@@ -13,7 +13,7 @@ use crate::direction::Direction;
 use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType, MCModelFile, MCBlockstateType};
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::registry::Registry;
-use crate::minecraft::template_models::{cube_all, missing, pressure_plate_down, pressure_plate_up, torch};
+use crate::minecraft::template_models::{cube_all, missing, torch};
 
 pub enum GameVersion {
     B173,
@@ -138,40 +138,24 @@ fn register_blocks(registry: &mut Registry) {
             BlockFactory::new("flowing_water")
                 .hardness(100.0)
                 .transparent(true)
-                .model(|meta| {
-                    // TODO: SUPER COMPLEX MODEL
-                    cube_all().clone().with_texture("all", "minecraft:water_0").bake()
-                })
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("still_water")
                 .hardness(100.0)
                 .transparent(true)
-                .model(|meta| {
-                    // TODO: SUPER COMPLEX MODEL
-                    cube_all().clone().with_texture("all", "minecraft:water_0").bake()
-                })
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("flowing_lava")
                 .hardness(0.0)
                 .transparent(true)
-                .model(|meta| {
-                    // TODO: SUPER COMPLEX MODEL
-                    cube_all().clone().with_texture("all", "minecraft:lava_0").bake()
-                })
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("still_lava")
                 .hardness(100.0)
                 .transparent(true)
-                .model(|meta| {
-                    // TODO: SUPER COMPLEX MODEL
-                    cube_all().clone().with_texture("all", "minecraft:lava_0").bake()
-                })
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -268,49 +252,6 @@ fn register_blocks(registry: &mut Registry) {
                 .build(),
             BlockFactory::new("piston")
                 .properties(&vec![("facing", "minecraft:facing")])
-                .model(|meta| {
-                    log::warn!("piston meta: {meta}");
-                    let is_powered = meta  & 8 > 0;
-                    let rotation = match meta & 7 {
-                        0 => { Some(VoxelRotation::new(90., 2, [8.0, 8.0, 8.0], false)) },
-                        1 => { Some(VoxelRotation::new(270., 2, [8.0, 8.0, 8.0], false)) },
-                        2 => { Some(VoxelRotation::new(270., 1, [8.0, 8.0, 8.0], false)) },
-                        3 => { Some(VoxelRotation::new(90., 1, [8.0, 8.0, 8.0], false)) },
-                        4 => { Some(VoxelRotation::new(0., 1, [8.0, 8.0, 8.0], false)) },
-                        5 => { Some(VoxelRotation::new(180., 1, [8.0, 8.0, 8.0], false)) },
-                        _ => return missing().clone().bake(),
-                    };
-                    let model = if is_powered {
-                        VoxelModel::new().with_element(VoxelElement::new([4., 0., 0.], [16., 16., 16.])
-                            .with_face(VoxelFace::new("minecraft:piston_base"), Direction::North)
-                            .with_face(VoxelFace::new("minecraft:piston_bottom").with_cullface(Direction::South), Direction::South)
-                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(270.).with_cullface(Direction::East), Direction::East)
-                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(180.).with_cullface(Direction::West), Direction::West)
-                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(180.).with_cullface(Direction::Up), Direction::Up)
-                            .with_face(VoxelFace::new("minecraft:piston_side").with_uv([0., 4.], [16., 16.]).with_rotation(180.).with_cullface(Direction::Down), Direction::Down)
-                        )
-                    } else {
-                        VoxelModel::new().with_element(VoxelElement::new([0., 0., 0.], [16., 16., 16.])
-                            .with_face(VoxelFace::new("minecraft:piston_front").with_cullface(Direction::North), Direction::North)
-                            .with_face(VoxelFace::new("minecraft:piston_bottom").with_cullface(Direction::South), Direction::South)
-                            .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(270.).with_cullface(Direction::East), Direction::East)
-                            // .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(270.).with_cullface(Direction::West), Direction::West)
-                            // .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(180.).with_cullface(Direction::Up), Direction::Up)
-                            // .with_face(VoxelFace::new("minecraft:piston_side").with_rotation(180.).with_cullface(Direction::Down), Direction::Down)
-                        )
-
-                    }.bake_with_rotate(rotation);
-                    log::warn!("Piston model end");
-                    model
-                    // 0 -> down
-                    // 1 -> up
-                    // 4 -> north
-                    // 5 -> south
-                    // 3 -> west
-                    // 2 -> east
-                    // TODO: COMPLEX MODEL
-                    // cube_all().clone().with_texture("all", "minecraft:piston_front").bake()
-                })
                 .side_cull_fn(non_full_cull)
                 .build(),
             BlockFactory::new("piston_extension")
@@ -502,19 +443,15 @@ fn register_blocks(registry: &mut Registry) {
                 .hardness(3.0)
                 .resistance(5.0)
                 .build(),
-            BlockFactory::new("torch_redstone_off")
+            BlockFactory::new("redstone_torch_off")
                 .hardness(0.0)
-                .model(|_| {
-                    torch().clone().with_texture("torch", "minecraft:redstone_torch_off").bake()
-                })
+                .properties(&vec![("meta", "minecraft:count_4")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
-            BlockFactory::new("torch_redstone_on")
+            BlockFactory::new("redstone_torch_on")
                 .hardness(0.0)
-                .model(|_| {
-                    torch().clone().with_texture("torch", "minecraft:redstone_torch_on").bake()
-                })
+                .properties(&vec![("meta", "minecraft:count_4")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -565,22 +502,6 @@ fn register_blocks(registry: &mut Registry) {
             BlockFactory::new("pumpkin")
                 .hardness(1.0)
                 .properties(&vec![("facing", "minecraft:facing_horizontal")])
-                .model(|meta| {
-                    let rotation = match meta {
-                        0 => 90.,
-                        1 => 0.,
-                        2 => 270.,
-                        3 => 180.,
-                        _ => 0.
-                    };
-                    cube_all().clone()
-                        .with_texture("north", "minecraft:pumpkin_front")
-                        .with_texture("up", "minecraft:pumpkin_top")
-                        .with_texture("down", "minecraft:pumpkin_side")
-                        .with_texture("south", "minecraft:pumpkin_side")
-                        .with_texture("east", "minecraft:pumpkin_side")
-                        .with_texture("west", "minecraft:pumpkin_side").bake_with_rotate(Some(VoxelRotation::new(rotation, 1, [8., 8., 8.], false)))
-                })
                 .build(),
             BlockFactory::new("netherrack")
                 .hardness(0.4)
@@ -647,6 +568,7 @@ fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMa
 
     if !model_files.contains_key(identifier) {
         log::warn!("No model file for {}", identifier);
+        return None;
     }
     model_files.get(identifier).and_then(|model_file| {
         let mut model = match model_file.get_parent() {
@@ -697,7 +619,6 @@ fn load_b173(registry: &mut Registry) {
     register_properties(registry);
     register_blocks(registry);
 
-    let textures = registry.get_texture_register_mut();
 
     let mut model_files = HashMap::default();
     let mut voxel_models = HashMap::default();
@@ -744,9 +665,12 @@ fn load_b173(registry: &mut Registry) {
         .expect("Should have been able to read the file");
     let atlas_textures: MCAtlasTextureFile = serde_json::from_str(atlas_texture_json_str.as_str()).unwrap();
 
-    for UniformAtlasTextureType { identifier, cell } in atlas_textures.atlas.get_uniform_textures() {
-        let tex = make_atlas_tex(cell as usize);
-        textures.insert(Identifier::from_str(identifier.as_str()), tex);
+    {
+        let textures = registry.get_texture_register_mut();
+        for UniformAtlasTextureType { identifier, cell } in atlas_textures.atlas.get_uniform_textures() {
+            let tex = make_atlas_tex(cell as usize);
+            textures.insert(Identifier::from_str(identifier.as_str()), tex);
+        }
     }
 
     for model_file_id in model_files.keys() {
@@ -762,6 +686,7 @@ fn load_b173(registry: &mut Registry) {
 
     let mut mapped_models: Vec<(Identifier, BakedModel)> = vec![];
 
+    let textures = registry.get_texture_register();
     for state in registry.get_blockstate_register().get_elements() {
         let identifier = state.get_state_identifier().get_identifier();
         let block_id = state.get_block_identifier();
@@ -807,10 +732,10 @@ fn load_b173(registry: &mut Registry) {
                     }
                 };
                 let rotation = rotation_axis_angle.map(|(axis, angle)| { VoxelRotation::new(angle.unwrap_or(0.) as f32, axis, [8., 8., 8.], false) });
-                model.clone().bake_with_rotate(rotation)
+                model.clone().bake_with_rotate(rotation, &textures)
             },
             MCBlockstateType::multipart(multiparts) => {
-                missing_model_file.clone().bake()
+                missing_model_file.clone().bake(&textures)
             }
         };
         mapped_models.push((state.get_state_identifier().clone(), blockstate_model));

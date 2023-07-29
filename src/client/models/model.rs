@@ -2,81 +2,86 @@ use std::ops::Rem;
 use ultraviolet::{Mat4, Vec2, Vec3};
 use rustc_hash::FxHashMap as HashMap;
 
-use crate::direction::{Direction, DIRECTIONS};
+use crate::{direction::{Direction, DIRECTIONS}, client::textures::TextureObject, minecraft::identifier::Identifier};
+
+const ONE_SIXTEENTH: f32 = 1.0 / 16.0;
 
 pub struct ModelPoly<const SIZE:  usize> {
     pub pos: [Vec3; SIZE],
+    pub uvs: [Vec2; SIZE],
     pub normal: Vec3,
     pub color: Vec3,
-    pub u: Vec2,
-    pub v: Vec2,
     pub cullface: Option<Direction>,
     pub ao_face: Option<Direction>,
     pub texture: String,
     pub tint_index: i32,
 }
 
+impl<const SIZE: usize> ModelPoly<SIZE> {
+
+}
+
 pub type ModelQuad = ModelPoly<4>;
 pub type ModelTriangle = ModelPoly<3>;
 
-pub enum ModelShape {
-    Quad { quad: ModelQuad },
-    Triangle { triangle: ModelTriangle },
-}
-
-impl ModelShape {
-    pub fn num_pos(&self) -> usize {
-        match self {
-            ModelShape::Quad { quad } => { quad.pos.len() },
-            ModelShape::Triangle { triangle } => { triangle.pos.len() },
-        }
-    }
-    pub fn pos(&self, index: usize) -> Vec3 {
-        match self {
-            ModelShape::Quad { quad } => { quad.pos[index] },
-            ModelShape::Triangle { triangle } => { triangle.pos[index] },
-        }
-    }
-    pub fn normal(&self) -> Vec3 {
-        match self {
-            ModelShape::Quad { quad } => { quad.normal },
-            ModelShape::Triangle { triangle } => { triangle.normal },
-        }
-    }
-    pub fn color(&self) -> Vec3 {
-        match self {
-            ModelShape::Quad { quad } => { quad.color },
-            ModelShape::Triangle { triangle } => { triangle.color },
-        }
-    }
-    pub fn uv(&self) -> [Vec2; 2] {
-        match self {
-            ModelShape::Quad { quad } => { [quad.u, quad.v] },
-            ModelShape::Triangle { triangle } => { [triangle.u, triangle.v] },
-        }
-    }
-    pub fn cullface(&self) -> Option<Direction> {
-        match self {
-            ModelShape::Quad { quad } => { quad.cullface },
-            ModelShape::Triangle { triangle } => { triangle.cullface },
-        }
-    }
-    pub fn ao_face(&self) -> Option<Direction> {
-        match self {
-            ModelShape::Quad { quad } => { quad.ao_face },
-            ModelShape::Triangle { triangle } => { triangle.ao_face },
-        }
-    }
-    pub fn texture(&self) -> &String {
-        match self {
-            ModelShape::Quad { quad } => { &quad.texture },
-            ModelShape::Triangle { triangle } => { &triangle.texture },
-        }
-    }
-}
+// pub enum ModelShape {
+//     Quad { quad: ModelQuad },
+//     Triangle { triangle: ModelTriangle },
+// }
+//
+// impl ModelShape {
+//     pub fn num_pos(&self) -> usize {
+//         match self {
+//             ModelShape::Quad { quad } => { quad.pos.len() },
+//             ModelShape::Triangle { triangle } => { triangle.pos.len() },
+//         }
+//     }
+//     pub fn pos(&self, index: usize) -> Vec3 {
+//         match self {
+//             ModelShape::Quad { quad } => { quad.pos[index] },
+//             ModelShape::Triangle { triangle } => { triangle.pos[index] },
+//         }
+//     }
+//     pub fn normal(&self) -> Vec3 {
+//         match self {
+//             ModelShape::Quad { quad } => { quad.normal },
+//             ModelShape::Triangle { triangle } => { triangle.normal },
+//         }
+//     }
+//     pub fn color(&self) -> Vec3 {
+//         match self {
+//             ModelShape::Quad { quad } => { quad.color },
+//             ModelShape::Triangle { triangle } => { triangle.color },
+//         }
+//     }
+//     pub fn uv(&self) -> [Vec2; 2] {
+//         match self {
+//             ModelShape::Quad { quad } => { [quad.u, quad.v] },
+//             ModelShape::Triangle { triangle } => { [triangle.u, triangle.v] },
+//         }
+//     }
+//     pub fn cullface(&self) -> Option<Direction> {
+//         match self {
+//             ModelShape::Quad { quad } => { quad.cullface },
+//             ModelShape::Triangle { triangle } => { triangle.cullface },
+//         }
+//     }
+//     pub fn ao_face(&self) -> Option<Direction> {
+//         match self {
+//             ModelShape::Quad { quad } => { quad.ao_face },
+//             ModelShape::Triangle { triangle } => { triangle.ao_face },
+//         }
+//     }
+//     pub fn texture(&self) -> &String {
+//         match self {
+//             ModelShape::Quad { quad } => { &quad.texture },
+//             ModelShape::Triangle { triangle } => { &triangle.texture },
+//         }
+//     }
+// }
 
 pub struct BakedModel {
-    quads: Vec<ModelShape>,
+    quads: Vec<ModelQuad>,
     textures: HashMap<String, String>,
     ambient_occlusion: bool,
 }
@@ -90,7 +95,7 @@ impl BakedModel {
         }
     }
 
-    pub fn shapes(&self) -> &Vec<ModelShape> {
+    pub fn shapes(&self) -> &Vec<ModelQuad> {
         &self.quads
     }
     pub fn textures(&self) -> &HashMap<String, String> {
@@ -201,7 +206,7 @@ impl VoxelModel {
         // let scale = if *rescale { 1.0 + 1.0 / (angle.cos() - 1.0) } else { 1.0 };
         let scale = if rescale { let t = 0.5 - 0.5*(4.0*angle).sin(); (1.0 - t) + t * 2.0_f32.sqrt() } else { 1.0 };
 
-        let center = origin * (1.0 / 16.0);
+        let center = origin * ONE_SIXTEENTH;
         let scale = ((Vec3::one() - axis) * scale) + axis;
         for i in 0..8 {
             points[i] = points[i] - center;
@@ -216,38 +221,46 @@ impl VoxelModel {
         }
     }
 
-    fn rotate_direction(dir: Option<Direction>, angle: f32) -> Option<Direction> {
-        let angle = angle.rem(360.0);
-        match dir {
-            Some(dir) => {
-                if angle == 0.0 {
-                    Some(dir)
-                } else if angle == 90.0 {
-                    Some(dir.ccw())
-                } else if angle == 180.0 {
-                    Some(dir.reverse_horizontal())
-                } else if angle == 270.0 {
-                    Some(dir.cw())
-                } else { None }
-            },
-            None => None,
+    fn rotate_direction(dir: Option<Direction>, angle: u8) -> Option<Direction> {
+        dir.map(|dir| {
+            match angle {
+                1 => { dir.ccw() },
+                2 => { dir.reverse_horizontal() },
+                3 => { dir.cw() },
+                _ => { dir },
+            }
+        })
+    }
+
+    pub fn flatten_angle_to_index(angle: f32) -> u8 {
+        ((angle as u32) / 90u32).rem(4).try_into().unwrap_or(0)
+    }
+
+    fn find_texture_in_map(texture_strings: &HashMap<String, String>, mut tex_to_find: String) -> String {
+        let default_texture = String::from("missing");
+
+        while tex_to_find.starts_with("#") {
+            let a = &texture_strings.get(&tex_to_find[1..]);
+            tex_to_find = a.unwrap_or(&default_texture).clone();
         }
+
+        return tex_to_find;
     }
 
     pub fn clear_elements(&mut self) {
         self.elements.clear();
     }
 
-    pub fn bake(self) -> BakedModel {
-        self.bake_with_rotate(None)
+    pub fn bake(self, textures: &HashMap<Identifier, TextureObject>) -> BakedModel {
+        self.bake_with_rotate(None, textures)
     }
 
-    pub fn bake_with_rotate(self, variant_rotation: Option<VoxelRotation>) -> BakedModel {
-        let mut quads: Vec<ModelShape> = vec![];
+    pub fn bake_with_rotate(self, variant_rotation: Option<VoxelRotation>, texture_register: &HashMap<Identifier, TextureObject>) -> BakedModel {
+        let mut quads = vec![];
         let textures = self.textures;
         for element in &self.elements {
-            let min_pos = element.from * (1.0 / 16.0);
-            let max_pos = element.to * (1.0 / 16.0);
+            let min_pos = element.from * ONE_SIXTEENTH;
+            let max_pos = element.to * ONE_SIXTEENTH;
 
             let points = &mut [
                 Vec3::new(min_pos.x, max_pos.y, min_pos.z), // 0
@@ -263,37 +276,53 @@ impl VoxelModel {
             if let Some(VoxelRotation{rescale , angle, axis, origin }) = &element.rotation {
                 Self::rotate_points(points, *rescale, *angle, *axis, *origin);
             }
-            let mut variant_rotation_angle = 0.0;
+            let variant_rotation_angle =
             if let Some(VoxelRotation{rescale , angle, axis, origin }) = variant_rotation {
                 Self::rotate_points(points, rescale, angle, axis, origin);
-                variant_rotation_angle = angle;
-            }
+                Self::flatten_angle_to_index(angle)
+            } else {
+                0u8
+            };
 
             for (index, face) in element.faces.iter().enumerate() {
                 if let Some(face) = face {
                     let face_direction = DIRECTIONS[index];
                     let pos = get_face_vertices_on_cuboid(face_direction, points);
-                    let (u, v) = if let Some(uv) = face.uv {
-                        match face.rotation {
-                            1 => (Vec2::new(uv[0].x, uv[1].y), Vec2::new(uv[1].x, uv[0].y)),
-                            2 => (uv[1], uv[0]),
-                            3 => (Vec2::new(uv[1].x, uv[0].y), Vec2::new(uv[0].x, uv[1].y)),
-                            _ => (uv[0], uv[1]),
-                        }
+                    let (uv_min, uv_max) = if let Some(uv) = face.uv {
+                        (uv[0], uv[1])
                     } else {
-                        match face.rotation {
-                            1 => ((0.0, 16.0).into(), (16.0, 0.0).into()),
-                            2 => ((16.0, 16.0).into(), (0.0, 0.0).into()),
-                            3 => ((16.0, 0.0).into(), (0.0, 16.0).into()),
-                            _ => ((0.0, 0.0).into(), (16.0, 16.0).into()),
-                        }
+                        // TODO: default uv's to the size of the face
+                        ((0.0, 0.0).into(), (16.0, 16.0).into())
+                    };
+                    let uvs = {
+                        let texture = Self::find_texture_in_map(&textures, face.texture_variable.clone());
+                        let texture_id = Identifier::from(texture);
+                        let (texture_extent_min, texture_extent_max) = if let Some(TextureObject::AtlasTexture { internal_uv }) = texture_register.get(&texture_id) {
+                            (internal_uv[0], internal_uv[1])
+                        } else { 
+                            log::warn!("No texture for {}", texture_id);
+                            (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) 
+                        };
+                        let uv_range = texture_extent_max - texture_extent_min;
+                        let (quad_uv_min, quad_uv_max) = (uv_min * ONE_SIXTEENTH, uv_max * ONE_SIXTEENTH);
+
+                        // let (uv_min, uv_max) = (uv_min + uv_range * quad_uv_min, uv_min + uv_range * quad_uv_max);
+                        let (uv_min, uv_max) = (texture_extent_min + uv_range * quad_uv_min, texture_extent_min + uv_range * quad_uv_max);
+
+                        [uv_min, (uv_max.x, uv_min.y).into(), (uv_min.x, uv_max.y).into(), uv_max]
+                    };
+                    let uvs = match face.rotation {
+                        1 => { [ uvs[2], uvs[0], uvs[3], uvs[1] ] },
+                        2 => { [ uvs[3], uvs[2], uvs[1], uvs[0] ] },
+                        3 => { [ uvs[1], uvs[3], uvs[0], uvs[2] ] },
+                        _ => { uvs },
                     };
                     let color = (1.0, 1.0, 1.0).into();
                     let cullface = Self::rotate_direction(face.cullface, variant_rotation_angle);
-                    let ao_face = if element.rotation.is_some() { None } else { Some(face_direction) };
+                    let ao_face = if element.rotation.is_some() { None } else { cullface.clone() };
                     let normal = face_direction.get_float_vector();
                     let tint_index = face.tint_index;
-                    quads.push( ModelShape::Quad { quad: ModelQuad { pos, u, v, texture: face.texture_variable.clone(), color, cullface, ao_face, normal, tint_index} } );
+                    quads.push( ModelQuad { pos, uvs, texture: face.texture_variable.clone(), color, cullface, ao_face, normal, tint_index });
                 }
             }
         }
@@ -387,9 +416,7 @@ impl VoxelFace {
     }
 
     pub fn with_rotation(mut self, rotation: f32) -> Self {
-        let normalized_rotation = (rotation).rem(360.0);
-        let scaled_rotation = normalized_rotation / 90.;
-        self.rotation = scaled_rotation as u8;
+        self.rotation = VoxelModel::flatten_angle_to_index(rotation);
         self
     }
 
@@ -407,9 +434,7 @@ impl VoxelFace {
     }
 
     pub fn with_rotation_nc(&mut self, rotation: f32) {
-        let normalized_rotation = (rotation).rem(360.0);
-        let scaled_rotation = normalized_rotation / 90.;
-        self.rotation = scaled_rotation as u8;
+        self.rotation = VoxelModel::flatten_angle_to_index(rotation);
     }
 }
 

@@ -5,7 +5,7 @@ use ultraviolet::{IVec3, Vec2, Vec3};
 use wgpu::{Device, util::DeviceExt};
 
 use crate::{block::{Block, BlockState}, direction::DIRECTIONS, world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, TLightData}};
-use crate::client::models::model::{BakedModel, ModelShape};
+use crate::client::models::model::BakedModel;
 use crate::client::textures::TextureObject;
 use crate::direction::{DirectionAll, DIRECTIONS_ALL};
 use crate::minecraft::identifier::Identifier;
@@ -87,20 +87,19 @@ impl TerrainTessellator {
         lights: [u32; 4],
         color: Vec3,
         normal: Vec3,
-        uv_min: Vec2,
-        uv_max: Vec2,
+        uv: [Vec2; 4],
         flip_vertex_order: bool,
     ) -> &mut Self {
 
         let prev_vert_len = self.opaque_vertex_buffer.len() as u32;
         // Top Left
-        self.vertex(TerrainVertex::new(pos[0], color, normal, uv_min, lights[0]));
+        self.vertex(TerrainVertex::new(pos[0], color, normal, uv[0], lights[0]));
         // Top Right
-        self.vertex(TerrainVertex::new(pos[1], color, normal, Vec2::new(uv_max.x, uv_min.y), lights[1]));
+        self.vertex(TerrainVertex::new(pos[1], color, normal, uv[1]/*Vec2::new(uv_max.x, uv_min.y)*/, lights[1]));
         // Bottom Left
-        self.vertex(TerrainVertex::new(pos[2], color, normal, Vec2::new(uv_min.x, uv_max.y), lights[2]));
+        self.vertex(TerrainVertex::new(pos[2], color, normal, uv[2]/*Vec2::new(uv_min.x, uv_max.y)*/, lights[2]));
         // Bottom Right
-        self.vertex(TerrainVertex::new(pos[3], color, normal, uv_max, lights[3]));
+        self.vertex(TerrainVertex::new(pos[3], color, normal, uv[3], lights[3]));
 
         if flip_vertex_order {
             self.opaque_index_buffer.push(prev_vert_len + 0);
@@ -127,20 +126,19 @@ impl TerrainTessellator {
         lights: [u32; 4],
         color: Vec3,
         normal: Vec3,
-        uv_min: Vec2,
-        uv_max: Vec2,
+        uv: [Vec2; 4],
         flip_vertex_order: bool,
     ) -> &mut Self {
 
         let prev_vert_len = self.transparent_vertex_buffer.len() as u32;
         // Top Left
-        self.vertex_transparent(TerrainVertex::new(pos[0], color, normal, uv_min, lights[0]));
+        self.vertex_transparent(TerrainVertex::new(pos[0], color, normal, uv[0], lights[0]));
         // Top Right
         self.vertex_transparent(TerrainVertex::new(
             pos[1],
             color,
             normal,
-            Vec2::new(uv_max.x, uv_min.y),
+            uv[1],
             lights[1],
         ));
         // Bottom Left
@@ -148,11 +146,11 @@ impl TerrainTessellator {
             pos[2],
             color,
             normal,
-            Vec2::new(uv_min.x, uv_max.y),
+            uv[2],
             lights[2],
         ));
         // Bottom Right
-        self.vertex_transparent(TerrainVertex::new(pos[3], color, normal, uv_max, lights[3]));
+        self.vertex_transparent(TerrainVertex::new(pos[3], color, normal, uv[3], lights[3]));
 
         if flip_vertex_order {
             self.transparent_index_buffer.push(prev_vert_len + 0);
@@ -266,18 +264,6 @@ impl TerrainTessellator {
         occlusions
     }
 
-    fn find_texture_in_map(texture_strings: &HashMap<String, String>, mut tex_to_find: String) -> String {
-        let default_texture = String::from("missing");
-
-        while tex_to_find.starts_with("#") {
-            let a = &texture_strings.get(&tex_to_find[1..]);
-            tex_to_find = a.unwrap_or(&default_texture).clone();
-        }
-
-        return tex_to_find;
-    }
-
-    //Vec<Option<&ChunkSection>>
     fn get_nearby_blocks(chunk: &Chunk, nearby_chunks: &ChunkStorage<Chunk>, intra_chunk_position: IVec3, chunk_position: IVec3) -> [TBlockData; 26] {
         let mut nearby_blocks = [0; 26];
         for dir in &DIRECTIONS_ALL {
@@ -552,58 +538,41 @@ impl TerrainTessellator {
 
                     let model_textures = model.textures();
 
-                    for face in model.shapes() {
-                        match face {
-                            ModelShape::Quad {quad} => {
-                                if let Some(dir) = quad.cullface {
-                                    if (occlusions & dir.ordinal_bitwise()) > 0 {
-                                        continue;
-                                    }
-                                };
+                    for quad in model.shapes() {
 
-                                let positions: [Vec3; 4] = [quad.pos[0] + real_world_position, quad.pos[1] + real_world_position, quad.pos[2] + real_world_position, quad.pos[3] + real_world_position];
-                                let texture = Self::find_texture_in_map(model_textures, quad.texture.clone());
-                                let texture_id = Identifier::from(texture);
-                                let (uv_min, uv_max) = if let Some(TextureObject::AtlasTexture { internal_uv }) = textures.get(&texture_id) {
-                                    (internal_uv[0], internal_uv[1])
-                                } else { 
-                                    log::warn!("No texture for {}", texture_id);
-                                    (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) 
-                                };
-                                let uv_range = uv_max - uv_min;
-                                let (quad_uv_min, quad_uv_max) = (quad.u / 16.0, quad.v / 16.0);
-
-                                let (uv_min, uv_max) = (uv_min + uv_range * quad_uv_min, uv_min + uv_range * quad_uv_max);
-
-                                let ao = if face.ao_face().is_some() {
-                                    let ao_range_min = face.ao_face().unwrap().ordinal() * 4;
-                                    let ao_range_max = ao_range_min + 4;
-                                    &ao[ao_range_min..ao_range_max]
-                                } else {
-                                    &[3, 3, 3, 3]
-                                };
-
-                                let lights = Self::sample_light_for_pos_multiple(&quad.pos, &lights, ao);
-
-                                let ao_left = ao[0] + ao[3];
-                                let ao_right = ao[2] + ao[1];
-                                let ao_flip = ao_left < ao_right;
-                                let light_left = lights[0] + lights[3];
-                                let light_right = lights[2] + lights[1];
-                                let light_flip = light_left >= light_right;
-                                let light_flip = lights[0] >= light_right || lights[3] >= light_right;
-                                let flip = light_flip;
-                                // let flip = ao_flip;
-
-                                if is_transparent {
-                                    self.quad_transparent(positions, lights, quad.color, quad.normal, uv_min, uv_max, flip);
-                                } else {
-                                    self.quad(positions, lights, quad.color, quad.normal, uv_min, uv_max, flip);
-                                }
-                            },
-                            ModelShape::Triangle {triangle} => {
-
+                        if let Some(dir) = quad.cullface {
+                            if (occlusions & dir.ordinal_bitwise()) > 0 {
+                                continue;
                             }
+                        };
+
+                        let positions: [Vec3; 4] = [quad.pos[0] + real_world_position, quad.pos[1] + real_world_position, quad.pos[2] + real_world_position, quad.pos[3] + real_world_position];
+                        let uvs = quad.uvs;
+
+                        let ao = if let Some(ao_face) = &quad.ao_face {
+                            let ao_range_min = ao_face.ordinal() * 4;
+                            let ao_range_max = ao_range_min + 4;
+                            &ao[ao_range_min..ao_range_max]
+                        } else {
+                            &[3, 3, 3, 3]
+                        };
+
+                        let lights = Self::sample_light_for_pos_multiple(&quad.pos, &lights, ao);
+
+                        let ao_left = ao[0] + ao[3];
+                        let ao_right = ao[2] + ao[1];
+                        let ao_flip = ao_left < ao_right;
+                        let light_left = lights[0] + lights[3];
+                        let light_right = lights[2] + lights[1];
+                        let light_flip = light_left >= light_right;
+                        let light_flip = lights[0] >= light_right || lights[3] >= light_right;
+                        let flip = light_flip;
+                        // let flip = ao_flip;
+
+                        if is_transparent {
+                            self.quad_transparent(positions, lights, quad.color, quad.normal, uvs, flip);
+                        } else {
+                            self.quad(positions, lights, quad.color, quad.normal, uvs, flip);
                         }
                     }
 

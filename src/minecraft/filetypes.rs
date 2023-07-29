@@ -188,7 +188,7 @@ impl MCModelRotation {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MCModelFace {
     pub uv: Option<[f32; 4]>,
     pub texture: String,

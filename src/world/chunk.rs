@@ -164,7 +164,7 @@ impl BlockStorage {
         if self.is_empty() && block != 0 {
             // upgrade and return
             self.upgrade();
-        } else if self.is_empty() {
+        } else if self.is_empty() { // adding air to air
             return;
         }
 
@@ -177,6 +177,18 @@ impl BlockStorage {
             new_local_id
         });
         
+        // Expander/Shrinker
+        let container_limit = self.get_limit();
+
+        let block_count = local_to_global_map.len();
+        if block_count > container_limit {
+            // upgrade
+            self.upgrade();
+        } else if block_count <= container_limit / 16 {
+            // downgrade
+            self.downgrade();
+        }
+
         // let old_local_id = self.get_local_id(index);
         self.set_local_id(index, local_id);
 
@@ -189,17 +201,6 @@ impl BlockStorage {
             local_to_global_map.swap_remove(old_local_id as usize);
         }
         */
-        // Expander/Shrinker
-        let container_limit = self.get_limit();
-
-        let block_count = local_to_global_map.len();
-        if block_count > container_limit {
-            // upgrade
-            self.upgrade();
-        } else if block_count <= container_limit / 16 {
-            // downgrade
-            self.downgrade();
-        }
     }
 
 }
@@ -250,7 +251,7 @@ impl Chunk {
     }
 
     /// Get the data of a block from an index
-    fn get_block_at_index(&self, index: usize) -> TBlockData {
+    pub fn get_block_at_index(&self, index: usize) -> TBlockData {
         return self.block_storage.get_block(index, &self.local_to_global_map).try_into().unwrap();
     }
 
@@ -313,6 +314,14 @@ impl Chunk {
 
     pub fn set_blocklight_at_vec(&mut self, pos: UVec3, light_value: TLightData) {
         self.set_blocklight_at_pos(pos.x, pos.y, pos.z, light_value);
+    }
+
+    pub fn get_global_to_local_map(&self) -> &TGlobalToLocalMap {
+        &self.global_to_local_map
+    }
+
+    pub fn get_local_to_global_map(&self) -> &TLocalToGlobalMap {
+        &self.local_to_global_map
     }
 
 }

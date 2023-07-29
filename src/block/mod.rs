@@ -7,10 +7,9 @@ use std::rc::{Rc, Weak};
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::minecraft::identifier::Identifier;
-use crate::client::models::model::{BakedModel, VoxelModel};
+use crate::client::models::model::BakedModel;
 use crate::direction::Direction;
 use crate::minecraft::registry::{Registerable, Registry};
-use crate::minecraft::template_models;
 
 use self::block_factory::BlockSettings;
 use self::properties::{PropertyValueType, PropertyDefinition};
@@ -37,7 +36,6 @@ pub struct Block {
     /// A list of properties stored per block
     properties: Vec<(String, Identifier)>,
 
-    model: ModelSupplierType,
     side_cull_fn: SideCullFunctionType,
 
     state_manager: RefCell<StateManager>,
@@ -62,7 +60,6 @@ impl Block {
 
         let properties = settings.properties.unwrap_or(Vec::default());
 
-        let model_supplier = settings.model_supplier.unwrap_or(|_| { VoxelModel::from_template(template_models::missing()).bake() });
         let side_cull_fn = settings.side_cull_fn.unwrap_or(|_| { true });
 
         Self {
@@ -73,7 +70,6 @@ impl Block {
             transparent,
             full_block,
             properties,
-            model: model_supplier,
             side_cull_fn,
             state_manager: RefCell::new(StateManager::new()),
         }
@@ -98,11 +94,6 @@ impl Block {
     pub fn is_full_block(&self) -> bool { self.full_block }
 
     pub fn is_solid_block(&self) -> bool { self.is_full_block() && !self.is_transparent() }
-
-    pub fn get_model(&self, meta: u32) -> BakedModel {
-        let f: ModelSupplierType = self.model;
-        f(meta)
-    }
 
     pub fn culls_side(&self, dir: Direction) -> bool {
         let f: SideCullFunctionType = self.side_cull_fn;
@@ -205,13 +196,18 @@ impl StateManager {
     }
 
     fn inner_with(&self, old_properties: &BlockStatePropertyMap, name: &str, value: &str) -> Rc<BlockState> {
+        let state_index = self.inner_get_state_index(old_properties, name, value);
+        self.siblings[state_index].upgrade().unwrap()
+    }
+
+    fn inner_get_state_index(&self, old_properties: &BlockStatePropertyMap, name: &str, value: &str) -> usize {
         let mut state_index = 0;
         for (index, property) in self.properties.iter().enumerate() {
             let property_offset: usize = self.state_indicies.get(index).cloned().unwrap_or(0);
             if property.0 == name {
                 let a: usize = match property.1.name_to_value(value) {
                     Ok(value) => value as usize,
-                    Err(e) => { log::error!("No legal value \"{}\" for property \"{}\"", value, name); continue; }
+                    Err(_) => { log::error!("No legal value \"{}\" for property \"{}\"", value, name); continue; }
                 };
                 state_index += a * property_offset;
                 // Find the value of the new property...
@@ -219,7 +215,7 @@ impl StateManager {
                 state_index += old_properties.get(&property.0).unwrap().0 as usize * property_offset;
             }
         }
-        self.siblings[state_index].upgrade().unwrap()
+        state_index
     }
 
     pub fn set_default(&mut self, properties: BlockStatePropertyMap) {
