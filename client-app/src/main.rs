@@ -54,7 +54,7 @@ impl std::error::Error for ServerConnectError {}
 
 impl Display for ServerConnectError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
+        write!(f, "{:?}", self)
     }
 }
 
@@ -73,6 +73,12 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
         for packet in network_thread.get_packets() {
             match packet {
                 Packet::Handshake { handshake_data } => {
+                    let username = if username.len() > 16 {
+                        username[0..16].to_string()
+                    } else {
+                        username.clone()
+                    };
+                    warn!("Username is length {}", username.len());
                     let login_packet = Packet::Login{ protocol: protocol_id, username: username.clone(), seed: 0, dimension: 0 };
                     network_thread.send_packet(login_packet); 
                     warn!("Handshake Packet Received! {handshake_data}, sending login request as {username}.");
@@ -158,13 +164,13 @@ impl OrangeClient {
         match &self.game_state {
             GameState::MainMenu => {
                 self.game_state.to_joining_server();
+
                 let ip_v4 = Ipv4Addr::from_str(&self.server_ip)?;
                 let ip_port = self.server_port.parse::<u16>()?;
                 let ip = SocketAddr::new(std::net::IpAddr::V4(ip_v4), ip_port);
                 let mut test_world = TestWorld::new(CHUNK_HEIGHT, &self.registry.read().unwrap());
                 let mut network_thread = join_server(self.username.clone(), 14, ip.ip().to_string(), ip.port() as u32, &mut test_world)?;
                 let test_world_o = Arc::new(RwLock::new(test_world));
-
 
                 let mut server_thread_o = WorkerThread::new();
                 let mut tick_time = instant::Instant::now();
@@ -288,8 +294,6 @@ impl RineApplication for OrangeClient {
         // Write the options out to file for verification and first time creation
         std::fs::write(orange_options_path.to_path_buf(), toml::to_string(&orange_options).unwrap_or(String::new()).as_bytes()).unwrap();
 
-        log::warn!("Stored ip: {}", orange_options.server_ip());
-
         let ip_params: Vec<&str> = orange_options.server_ip().split(":").collect();
         let param_ip = ip_params.get(0).map_or_else(|| "localhost", |&v| v).to_string();
         let param_port = ip_params.get(1).and_then(|v|v.parse().ok()).unwrap_or(25565);
@@ -299,7 +303,7 @@ impl RineApplication for OrangeClient {
         let winit_input_helper = WinitInputHelper::new();
         let minecraft = MinecraftClient::new(CHUNK_HEIGHT);
         minecraft.set_screen::<MainMenu>();
-
+        let registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
         {
             let device = window_client.device();
             let queue = window_client.queue();
@@ -307,7 +311,6 @@ impl RineApplication for OrangeClient {
             mc_resource_handler::create_resources(&mut client, device, queue, config);
             mc_resource_handler::load_binary_resources(&mut client, device, queue);
         }
-        let registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
 
         // The tessellator to be used to mesh the chunks, intended for multithreaded usage (TODO)
         let shared_tessellator = Arc::new(RwLock::new(TerrainTessellator::new()));
@@ -604,7 +607,7 @@ impl RineApplication for OrangeClient {
             },
             GameState::MainMenu => {
                 egui::Window::new("Orange Window").auto_sized().show(ctx, |ui| {
-                    ui.label(&self.username);
+                    egui::text_edit::TextEdit::singleline(&mut self.username).char_limit(16).show(ui).response.changed();
                     ui.label("Server Ip:");
                     ui.text_edit_singleline(&mut self.server_ip);
                     egui::text_edit::TextEdit::singleline(&mut self.server_port).char_limit(5).show(ui).response.changed();
