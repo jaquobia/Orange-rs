@@ -1,7 +1,9 @@
 mod test_world;
 mod orange_options;
+mod cli_options;
 
 use std::{collections::VecDeque, sync::{Arc, RwLock}, fs::File, io::{Write, Read}, net::{SocketAddr, Ipv4Addr}, str::FromStr, fmt::Display};
+use clap::Parser;
 use env_logger::Builder;
 use log::{LevelFilter, warn};
 use orange_rs::{
@@ -261,7 +263,9 @@ impl OrangeClient {
 impl RineApplication for OrangeClient {
     fn create(window_client: &rine::RineWindowClient) -> Self {
 
-        let home_path = dirs::data_dir().unwrap().join(".orange");
+        let cli = cli_options::OrangeCliArgs::parse();
+
+        let home_path =  cli.orange_directory.unwrap_or_else(||dirs::data_dir().unwrap().join(".orange"));
         log::warn!("Orange(config) Path: {}", home_path.display());
 
         if !home_path.exists() {
@@ -310,8 +314,7 @@ impl RineApplication for OrangeClient {
 
         let tessellate_queue = VecDeque::<IVec3>::new();
 
-
-        let username = String::from("TT2");
+        let username = cli.username.or_else(|| Some(orange_options.offline_username().to_string()) ).unwrap_or_else(||String::from("Dev"));
         Self {
             username,
             game_state: GameState::MainMenu,
@@ -601,6 +604,7 @@ impl RineApplication for OrangeClient {
             },
             GameState::MainMenu => {
                 egui::Window::new("Orange Window").auto_sized().show(ctx, |ui| {
+                    ui.label(&self.username);
                     ui.label("Server Ip:");
                     ui.text_edit_singleline(&mut self.server_ip);
                     egui::text_edit::TextEdit::singleline(&mut self.server_port).char_limit(5).show(ui).response.changed();
