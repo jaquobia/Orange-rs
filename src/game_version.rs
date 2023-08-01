@@ -2,18 +2,18 @@ use std::fs::{self, DirEntry};
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap as HashMap;
+use serde_json::{Value, Number};
 use ultraviolet::Vec2;
 use crate::block::Block;
 use crate::block::block_factory::BlockFactory;
 use crate::block::properties::PropertyDefinition;
-use crate::client::models::model::{BakedModel, VoxelElement, VoxelFace, VoxelModel, VoxelRotation};
+use crate::client::models::model::{BakedModel, VoxelModel, VoxelRotation};
 use crate::client::textures::TextureObject;
 use crate::client::textures::TextureObject::AtlasTexture;
 use crate::direction::Direction;
 use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType, MCModelFile, MCBlockstateType};
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::registry::Registry;
-use crate::minecraft::template_models::{cube_all, missing, torch};
 
 pub enum GameVersion {
     B173,
@@ -76,6 +76,7 @@ fn register_properties(registry: &mut Registry) {
         ("minecraft:boolean", &["false", "true"]),
         ("minecraft:block_half", &["bottom", "top"]),
         ("minecraft:redstone_side", &["side", "up"]),
+        ("minecraft:orientation_2d", &["NS", "EW"]),
         ("minecraft:count_1", &["0", "1"]),
         ("minecraft:count_2", &["0", "1", "2"]),
         ("minecraft:count_3", &["0", "1", "2", "3"]),
@@ -515,6 +516,7 @@ fn register_blocks(registry: &mut Registry) {
             BlockFactory::new("portal")
                 .hardness(-1.0)
                 .transparent(true)
+                .properties(&vec![("orientation", "minecraft:orientation_2d")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -524,6 +526,7 @@ fn register_blocks(registry: &mut Registry) {
                 .build(),
             BlockFactory::new("cake")
                 .hardness(0.5)
+                .properties(&vec![("slices", "minecraft:count_5")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -543,7 +546,7 @@ fn register_blocks(registry: &mut Registry) {
                 .build(),
             BlockFactory::new("trapdoor")
                 .hardness(-1.0)
-                .properties(&vec![("facing", "minecraft:facing_horizontal"), ("half", "minecraft:block_half")])
+                .properties(&vec![("facing", "minecraft:facing_horizontal"), ("powered", "minecraft:boolean")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -735,7 +738,34 @@ fn load_b173(registry: &mut Registry) {
                 model.clone().bake_with_rotate(rotation, &textures)
             },
             MCBlockstateType::multipart(multiparts) => {
-                missing_model_file.clone().bake(&textures)
+                let mut applied_models: Vec<(Identifier, Option<VoxelRotation>)> = vec![];
+                for part in multiparts {
+                    let conditions_passed = match &part["when"] {
+                        Value::Object(values) => {
+                            true
+                        },
+                        _ => false,
+                    };
+                    if !conditions_passed { continue; }
+                    let applied = &part["apply"];
+                    let model = Identifier::from(applied["model"].as_str().unwrap());
+                    let rotation_axis_angle = if let Value::Number(x) = &applied["x"] {
+                        Some((0, x))
+                    } else if let Value::Number(y) = &applied["y"] {
+                        Some((1, y))
+                    } else if let Value::Number(z) = &applied["z"] {
+                        Some((2, z))
+                    } else {
+                        None
+                    };
+                    let rotation = rotation_axis_angle.map(|(axis, angle)| { VoxelRotation::new(angle.as_f64().unwrap_or(0.) as f32, axis, [8., 8., 8.], false) });
+                    applied_models.push((model, rotation));
+                }
+
+                // let model = VoxelModel::new();
+                // model.bake(textures)
+                missing_model_file.clone().bake(textures)
+
             }
         };
         mapped_models.push((state.get_state_identifier().clone(), blockstate_model));

@@ -311,7 +311,7 @@ impl RineApplication for OrangeClient {
         let tessellate_queue = VecDeque::<IVec3>::new();
 
 
-        let username = String::from("TT3");
+        let username = String::from("TT2");
         Self {
             username,
             game_state: GameState::MainMenu,
@@ -406,8 +406,8 @@ impl RineApplication for OrangeClient {
                     let vec8 = IVec3::new(8, 8, 8);
                     // Sort by center of chunks; if sorting by min point, chunks to the x+/y+/z+ are likely to be drawn before the chunk of the player
                     render_list.sort_unstable_by(|a, b| {
-                        let dist_a = *a + vec8 - camera_pos_i;
-                        let dist_b = *b + vec8 - camera_pos_i;
+                        let dist_a = *a + (vec8 * 16) - camera_pos_i;
+                        let dist_b = *b + (vec8 * 16) - camera_pos_i;
                         dist_a.mag().cmp(&dist_b.mag())
                     });
                     for chunk_pos in &render_list {

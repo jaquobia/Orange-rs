@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 winit = "0.28"
 winit_input_helper = "0.14"
-wgpu = "0.16.0"
+wgpu = "0.16"
 rine = { git = "https://github.com/jaquobia/rine.git", features = ["egui-int"] }
 orange_rs = { path = "../", features = ["integrated"] }
 ultraviolet = {version = "0.9.0", features = ["bytemuck", "int", "f64"]}

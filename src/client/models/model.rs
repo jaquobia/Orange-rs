@@ -24,62 +24,6 @@ impl<const SIZE: usize> ModelPoly<SIZE> {
 pub type ModelQuad = ModelPoly<4>;
 pub type ModelTriangle = ModelPoly<3>;
 
-// pub enum ModelShape {
-//     Quad { quad: ModelQuad },
-//     Triangle { triangle: ModelTriangle },
-// }
-//
-// impl ModelShape {
-//     pub fn num_pos(&self) -> usize {
-//         match self {
-//             ModelShape::Quad { quad } => { quad.pos.len() },
-//             ModelShape::Triangle { triangle } => { triangle.pos.len() },
-//         }
-//     }
-//     pub fn pos(&self, index: usize) -> Vec3 {
-//         match self {
-//             ModelShape::Quad { quad } => { quad.pos[index] },
-//             ModelShape::Triangle { triangle } => { triangle.pos[index] },
-//         }
-//     }
-//     pub fn normal(&self) -> Vec3 {
-//         match self {
-//             ModelShape::Quad { quad } => { quad.normal },
-//             ModelShape::Triangle { triangle } => { triangle.normal },
-//         }
-//     }
-//     pub fn color(&self) -> Vec3 {
-//         match self {
-//             ModelShape::Quad { quad } => { quad.color },
-//             ModelShape::Triangle { triangle } => { triangle.color },
-//         }
-//     }
-//     pub fn uv(&self) -> [Vec2; 2] {
-//         match self {
-//             ModelShape::Quad { quad } => { [quad.u, quad.v] },
-//             ModelShape::Triangle { triangle } => { [triangle.u, triangle.v] },
-//         }
-//     }
-//     pub fn cullface(&self) -> Option<Direction> {
-//         match self {
-//             ModelShape::Quad { quad } => { quad.cullface },
-//             ModelShape::Triangle { triangle } => { triangle.cullface },
-//         }
-//     }
-//     pub fn ao_face(&self) -> Option<Direction> {
-//         match self {
-//             ModelShape::Quad { quad } => { quad.ao_face },
-//             ModelShape::Triangle { triangle } => { triangle.ao_face },
-//         }
-//     }
-//     pub fn texture(&self) -> &String {
-//         match self {
-//             ModelShape::Quad { quad } => { &quad.texture },
-//             ModelShape::Triangle { triangle } => { &triangle.texture },
-//         }
-//     }
-// }
-
 pub struct BakedModel {
     quads: Vec<ModelQuad>,
     textures: HashMap<String, String>,
@@ -137,17 +81,17 @@ fn get_face_vertices_on_cuboid(face: Direction, points: &[Vec3; 8]) -> [Vec3; 4]
             points[3],
             points[6],
         ],
-        Direction::Up => [
-            points[5],
-            points[4],
+        Direction::Up => [ // Before: 5,4,1,0
             points[0],
+            points[5],
             points[1],
+            points[4],
         ],
-        Direction::Down => [
-            points[6],
+        Direction::Down => [ // Before: 6,7,3,2
             points[7],
-            points[3],
             points[2],
+            points[6],
+            points[3],
         ],
     }
 }
