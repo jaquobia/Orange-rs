@@ -58,7 +58,7 @@ impl Identifier {
         }
     }
 
-    pub fn get_identifier(&self) -> &String {
+    pub fn get_identifier_string(&self) -> &String {
         &self.total_id
     }
 

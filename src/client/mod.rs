@@ -7,7 +7,8 @@ pub mod models;
 pub mod resource_manager;
 pub mod textures;
 
-use std::collections::HashMap;
+// use std::collections::HashMap;
+use rustc_hash::FxHashMap as HashMap;
 
 use camera::{Camera, CameraController, Projection};
 use crate::math_helper::angle;
@@ -64,13 +65,13 @@ impl Client {
 
             cursor_visible: true,
 
-            textures: HashMap::new(),
+            textures: HashMap::default(),
             depth_texture,
 
-            pipelines: HashMap::new(),
-            buffers: HashMap::new(),
-            bind_group_layouts: HashMap::new(),
-            bind_groups: HashMap::new(),
+            pipelines: HashMap::default(),
+            buffers: HashMap::default(),
+            bind_group_layouts: HashMap::default(),
+            bind_groups: HashMap::default(),
         }
     }
 

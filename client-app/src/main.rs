@@ -548,7 +548,7 @@ impl RineApplication for OrangeClient {
                         .process_keyboard(CameraControllerMovement::Down, true);
                 }
                 if event_helper.key_pressed(Key::V) {
-                    window_client.set_vsync(true);
+                    window_client.toggle_vsync();
                 }
                 if event_helper.key_pressed(Key::Escape) {
                     client.toggle_cursor_visible(window_client.window());

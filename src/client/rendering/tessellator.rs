@@ -536,8 +536,6 @@ impl TerrainTessellator {
                     let lights = Self::get_nearby_lighting_data(&nearby_lights, block_light, sky_light);
                     let ao = if model.ambient_occlusion() { Self::get_nearby_ao_data(&nearby_blocks, states) } else { [3; 24] };
 
-                    let model_textures = model.textures();
-
                     for quad in model.shapes() {
 
                         if let Some(dir) = quad.cullface {

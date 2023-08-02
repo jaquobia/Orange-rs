@@ -7,7 +7,7 @@ use ultraviolet::Vec2;
 use crate::block::Block;
 use crate::block::block_factory::BlockFactory;
 use crate::block::properties::PropertyDefinition;
-use crate::client::models::model::{BakedModel, VoxelModel, VoxelRotation};
+use crate::client::models::model::{BakedModel, VoxelModel, VoxelRotation, self};
 use crate::client::textures::TextureObject;
 use crate::client::textures::TextureObject::AtlasTexture;
 use crate::direction::Direction;
@@ -691,81 +691,14 @@ fn load_b173(registry: &mut Registry) {
 
     let textures = registry.get_texture_register();
     for state in registry.get_blockstate_register().get_elements() {
-        let identifier = state.get_state_identifier().get_identifier();
+        let identifier = state.get_state_identifier().get_identifier_string();
         let block_id = state.get_block_identifier();
 
-        let blockstate_file = blockstate_files.get(block_id).expect(format!("Missing blockstate file for {}", block_id).as_str());
-        let blockstate_model = match &blockstate_file {
-            MCBlockstateType::variants(variants) => {
-                let mut t_variant_model = Identifier::from_str(variants.get("").map(|v| v["model"].as_str().unwrap()).unwrap_or("minecraft:missing"));
-                let mut rotation_axis_angle = None;
-                for (property_list, variant_model) in variants {
-                    let mut valid_variant = true;
-                    for variant_property in property_list.split(",") {
-                        valid_variant &= identifier.contains(variant_property);
-                    }
-                    if valid_variant {
-                        t_variant_model = Identifier::from(variant_model["model"].as_str().unwrap());
-                        if variant_model["x"].is_number() {
-                            rotation_axis_angle = Some((0, variant_model["x"].as_f64()));
-                        } else if variant_model["y"].is_number() {
-                            rotation_axis_angle = Some((1, variant_model["y"].as_f64()));
-                        } else if variant_model["z"].is_number() {
-                            rotation_axis_angle = Some((2, variant_model["z"].as_f64()));
-                        }
-                    }
-                }
-
-                if !t_variant_model.get_name().starts_with("block/") {
-                    t_variant_model = Identifier::new(t_variant_model.get_namespace().clone(), format!("block/{}", t_variant_model.get_name()));
-                }
-
-                if t_variant_model.get_identifier() == "minecraft:missing" {
-                    log::warn!("Using missing model for {}", identifier);
-                }
-
-                let model = match voxel_models.get(&t_variant_model) {
-                    Some(model_file) => {
-                        log::info!("Using model {} for blockstate {}", t_variant_model, identifier);
-                        model_file
-                    },
-                    None => {
-                        log::error!("Invalid model {} for blockstate {}!", t_variant_model, identifier);
-                        missing_model_file
-                    }
-                };
-                let rotation = rotation_axis_angle.map(|(axis, angle)| { VoxelRotation::new(angle.unwrap_or(0.) as f32, axis, [8., 8., 8.], false) });
-                model.clone().bake_with_rotate(rotation, &textures)
-            },
-            MCBlockstateType::multipart(multiparts) => {
-                let mut applied_models: Vec<(Identifier, Option<VoxelRotation>)> = vec![];
-                for part in multiparts {
-                    let conditions_passed = match &part["when"] {
-                        Value::Object(values) => {
-                            true
-                        },
-                        _ => false,
-                    };
-                    if !conditions_passed { continue; }
-                    let applied = &part["apply"];
-                    let model = Identifier::from(applied["model"].as_str().unwrap());
-                    let rotation_axis_angle = if let Value::Number(x) = &applied["x"] {
-                        Some((0, x))
-                    } else if let Value::Number(y) = &applied["y"] {
-                        Some((1, y))
-                    } else if let Value::Number(z) = &applied["z"] {
-                        Some((2, z))
-                    } else {
-                        None
-                    };
-                    let rotation = rotation_axis_angle.map(|(axis, angle)| { VoxelRotation::new(angle.as_f64().unwrap_or(0.) as f32, axis, [8., 8., 8.], false) });
-                    applied_models.push((model, rotation));
-                }
-
-                // let model = VoxelModel::new();
-                // model.bake(textures)
+        let blockstate_model = match blockstate_files.get(block_id) {
+            Some(blockstate_file) => crate::client::models::generate_blockstate_model(&blockstate_file, identifier, &voxel_models, textures),
+            None => {
+                log::warn!("Missing blockstate file for {}", block_id);
                 missing_model_file.clone().bake(textures)
-
             }
         };
         mapped_models.push((state.get_state_identifier().clone(), blockstate_model));

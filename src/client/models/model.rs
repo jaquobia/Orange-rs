@@ -6,6 +6,7 @@ use crate::{direction::{Direction, DIRECTIONS}, client::textures::TextureObject,
 
 const ONE_SIXTEENTH: f32 = 1.0 / 16.0;
 
+#[derive(Clone, Copy)]
 pub struct ModelPoly<const SIZE:  usize> {
     pub pos: [Vec3; SIZE],
     pub uvs: [Vec2; SIZE],
@@ -13,7 +14,6 @@ pub struct ModelPoly<const SIZE:  usize> {
     pub color: Vec3,
     pub cullface: Option<Direction>,
     pub ao_face: Option<Direction>,
-    pub texture: String,
     pub tint_index: i32,
 }
 
@@ -26,7 +26,6 @@ pub type ModelTriangle = ModelPoly<3>;
 
 pub struct BakedModel {
     quads: Vec<ModelQuad>,
-    textures: HashMap<String, String>,
     ambient_occlusion: bool,
 }
 
@@ -34,7 +33,6 @@ impl BakedModel {
     pub fn new() -> Self {
         Self {
             quads: vec![],
-            textures: HashMap::default(),
             ambient_occlusion: true,
         }
     }
@@ -42,10 +40,12 @@ impl BakedModel {
     pub fn shapes(&self) -> &Vec<ModelQuad> {
         &self.quads
     }
-    pub fn textures(&self) -> &HashMap<String, String> {
-        &self.textures
-    }
+
     pub fn ambient_occlusion(&self) -> bool { self.ambient_occlusion }
+
+    pub fn combine(&mut self, other: &Self) {
+        self.quads.extend(other.quads.clone());
+    }
 }
 
 #[derive(Clone)]
@@ -144,7 +144,6 @@ impl VoxelModel {
             2 => Vec3::unit_z(),
             _ => Vec3::zero(),
         };
-        // warn!("Rotation on axis {axis:?} by {angle} radians");
         let rotation = Mat4::from_rotation_around(axis.xyzw(), angle).extract_rotation().normalized();
         // the function provided by minecraft's wiki under the sapling example, but doesn't work: https://minecraft.fandom.com/wiki/Tutorials/Models#Block_models
         // let scale = if *rescale { 1.0 + 1.0 / (angle.cos() - 1.0) } else { 1.0 };
@@ -181,11 +180,10 @@ impl VoxelModel {
     }
 
     fn find_texture_in_map(texture_strings: &HashMap<String, String>, mut tex_to_find: String) -> String {
-        let default_texture = String::from("missing");
 
         while tex_to_find.starts_with("#") {
             let a = &texture_strings.get(&tex_to_find[1..]);
-            tex_to_find = a.unwrap_or(&default_texture).clone();
+            tex_to_find = a.cloned().unwrap_or_else(|| String::from("missing"));
         }
 
         return tex_to_find;
@@ -266,11 +264,19 @@ impl VoxelModel {
                     let ao_face = if element.rotation.is_some() { None } else { cullface.clone() };
                     let normal = face_direction.get_float_vector();
                     let tint_index = face.tint_index;
-                    quads.push( ModelQuad { pos, uvs, texture: face.texture_variable.clone(), color, cullface, ao_face, normal, tint_index });
+                    quads.push( ModelQuad { 
+                        pos, 
+                        uvs, 
+                        color, 
+                        cullface, 
+                        ao_face, 
+                        normal, 
+                        tint_index 
+                    });
                 }
             }
         }
-        BakedModel { quads, textures, ambient_occlusion: self.ambient_occlusion }
+        BakedModel { quads, ambient_occlusion: self.ambient_occlusion }
     }
 }
 

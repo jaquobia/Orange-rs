@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use rustc_hash::FxHashMap as HashMap;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgb32FImage};

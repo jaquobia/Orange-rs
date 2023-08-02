@@ -2,6 +2,14 @@ use rustc_hash::FxHashMap as HashMap;
 
 use super::{registry::Registry, identifier::Identifier};
 
+/// Blocks to post-process:
+/// Fence -> Beams
+/// Chest -> Rotation
+/// Grass -> Snow
+/// Noteblock?
+/// Jukebox?
+/// Portal -> Orientation
+/// Locked Chest -> Rotation
 pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
     let blocks = registry.get_block_register();
     let mut map = HashMap::default();
