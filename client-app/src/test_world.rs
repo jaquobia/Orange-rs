@@ -252,7 +252,7 @@ impl TestWorld {
                     // warn!("Updating Statistic");
                 },
                 Packet::DisconnectKick { reason } => {
-                    // warn!("Disconnected: {reason}, stopping connection.");
+                   log::warn!("Disconnected: {reason}, stopping connection.");
                 }
             }
         }
@@ -350,7 +350,7 @@ impl TestWorld {
 
                 let block_data = match self.block_to_state_map.get(&block_data) {
                     Some(state) => *state,
-                    _ => { log::error!("Failed to find id: {}|{}", block_data & 0b11111111, block_data >> 8); return; }
+                    _ => { log::error!("Failed to find id: {}|{} ({block_data})", block_data & 0b11111111, block_data >> 8); return; }
                 };
 
 
@@ -374,7 +374,7 @@ impl TestWorld {
 
             let block_data = match self.block_to_state_map.get(&block_data) {
                     Some(state) => *state,
-                    _ => { log::error!("Failed to find id: {}|{}", block_data & 0b11111111, block_data >> 8); return; }
+                    _ => { log::error!("Failed to find id: {}|{} ({block_data})", block_data & 0b11111111, block_data >> 8); return; }
                 };
 
             if let Ok(chunk) = self.chunk_storage.get_chunk_mut(IVec3::new(cx, y >> 4, cz)) {
@@ -441,7 +441,7 @@ impl TestWorld {
 
                     let data = match self.block_to_state_map.get(&data) {
                         Some(state) => *state,
-                        _ => { log::error!("Failed to find id: {}|{}", data & 0b11111111, data >> 8); *self.block_to_state_map.get(&19).unwrap() }
+                        _ => { log::error!("Failed to find id: {}|{} ({data})", data & 0b11111111, data >> 8); *self.block_to_state_map.get(&19).unwrap() }
                     };
 
                     let x = chunk_x_start + x as u32;

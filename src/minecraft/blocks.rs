@@ -176,6 +176,8 @@ pub fn blocks() -> Vec<Block> {
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
+            BlockFactory::new("moving_piston")
+                .build(),
             BlockFactory::new("yellow_flower")
                 .hardness(0.0)
                 .side_cull_fn(non_full_cull)

@@ -295,6 +295,7 @@ impl RineApplication for OrangeClient {
         let ip_params: Vec<&str> = orange_options.server_ip().split(":").collect();
         let param_ip = ip_params.get(0).map_or_else(|| "localhost", |&v| v).to_string();
         let param_port = ip_params.get(1).and_then(|v|v.parse().ok()).unwrap_or(25565);
+        let username = cli.username.or_else(|| Some(orange_options.offline_username().to_string()) ).unwrap_or_else(||String::from("Dev"));
 
         let render_time = ElapsedTime::new();
         let mut client = Client::new(window_client.device(), window_client.config(), window_client.window().inner_size());
@@ -319,7 +320,7 @@ impl RineApplication for OrangeClient {
 
         let tessellate_queue = VecDeque::<IVec3>::new();
 
-        let username = cli.username.or_else(|| Some(orange_options.offline_username().to_string()) ).unwrap_or_else(||String::from("Dev"));
+        log::warn!("================");
         Self {
             username,
             game_state: GameState::MainMenu,
