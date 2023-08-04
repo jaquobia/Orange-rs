@@ -27,7 +27,7 @@ use orange_rs::{
             Position
         },
         workers::WorkerThread
-    },
+    }, game_version,
 
 };
 
@@ -43,19 +43,14 @@ use orange_rs::util::pos::NewChunkPosition;
 use orange_rs::world::ChunkStorageTrait;
 use crate::{test_world::TestWorld, orange_options::OrangeOptions};
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 enum ServerConnectError {
+    #[error("Invalid Address")]
     InvalidAddress,
+    #[error("Unexpected Packet {0}")]
     UnexpectedPacket(String),
+    #[error("Kicked: {0}")]
     Kick(String),
-}
-
-impl std::error::Error for ServerConnectError {}
-
-impl Display for ServerConnectError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 fn join_server(username: String, protocol_id: i32, address: String, port: u32, world: &mut TestWorld) -> Result<NetworkThread<Packet>, ServerConnectError> {
@@ -84,6 +79,7 @@ fn join_server(username: String, protocol_id: i32, address: String, port: u32, w
                     warn!("Handshake Packet Received! {handshake_data}, sending login request as {username}.");
                 },
                 Packet::Login { protocol, seed, dimension, .. } => {
+                    warn!("Login Packet");
                     player_id = protocol;
                     world.set_dimension_id(dimension);
                     world.set_seed(seed);
@@ -152,7 +148,6 @@ struct OrangeClient {
     registry: Arc<RwLock<Registry>>,
     tessellator: Arc<RwLock<TerrainTessellator>>,
     tessellate_queue: VecDeque<IVec3>,
-
 
     server_ip: String,
     server_port: String,
@@ -277,12 +272,15 @@ impl RineApplication for OrangeClient {
         if !home_path.exists() {
             match std::fs::create_dir_all(home_path.to_path_buf()) {
                 Ok(_) => {  },
-                Err(e) => { log::error!("Could not create orange folder! {e}"); }
+                Err(e) => { 
+                    log::error!("Could not create orange folder! {e}");
+                    panic!(); // Don't continue, we can't do anything
+                }
             }
         }
 
         let orange_options_path = home_path.join("options.toml");
-        let orange_assets_path = home_path.join("assets");
+        let orange_assets_path = cli.assets_directory.unwrap_or_else(|| home_path.join("assets"));
 
         // Get or default the options
         let orange_options: OrangeOptions = orange_options_path.exists()
@@ -303,7 +301,11 @@ impl RineApplication for OrangeClient {
         let winit_input_helper = WinitInputHelper::new();
         let minecraft = MinecraftClient::new(CHUNK_HEIGHT);
         minecraft.set_screen::<MainMenu>();
-        let registry = Arc::new(RwLock::new(Registry::load_from(orange_rs::game_version::GameVersion::B173)));
+        let registry = Arc::new(RwLock::new(Registry::new()));
+        if let Ok(mut registry) = registry.write() {
+            game_version::register_content(&mut registry);
+            game_version::load_resources(&mut registry);
+        }
         {
             let device = window_client.device();
             let queue = window_client.queue();

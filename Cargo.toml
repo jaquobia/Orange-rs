@@ -11,6 +11,12 @@ resolver = "2"
 [lib]
 path = "src/lib.rs"
 
+[profile.release]
+# lto = true
+# lto = "thin"
+# strip = "debuginfo"
+# strip = true
+
 [dependencies]
 winit = "0.28"
 wgpu = { version = "0.16", optional = true }
@@ -21,6 +27,7 @@ instant = { version = "0.1", features = ["stdweb"] }
 
 env_logger = "0.10.0"
 log = "0.4"
+thiserror = "1.0.44"
 
 ultraviolet = {version = "0.9.0", features = ["bytemuck", "int", "f64"]}
 bytemuck = { version = "1.12", features = ["derive"] }

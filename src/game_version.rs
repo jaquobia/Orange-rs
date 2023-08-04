@@ -21,7 +21,7 @@ pub enum GameVersion {
 impl GameVersion {
     pub fn load_registry(&self, registry: &mut Registry) {
         match self {
-            Self::B173 => load_b173(registry),
+            Self::B173 => load_resources(registry),
             _ => {},
         }
     }
@@ -103,6 +103,11 @@ fn register_blocks(registry: &mut Registry) {
 
 }
 
+pub fn register_content(registry: &mut Registry) {
+    register_properties(registry);
+    register_blocks(registry);
+}
+
 // TODO: Check for infinite recursion through already visited models
 fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMap<Identifier, MCModelFile>, voxel_models: &mut HashMap<Identifier, VoxelModel>) -> Option<VoxelModel> {
     let already_visited = false;
@@ -156,11 +161,7 @@ fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMa
     })
 }
 
-fn load_b173(registry: &mut Registry) {
-
-    register_properties(registry);
-    register_blocks(registry);
-
+pub fn load_resources(registry: &mut Registry) {
 
     let mut model_files = HashMap::default();
     let mut voxel_models = HashMap::default();
@@ -230,16 +231,18 @@ fn load_b173(registry: &mut Registry) {
 
     let textures = registry.get_texture_register();
     for state in registry.get_blockstate_register().get_elements() {
-        let identifier = state.get_state_identifier().get_identifier_string();
+        let identifier = state.get_state_identifier();
         let block_id = state.get_block_identifier();
 
-        let a = blockstate_files.get(block_id).ok_or("Missing Blockstate File".into()).and_then(|blockstate_file| {
-            crate::client::models::generate_blockstate_model(&blockstate_file, identifier, &voxel_models, textures)
-        });
+        let a = blockstate_files.get(block_id)
+            .ok_or(crate::client::models::BlockstateParseError::NoBlockstateFile)
+            .and_then(|blockstate_file| {
+                crate::client::models::generate_blockstate_model(&blockstate_file, identifier.get_identifier_string(), &voxel_models, textures)
+            });
         let blockstate_model = match a {
             Ok(model) => model,
             Err(e) => {
-                log::warn!("Missing blockstate file for {}, reason: {}", block_id, e);
+                log::warn!("Failed to create model for blockstate {}, reason: {}", identifier, e);
                 missing_model_file.clone().bake(textures)
             }
         };
