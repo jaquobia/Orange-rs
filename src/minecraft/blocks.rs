@@ -103,7 +103,7 @@ pub fn blocks() -> Vec<Block> {
             BlockFactory::new("glass")
                 .hardness(0.3)
                 .resistance(6000000.0)
-                .transparent(true)
+                .transparent(false)
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -133,11 +133,13 @@ pub fn blocks() -> Vec<Block> {
                 .build(),
             BlockFactory::new("powered_rail")
                 .hardness(0.7)
+                .properties(&vec![("shape", "minecraft:rail_no_curve"), ("powered", "minecraft:boolean")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
             BlockFactory::new("detector_rail")
                 .hardness(0.7)
+                .properties(&vec![("shape", "minecraft:rail_no_curve"), ("powered", "minecraft:boolean")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),
@@ -314,6 +316,7 @@ pub fn blocks() -> Vec<Block> {
                 .build(),
             BlockFactory::new("rail")
                 .hardness(0.7)
+                .properties(&vec![("shape", "minecraft:rail_with_curve")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),

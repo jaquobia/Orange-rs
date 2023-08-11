@@ -82,6 +82,8 @@ fn register_properties(registry: &mut Registry) {
         ("minecraft:tall_grass_type", &["grass", "fern", "dead_bush"]),
         ("minecraft:tree_type", &["oak", "spruce", "birch"]),
         ("minecraft:slab_type", &["stone", "sandstone", "plank", "cobblestone"]),
+        ("minecraft:rail_no_curve", &["north_south", "east_west", "ascending_north", "ascending_south", "ascending_east", "ascending_west"]),
+        ("minecraft:rail_with_curve", &["north_south", "east_west", "ascending_north", "ascending_south", "ascending_east", "ascending_west", "north_east", "north_west", "south_east", "south_west"]),
         ("minecraft:color", &["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]),
     ];
     for property_def in property_list {

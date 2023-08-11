@@ -16,8 +16,8 @@ pub enum BlockstateParseError {
     NoBlockstateFile,
     #[error("Model Identifier is not a String type")]
     ModelIdentifierNotString,
-    #[error("Model Identifier is not valid")]
-    ModelIdentifierNotValid,
+    #[error("Model Identifier is not valid: {0}")]
+    ModelIdentifierNotValid(String),
     #[error("No variants were matched")]
     NoMatchedVariants,
 }
@@ -74,7 +74,7 @@ fn parse_variant_identifier_and_rotation(state_variants: &HashMap<String, Value>
 fn generate_variant_blockstate_model(state_variants: &HashMap<String, Value>, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, TextureObject>)
     -> BlockstateParseResult<BakedModel> {
     let (model_identifier, variant_rotation) = parse_variant_identifier_and_rotation(state_variants, blockstate_identifier_string)?;
-    let model = voxel_models.get(&model_identifier).cloned().ok_or(BlockstateParseError::ModelIdentifierNotValid)?;
+    let model = voxel_models.get(&model_identifier).cloned().ok_or(BlockstateParseError::ModelIdentifierNotValid(model_identifier.to_string()))?;
     let rotation = variant_rotation.map(|(axis, angle)| { VoxelRotation::new(angle as f32, axis, [8., 8., 8.], false) });
     Ok(model.bake_with_rotate(rotation, &textures))
 }
