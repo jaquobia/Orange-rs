@@ -28,30 +28,27 @@ pub fn generate_block_to_state_map(registry: &Registry) -> HashMap<u16, usize> {
     let blocks = registry.get_block_register();
     let mut map = HashMap::default();
     let mapping_data: JsonBlockMapping = serde_json::from_str(std::fs::read_to_string("block_id_map.json").unwrap_or("".to_string()).as_str()).expect("No valid block_id_map.json");
-    let air = registry.get_blockstate_register().get_index_from_identifier(&"minecraft:sponge".into());
+    let default = registry.get_blockstate_register().get_index_from_identifier(&"minecraft:sponge".into());
     mapping_data.map.into_iter().for_each(|block_map| {
         let full_id = block_map.id as u16;
         let blockstate_id = block_map.block;
-        let split_identifier: Vec<&str> = blockstate_id.split("#").collect();
-        
-        let block = split_identifier.first().expect(format!("Invalid block identifier in {}", blockstate_id).as_str());
+        let (block, properties) = blockstate_id.split_once("#").unwrap_or_else(|| (&blockstate_id, ""));
 
         let identifier = Identifier::from_str(block);
         let blockstate = match blocks.get_element_from_identifier(&identifier) {
             Some(block) => {
                 let mut current_blockstate = block.get_default_state();
                 
-                if let Some(properties) = split_identifier.get(1) {
-                    for property in properties.split(",") {
-                        let (name, value) = property.split_once("=").unwrap();
+                for property in properties.split(",") {
+                    if let Some((name, value)) = property.split_once("=") {
                         current_blockstate = current_blockstate.with(name, value);
-                    }
+                    };
                 }
                 // current_blockstate.get_state_identifier()
                 let state_id = registry.get_blockstate_register().get_index_from_identifier(current_blockstate.get_state_identifier());
                 state_id
             },
-            _ => {log::warn!("Improperly matched id to state: {} -> {}", identifier, full_id); air},
+            _ => {log::warn!("Improperly matched id to state: {} -> {}", identifier, full_id); default},
         };
         map.insert(full_id, blockstate);
     }); 
