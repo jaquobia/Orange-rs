@@ -20,7 +20,7 @@ Transparency issues, occlusion culling issues, missing models, incomplete resour
 * Add Items
 * Add collision
 * Add "Screens"
-* Add gui's and containers
+* Add gui's and containers  
 ~~* Generate chunks and manage server operations on a separate thread~~
 * ~~Add world saving and loading (Anvil Format)~~
 
