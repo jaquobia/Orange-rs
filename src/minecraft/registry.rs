@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::block::BlockState;
 use crate::block::properties::PropertyDefinition;
 use crate::client::models::model::BakedModel;
-use crate::{block::Block, minecraft::identifier::Identifier, game_version::GameVersion};
+use crate::{block::Block, minecraft::identifier::Identifier};
 use crate::client::textures::TextureObject;
 
 use rustc_hash::FxHashMap as HashMap;
@@ -34,20 +34,6 @@ impl Registry {
         let blockstates = Register::<BlockState>::new(256);
         let models = HashMap::default();
         Self { blocks, textures, properties, blockstates, models }
-    }
-
-    pub fn load_from(version: GameVersion) -> Self {
-        let mut registry = Self::new();
-        
-        version.load_registry(&mut registry);
-
-        registry
-    }
-
-    pub fn load_custom<F: FnOnce(&mut Registry)>(funct: F) -> Self {
-        let mut registry = Self::new();
-        funct(&mut registry);
-        registry
     }
 
     pub fn get_block_register(&self) -> &Register<Block> {

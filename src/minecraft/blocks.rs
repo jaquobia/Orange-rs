@@ -373,6 +373,7 @@ pub fn blocks() -> Vec<Block> {
                 .build(),
             BlockFactory::new("button")
                 .hardness(0.5)
+                .properties(&vec![("powered", "minecraft:boolean"), ("facing", "minecraft:facing_horizontal")])
                 .side_cull_fn(non_full_cull)
                 .full_block(false)
                 .build(),

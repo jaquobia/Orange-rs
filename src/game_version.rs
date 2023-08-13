@@ -8,24 +8,11 @@ use crate::block::properties::PropertyDefinition;
 use crate::client::models::model::{BakedModel, VoxelModel};
 use crate::client::textures::TextureObject;
 use crate::client::textures::TextureObject::AtlasTexture;
-use crate::minecraft::blocks;
+use crate::minecraft::{blocks, asset_loader};
 use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType, MCModelFile, MCBlockstateType};
 use crate::minecraft::identifier::Identifier;
 use crate::minecraft::registry::Registry;
-
-pub enum GameVersion {
-    B173,
-    Orange,
-}
-
-impl GameVersion {
-    pub fn load_registry(&self, registry: &mut Registry) {
-        match self {
-            Self::B173 => load_resources(registry),
-            _ => {},
-        }
-    }
-}
+use crate::resource_loader;
 
 fn get_uv_from_atlas_index(texture_index: usize) -> [Vec2; 2] {
     let (u, v) = ((texture_index % 16) as f32 * 16., (texture_index / 16) as f32 * 16.,);
@@ -163,50 +150,20 @@ fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMa
     })
 }
 
-pub fn load_resources(registry: &mut Registry) {
+pub fn load_resources(registry: &mut Registry, assets_directory: &PathBuf) {
 
-    let mut model_files = HashMap::default();
-    let mut voxel_models = HashMap::default();
-    let mut blockstate_files = HashMap::default();
+    let resource_locations = vec![assets_directory.to_owned()];
+    let mut resource_loader = resource_loader::ResourceLoader::new();
+    resource_loader.set_sources(&resource_locations);
 
-    let namespace = "minecraft";
-    let context = "models";
-    let assets_dir = "../orange-mc-assets";
+    let mut asset_loader = asset_loader::AssetLoader::new();
+    asset_loader.preload("b173", assets_directory);
+    resource_loader.reload_system(&mut asset_loader);
 
-    let read_dir = format!("{}/assets/{}/{}/", assets_dir, namespace, context);
-    iter_files_recursive(read_dir.clone().into(), &mut |entry| {
-        if entry.file_name().to_str().unwrap().to_owned().ends_with(".json") {
-            match serde_json::from_str::<MCModelFile>(fs::read_to_string(entry.path()).unwrap().as_str()) {
-                Ok(model_file) => {
-                    let resource_extension = entry.path().extension().map(|ext| format!(".{}", ext.to_string_lossy().to_string())).unwrap_or("".to_string());
-                    let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "").replace("\\", "/");
-                    let resource_id = Identifier::new(namespace.to_string(), resource_path.clone());
-                    model_files.insert(resource_id, model_file);
-                },
-                Err(e) => { log::error!("Error processing {}: {}", entry.file_name().to_string_lossy(), e) }
-            };
-        } else {
-            log::error!("Unknown File: {}", entry.path().display());
-        }
-    });
+    let model_files = asset_loader.models();
+    let blockstate_files = asset_loader.blockstates();
 
-    let context = "blockstates";
-    let read_dir = format!("{}/assets/{}/{}/", assets_dir, namespace, context);
-    iter_files_recursive(read_dir.clone().into(), &mut |entry| {
-        if entry.file_name().to_string_lossy().ends_with(".json") {
-            match serde_json::from_str::<MCBlockstateType>(fs::read_to_string(entry.path()).unwrap().as_str()) {
-                Ok(blockstate_file) => {
-                    let resource_extension = entry.path().extension().map(|ext| format!(".{}", ext.to_string_lossy().to_string())).unwrap_or("".to_string());
-                    let resource_path = entry.path().to_string_lossy().replace(&read_dir, "").replace(&resource_extension, "").replace("\\", "/");
-                    let resource_id = Identifier::new(namespace.to_string(), resource_path);
-                    blockstate_files.insert(resource_id, blockstate_file);
-                },
-                Err(e) => { log::error!("Error processing {}: {}", entry.file_name().to_string_lossy(), e) }
-            };
-        }
-    });
-
-    let atlas_texture_json_str = fs::read_to_string([assets_dir, "assets/minecraft/textures/block/terrain.mcatlas"].join("/"))
+    let atlas_texture_json_str = fs::read_to_string(["../orange-mc-assets", "assets/minecraft/textures/block/terrain.mcatlas"].join("/"))
         .expect("Should have been able to read the file");
     let atlas_textures: MCAtlasTextureFile = serde_json::from_str(atlas_texture_json_str.as_str()).unwrap();
 
@@ -218,6 +175,7 @@ pub fn load_resources(registry: &mut Registry) {
         }
     }
 
+    let mut voxel_models = HashMap::default();
     for model_file_id in model_files.keys() {
         let voxel_model = make_model(registry, &model_file_id, &model_files, &mut voxel_models);
         if let Some(voxel_model) = voxel_model { voxel_models.insert(model_file_id.clone(), voxel_model); } else { log::warn!("Couln't make voxel model for {}", model_file_id); }

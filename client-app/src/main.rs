@@ -305,7 +305,7 @@ impl RineApplication for OrangeClient {
         let registry = Arc::new(RwLock::new(Registry::new()));
         if let Ok(mut registry) = registry.write() {
             game_version::register_content(&mut registry);
-            game_version::load_resources(&mut registry);
+            game_version::load_resources(&mut registry, &orange_assets_path);
         }
         {
             let device = window_client.device();

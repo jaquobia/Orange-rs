@@ -1239,7 +1239,23 @@
 		},
 		{
 			"id": 77,
-			"block": "minecraft:button"
+			"block": "minecraft:button#facing=north,powered=false"
+		},
+		{
+			"id": 333,
+			"block": "minecraft:button#facing=west,powered=false"
+		},
+		{
+			"id": 589,
+			"block": "minecraft:button#facing=east,powered=false"
+		},
+		{
+			"id": 845,
+			"block": "minecraft:button#facing=south,powered=false"
+		},
+		{
+			"id": 1101,
+			"block": "minecraft:button#facing=north,powered=false"
 		},
 		{
 			"id": 78,
@@ -1324,7 +1340,7 @@
 		},
 		{
 			"id": 88,
-			"block": "minecraft:soul_sand"
+			"block": "minecraft:soulsand"
 		},
 		{
 			"id": 89,

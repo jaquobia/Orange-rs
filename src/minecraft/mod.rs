@@ -5,3 +5,4 @@ pub mod template_models;
 pub mod registry;
 pub mod prot14;
 pub mod filetypes;
+pub mod asset_loader;

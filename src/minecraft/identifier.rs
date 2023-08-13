@@ -32,11 +32,15 @@ impl Hash for Identifier {
 }
 
 impl Identifier {
-    pub fn new(namespace: String, name: String) -> Self {
-        let total_id = format!("{}:{}", namespace, name);
+    pub fn new<S: AsRef<str>, T: AsRef<str>>(namespace: S, name: T) -> Self {
+        Self::new_inner(namespace.as_ref(), name.as_ref())
+    }
+
+    pub fn new_inner(namespace: &str, name: &str) -> Self {
+        let total_id = [namespace, name].join(":");
         Self {
-            namespace,
-            name,
+            namespace: namespace.to_string(),
+            name: name.to_string(),
             total_id,
         }
     }

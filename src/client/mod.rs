@@ -4,7 +4,6 @@ pub mod client_chunk;
 pub mod rendering;
 pub mod gui;
 pub mod models;
-pub mod resource_manager;
 pub mod textures;
 
 // use std::collections::HashMap;

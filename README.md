@@ -5,6 +5,18 @@ Modernization includes concepts like blockstates, resourcepacks, data-driven con
 
 Orange will also serve as my testing grounds for new libraries, such as Rine for applications, and orange-networking for network communications.
 
+# Running
+The game runs with downloaded assets through  
+```cargo run --release -p orange_rs_client```
+And with and an assets path can be specifid with
+```cargo run --release -p orange_rs_client -- -a path/to/assets```
+
+# Configuring
+The config and assets directory are by default stored in %APPDATA%/.orange for windows,
+and /home/USERNAME/.local/share/.orange
+
+These options can be used to specify the offline username and the stored server to load into the ip bar every time orange is started
+
 # Goals
 * Resourcepacks (In Progress)
 * Minecraft Java server compatiblity (In Progress)
@@ -21,7 +33,7 @@ Transparency issues, occlusion culling issues, missing models, incomplete resour
 * Add collision
 * Add "Screens"
 * Add gui's and containers  
-~~* Generate chunks and manage server operations on a separate thread~~
+* ~~Generate chunks and manage server operations on a separate thread~~
 * ~~Add world saving and loading (Anvil Format)~~
 
 # Possible features
