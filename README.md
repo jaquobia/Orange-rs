@@ -7,9 +7,9 @@ Orange will also serve as my testing grounds for new libraries, such as Rine for
 
 # Running
 The game runs with downloaded assets through  
-```cargo run --release -p orange_rs_client```
-And with and an assets path can be specifid with
-```cargo run --release -p orange_rs_client -- -a path/to/assets```
+```cargo run --release -p orange_rs_client```  
+And an assets path can be specifid with  
+```cargo run --release -p orange_rs_client -- -a path/to/assets```  
 
 # Configuring
 The config and assets directory are by default stored in %APPDATA%/.orange for windows,
