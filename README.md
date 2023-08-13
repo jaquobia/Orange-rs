@@ -12,8 +12,8 @@ And an assets path can be specified with
 ```cargo run --release -p orange_rs_client -- -a path/to/assets```  
 
 # Configuring
-The config and assets directory are by default stored in %APPDATA%/.orange for windows,
-and /home/USERNAME/.local/share/.orange
+The config and assets directory are by default stored in ```%APPDATA%/.orange``` for windows,  
+and ```/home/USERNAME/.local/share/.orange``` for linux
 
 These options can be used to specify the offline username and the stored server to load into the ip bar every time orange is started
 
