@@ -1,5 +1,7 @@
-use std::{path::PathBuf, collections::HashSet};
+use std::{path::{PathBuf, Component}, collections::HashSet, io::Cursor};
 use rustc_hash::FxHashSet;
+
+use crate::util::os_str_to_string;
 
 #[derive(Clone, Debug)]
 pub struct ResourceCategory {
@@ -64,8 +66,10 @@ impl ResourceLoader {
                 ResourceSource::Folder(pack_path) => {
                     Self::reload_system_folder(pack_path.to_owned(), system);
                 },
-                ResourceSource::Zip(path) => {
-
+                ResourceSource::Zip(pack_path) => {
+                    if let Err(e) = Self::reload_system_zip(pack_path.to_owned(), system) {
+                        log::warn!("Failed to load resources: {e}");
+                    };
                 }
             }
         }
@@ -101,10 +105,9 @@ impl ResourceLoader {
                 }
                 Self::iter_files_recursive(category_path.to_path_buf(), &mut |entry| {
                     let entry_path = entry.path();
-                    let extension: String = entry_path.extension().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(String::new);
+                    let extension: String = entry_path.extension().map(os_str_to_string).unwrap_or_else(String::new);
                     let dotextension = [".", extension.as_str()].join("");
                     let file_name = entry_path.strip_prefix(&category_path).unwrap().to_string_lossy().to_string().replace(&dotextension, "").replace("\\", "/");
-                    // let file_name = entry.file_name().to_string_lossy().to_string();
                     if !category.valid_extensions.contains(&extension) {
                         return;
                     }
@@ -115,6 +118,38 @@ impl ResourceLoader {
 
             }
         }
+    }
+
+    fn reload_system_zip<S: ResourceSystem>(pack_path: PathBuf, system: &mut S) -> Result<(), Box<dyn std::error::Error>> {
+        let zip_bytes = std::fs::read(&pack_path)?;
+        let mut zip = zip::ZipArchive::new(Cursor::new(zip_bytes))?;
+        let mut buffer = vec![];
+        for i in 0..zip.len() {
+            let mut file = zip.by_index(i)?;
+            if file.is_dir() {
+                continue;
+            }
+            let file_name = file.enclosed_name().ok_or("Could not parse the name of a file in zip")?;
+            let path_components: Vec<String> = file_name.components().map(|s|s.as_os_str().to_string_lossy().to_string()).collect();
+            if let [file_domain, namespace, file_category, file_name@..] = path_components.as_slice() {
+                if system.domain() != file_domain {
+                    continue;
+                }
+                let file_name = file_name.join("/");
+                let file_name = PathBuf::from(&file_name);
+                let extension: String = file_name.extension().map(os_str_to_string).unwrap_or_else(String::new);
+                let category_extensions = &system.categories().iter().filter(|category| &category.name == file_category).collect::<Vec<_>>().first().ok_or_else(|| "No category valid for file")?.valid_extensions;
+                if !category_extensions.contains(&extension) {
+                    continue;
+                }
+                let dot_extension = [".", extension.as_str()].join("");
+                let file_name = os_str_to_string(file_name.as_os_str()).replace(&dot_extension, "");
+                buffer.clear();
+                std::io::Read::read_to_end(&mut file, &mut buffer)?;
+                system.try_load_file(&file_category, &namespace, &file_name, &extension, &buffer);
+            }
+        }
+        Ok(())
     }
 
     /** Apply a function to all files in dir and subdirs   

@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use crate::block::BlockState;
 use crate::block::properties::PropertyDefinition;
-use crate::client::models::model::BakedModel;
+use crate::models::model::BakedModel;
+use crate::sprites::Sprite;
 use crate::{block::Block, minecraft::identifier::Identifier};
-use crate::client::textures::TextureObject;
 
 use rustc_hash::FxHashMap as HashMap;
 
@@ -12,13 +12,19 @@ use rustc_hash::FxHashMap as HashMap;
  * that needs to be referenced.
  */
 
+pub type SpriteRegister = HashMap<Identifier, Sprite>;
+pub type BlockRegister = Register<Block>;
+pub type PropertyRegister = Register<PropertyDefinition>;
+pub type BlockStateRegister = Register<BlockState>;
+pub type ModelRegister = HashMap<Identifier, BakedModel>;
+
 pub struct Registry {
     // items: Vec<Item>,
-    blocks: Register<Block>,
-    textures: HashMap<Identifier, TextureObject>,
-    properties: Register<PropertyDefinition>,
-    blockstates: Register<BlockState>,
-    models: HashMap<Identifier, BakedModel>,
+    blocks: BlockRegister,
+    sprites: SpriteRegister,
+    properties: PropertyRegister,
+    blockstates: BlockStateRegister,
+    models: ModelRegister,
     // dimension: Vec<Dimension>,
 }
 
@@ -33,46 +39,46 @@ impl Registry {
         let properties = Register::<PropertyDefinition>::new(256);
         let blockstates = Register::<BlockState>::new(256);
         let models = HashMap::default();
-        Self { blocks, textures, properties, blockstates, models }
+        Self { blocks, sprites: textures, properties, blockstates, models }
     }
 
-    pub fn get_block_register(&self) -> &Register<Block> {
+    pub fn get_block_register(&self) -> &BlockRegister {
         return &self.blocks;
     }
 
-    pub fn get_texture_register(&self) -> &HashMap<Identifier, TextureObject> {
-        return &self.textures;
+    pub fn get_sprite_register(&self) -> &SpriteRegister {
+        return &self.sprites;
     }
 
-    pub fn get_block_register_mut(&mut self) -> &mut Register<Block> {
+    pub fn get_block_register_mut(&mut self) -> &mut BlockRegister {
         return &mut self.blocks;
     }
 
-    pub fn get_texture_register_mut(&mut self) -> &mut HashMap<Identifier, TextureObject> {
-        return &mut self.textures;
+    pub fn get_sprite_register_mut(&mut self) -> &mut SpriteRegister {
+        return &mut self.sprites;
     }
 
-    pub fn get_property_register(&self) -> &Register<PropertyDefinition> {
+    pub fn get_property_register(&self) -> &PropertyRegister {
         &self.properties
     }
 
-    pub fn get_property_register_mut(&mut self) -> &mut Register<PropertyDefinition> {
+    pub fn get_property_register_mut(&mut self) -> &mut PropertyRegister {
         &mut self.properties
     }
 
-    pub fn get_blockstate_register(&self) -> &Register<BlockState> {
+    pub fn get_blockstate_register(&self) -> &BlockStateRegister {
         &self.blockstates
     }
 
-    pub fn get_blockstate_register_mut(&mut self) -> &mut Register<BlockState> {
+    pub fn get_blockstate_register_mut(&mut self) -> &mut BlockStateRegister {
         &mut self.blockstates
     }
 
-    pub fn get_model_register(&self) -> &HashMap<Identifier, BakedModel> {
+    pub fn get_model_register(&self) -> &ModelRegister {
         &self.models
     }
 
-    pub fn get_model_register_mut(&mut self) -> &mut HashMap<Identifier, BakedModel> {
+    pub fn get_model_register_mut(&mut self) -> &mut ModelRegister {
         &mut self.models
     }
 

@@ -1,8 +1,8 @@
 use std::cell::Cell;
 
-use crate::util::pos::ChunkPos;
+use orange_rs::util::pos::ChunkPos;
 
-use super::rendering::mesh::Mesh;
+use crate::rendering::mesh::Mesh;
 
 pub struct ClientChunk {
     sections: Vec<Option<Mesh>>,

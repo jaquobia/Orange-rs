@@ -4,15 +4,13 @@ use rustc_hash::FxHashMap as HashMap;
 use ultraviolet::{IVec3, Vec2, Vec3};
 use wgpu::{Device, util::DeviceExt};
 
-use crate::{block::{Block, BlockState}, direction::DIRECTIONS, world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, TLightData}};
-use crate::client::models::model::BakedModel;
-use crate::client::textures::TextureObject;
-use crate::direction::{DirectionAll, DIRECTIONS_ALL};
-use crate::minecraft::identifier::Identifier;
-use crate::minecraft::registry::Register;
+use orange_rs::{block::{Block, BlockState}, direction::DIRECTIONS, world::chunk::{Chunk, CHUNK_SECTION_AXIS_SIZE, TLightData}, minecraft::registry::SpriteRegister};
+use orange_rs::models::model::BakedModel;
+use orange_rs::sprites::Sprite;
+use orange_rs::direction::{DirectionAll, DIRECTIONS_ALL};
+use orange_rs::minecraft::{registry::Register, identifier::Identifier};
 
-use crate::world::chunk::TBlockData;
-use crate::world::{ChunkStorage, ChunkStorageTrait};
+use orange_rs::world::{chunk::TBlockData, ChunkStorage, ChunkStorageTrait};
 
 use super::{mesh::Mesh, verticies::TerrainVertex};
 
@@ -500,7 +498,7 @@ impl TerrainTessellator {
         ]
     }
 
-    pub fn tessellate_chunk_section(&mut self, section: &Chunk, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, states: &Register<BlockState>, models: &HashMap<Identifier, BakedModel>, textures: &HashMap<Identifier, TextureObject>, nearby_chunks: &ChunkStorage<Chunk>) {
+    pub fn tessellate_chunk_section(&mut self, section: &Chunk, chunk_real_position: Vec3, chunk_pos: IVec3, blocks: &Register<Block>, states: &Register<BlockState>, models: &HashMap<Identifier, BakedModel>, sprites: &SpriteRegister, nearby_chunks: &ChunkStorage<Chunk>) {
         let smooth_shading = true;
         for y in 0..CHUNK_SECTION_AXIS_SIZE as u32 {
             for x in 0..CHUNK_SECTION_AXIS_SIZE as u32 {

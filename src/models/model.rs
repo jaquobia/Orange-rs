@@ -2,7 +2,7 @@ use std::ops::Rem;
 use ultraviolet::{Mat4, Vec2, Vec3};
 use rustc_hash::FxHashMap as HashMap;
 
-use crate::{direction::{Direction, DIRECTIONS}, client::textures::TextureObject, minecraft::identifier::Identifier};
+use crate::{direction::{Direction, DIRECTIONS}, sprites::Sprite, minecraft::{identifier::Identifier, registry::SpriteRegister}};
 
 const ONE_SIXTEENTH: f32 = 1.0 / 16.0;
 
@@ -183,7 +183,7 @@ impl VoxelModel {
 
         while tex_to_find.starts_with("#") {
             let a = &texture_strings.get(&tex_to_find[1..]);
-            tex_to_find = a.cloned().unwrap_or_else(|| String::from("missing"));
+            tex_to_find = a.cloned().unwrap_or_else(|| String::from("minecraft:block/missing"));
         }
 
         return tex_to_find;
@@ -193,11 +193,11 @@ impl VoxelModel {
         self.elements.clear();
     }
 
-    pub fn bake(self, textures: &HashMap<Identifier, TextureObject>) -> BakedModel {
+    pub fn bake(self, textures: &SpriteRegister) -> BakedModel {
         self.bake_with_rotate(None, textures)
     }
 
-    pub fn bake_with_rotate(self, variant_rotation: Option<VoxelRotation>, texture_register: &HashMap<Identifier, TextureObject>) -> BakedModel {
+    pub fn bake_with_rotate(self, variant_rotation: Option<VoxelRotation>, texture_register: &SpriteRegister) -> BakedModel {
         let mut quads = vec![];
         let textures = self.textures;
         for element in &self.elements {
@@ -239,8 +239,8 @@ impl VoxelModel {
                     let uvs = {
                         let texture = Self::find_texture_in_map(&textures, face.texture_variable.clone());
                         let texture_id = Identifier::from(texture);
-                        let (texture_extent_min, texture_extent_max) = if let Some(TextureObject::AtlasTexture { internal_uv }) = texture_register.get(&texture_id) {
-                            (internal_uv[0], internal_uv[1])
+                        let (texture_extent_min, texture_extent_max): (Vec2, Vec2) = if let Some(Sprite { parent_texture, uv_min, uv_max }) = texture_register.get(&texture_id) {
+                            (*uv_min, *uv_max)
                         } else { 
                             log::warn!("No texture for {}", texture_id);
                             (Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)) 

@@ -12,7 +12,7 @@ winit = "0.28"
 winit_input_helper = "0.14"
 wgpu = "0.16"
 rine = { git = "https://github.com/jaquobia/rine.git", features = ["egui-int"] }
-orange_rs = { path = "../", features = ["integrated"] }
+orange_rs = { path = "../", features = [] }
 ultraviolet = {version = "0.9.0", features = ["bytemuck", "int", "f64"]}
 env_logger = "0.10.0"
 log = "0.4"
@@ -27,6 +27,9 @@ serde_derive = "1.0"
 dirs = "5.0.1"
 clap = { version = "4.3.9", features = ["derive"] }
 thiserror = "1.0.44"
+bytemuck = { version = "1.12", features = ["derive"] }
+image = "0.24"
+crunch = "0.5.3"
 
 [features]
 default = ["egui-int"]

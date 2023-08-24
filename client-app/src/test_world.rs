@@ -27,6 +27,7 @@ pub struct TestWorld {
     block_to_state_map: HashMap<u16, usize>,
 }
 
+#[allow(unused)]
 impl TestWorld {
     pub fn new(height: usize, registry: &Registry) -> Self {
         let entity_world = legion::World::default();

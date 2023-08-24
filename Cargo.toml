@@ -12,18 +12,18 @@ resolver = "2"
 path = "src/lib.rs"
 
 [profile.release]
-# lto = true
+lto = true
 # lto = "thin"
 # strip = "debuginfo"
-# strip = true
+strip = true
 
 [dependencies]
 winit = "0.28"
-wgpu = { version = "0.16", optional = true }
 pollster = "0.3"
 image = "0.24"
 lazy_static = "1.4"
 instant = { version = "0.1", features = ["stdweb"] }
+crunch = "0.5.3"
 
 env_logger = "0.10.0"
 log = "0.4"
@@ -40,18 +40,12 @@ rustc-hash = "1.1.0"
 
 orange_networking = { git = "https://github.com/jaquobia/orange_networking.git" }
 flate2 = "1.0.25"
-# surf = "2.3.2"
+zip = "0.6"
 
 legion = "0.4.0"
 
 
 [features]
-default = ["client", "integrated"]
-# Expand chunks to occupy the space of 4 chunks, highly expiramental
-large_chunks = []
-# Client available, enables connecting to servers
-client = ["wgpu"]
-# Client and Server together, direct communication, enables singleplayer
-integrated = ["client"]
+default = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

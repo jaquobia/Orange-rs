@@ -1,14 +1,11 @@
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
+use orange_rs::minecraft::asset_loader::AssetLoader;
+use orange_rs::minecraft::identifier::Identifier;
 use rustc_hash::FxHashMap as HashMap;
 
-use image::io::Reader as ImageReader;
 use image::{DynamicImage, EncodableLayout, GenericImageView, Rgb32FImage};
 use wgpu::util::DeviceExt;
 
-use crate::client::{rendering::textures::DiffuseTextureWrapper, Client};
-use crate::client::rendering::verticies::TerrainVertex;
+use crate::{rendering::{textures::DiffuseTextureWrapper, verticies::TerrainVertex}, game_client::Client};
 
 pub type TexMapType = HashMap<String, DiffuseTextureWrapper>;
 
@@ -20,13 +17,13 @@ pub static CAMERA_BUFFER_NAME: &str = "camera_buffer";
 
 pub static CAMERA_BIND_GROUP_NAME: &str = "camera_bind_group";
 
-pub static TERRAIN_OPAQUE_PIPELINE: &str = "opaque_terrain_shader";
-pub static TERRAIN_TRANSPARENT_PIPELINE: &str = "transparent_terrain_shader";
+pub static TERRAIN_OPAQUE_PIPELINE: &str = "shader";
+pub static TERRAIN_TRANSPARENT_PIPELINE: &str = "shader_transparent";
 
-pub static ATLAS_TEXTURE_NAME: &str = "minecraft:atlas";
+pub static ATLAS_TEXTURE_NAME: &str = "minecraft:game";
 pub static LIGHTMAP_TEXTURE_NAME: &str = "minecraft:lightmap";
 
-pub fn create_resources(client: &mut Client, device: &wgpu::Device, queue: &wgpu::Queue, config: &wgpu::SurfaceConfiguration) {
+pub fn create_resources(client: &mut Client, device: &wgpu::Device, queue: &wgpu::Queue, config: &wgpu::SurfaceConfiguration, asset_loader: &AssetLoader) {
 
     generate_atlas_texture_bind_group_layout(client, device);
     generate_lightmap_texture_bind_group_layout(client, device);
@@ -35,8 +32,8 @@ pub fn create_resources(client: &mut Client, device: &wgpu::Device, queue: &wgpu
     generate_camera_buffer(client, device);
     generate_camera_bind_group(client, device);
 
-    generate_terrain_opaque_pipeline(client, device, config);
-    generate_terrain_transparent_pipeline(client, device, config);
+    generate_terrain_opaque_pipeline(client, device, config, asset_loader.shaders().get(&Identifier::from_str(TERRAIN_OPAQUE_PIPELINE)).expect("Did not have the terrain opaque shaders"));
+    generate_terrain_transparent_pipeline(client, device, config, asset_loader.shaders().get(&Identifier::from_str(TERRAIN_TRANSPARENT_PIPELINE)).expect("Did not have the terrain opaque shaders"));
 
     generate_lightmap_texture(client, device, queue);
 }
@@ -116,11 +113,7 @@ pub fn generate_camera_bind_group(client: &mut Client, device: &wgpu::Device) {
     client.insert_bind_group(CAMERA_BIND_GROUP_NAME, bind_group);
 }
 
-pub fn generate_terrain_opaque_pipeline(client: &mut Client, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) {
-
-    let mut shader_data = String::new();
-    let mut shader_file = File::open("../orange-mc-assets/assets/shaders/shader.wgsl").unwrap();
-    shader_file.read_to_string(&mut shader_data).unwrap();
+pub fn generate_terrain_opaque_pipeline(client: &mut Client, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, shader_data: &String) {
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(TERRAIN_OPAQUE_PIPELINE),
@@ -185,11 +178,7 @@ pub fn generate_terrain_opaque_pipeline(client: &mut Client, device: &wgpu::Devi
     client.insert_pipeline(TERRAIN_OPAQUE_PIPELINE, pipeline);
 }
 
-pub fn generate_terrain_transparent_pipeline(client: &mut Client, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) {
-
-    let mut shader_data = String::new();
-    let mut shader_file = File::open("../orange-mc-assets/assets/shaders/shader_transparent.wgsl").unwrap();
-    shader_file.read_to_string(&mut shader_data).unwrap();
+pub fn generate_terrain_transparent_pipeline(client: &mut Client, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, shader_data: &String) {
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(TERRAIN_TRANSPARENT_PIPELINE),
@@ -273,7 +262,7 @@ pub fn generate_lightmap_texture(client: &mut Client, device: &wgpu::Device, que
 
     let tex = DynamicImage::ImageRgb32F(rgb_tex);
 
-    tex.to_rgb16().save_with_format("../orange-mc-assets/assets/minecraft/textures/lightmap.png", image::ImageFormat::Png).unwrap();
+    // tex.to_rgb16().save_with_format("../orange-mc-assets/assets/minecraft/textures/lightmap.png", image::ImageFormat::Png).unwrap();
 
     let dims = tex.dimensions();
     let width = dims.0;
@@ -329,423 +318,3 @@ pub fn generate_lightmap_texture(client: &mut Client, device: &wgpu::Device, que
 
     client.insert_texture(LIGHTMAP_TEXTURE_NAME, texture);
 }
-
-pub fn load_binary_resources(client: &mut Client, device: &wgpu::Device, queue: &wgpu::Queue) {
-    for (path, _name) in DEFAULT_RESOURCES {
-        if path.ends_with(".txt") || path.ends_with(".lang") {
-            continue;
-        }
-        let resource_dir = "./resources";
-        let bytes = std::fs::read([resource_dir, path].join("/")).unwrap();
-        let reader = image::io::Reader::new(std::io::Cursor::new(bytes))
-            .with_guessed_format()
-            .expect("Cursor io never fails");
-
-        let image = reader.decode().unwrap();
-        let dims = image.dimensions();
-        let width = dims.0;
-        let height = dims.1;
-
-        let tex_dims = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
-        let tex_format = wgpu::TextureFormat::Rgba8UnormSrgb;
-
-        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: tex_dims,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: tex_format,
-            view_formats: &[tex_format],
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("diffuse_texture"),
-        });
-        queue.write_texture(
-            diffuse_texture.as_image_copy(),
-            image.to_rgba8().as_bytes(),
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * width),
-                rows_per_image: Some(height),
-            },
-            tex_dims,
-        );
-        let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
-        let texture = DiffuseTextureWrapper::new(
-            diffuse_texture,
-            dims.into(),
-            diffuse_texture_view,
-            sampler,
-            device,
-            client.get_layout(ATLAS_LAYOUT_NAME).unwrap(),
-        );
-        client.insert_texture(path, texture);
-    }
-}
-
-fn create_missing_tex(_a: image::ImageError) -> DynamicImage {
-    let mut rgb_tex = Rgb32FImage::new(2, 2);
-    let pink_pixel = image::Rgb::<f32>([1.0, 1.0, 1.0]);
-    let black_pixel = image::Rgb::<f32>([0.0, 0.0, 0.0]);
-    rgb_tex.put_pixel(0, 0, pink_pixel);
-    rgb_tex.put_pixel(0, 1, black_pixel);
-    rgb_tex.put_pixel(1, 0, black_pixel);
-    rgb_tex.put_pixel(1, 1, pink_pixel);
-    DynamicImage::ImageRgb32F(rgb_tex)
-}
-
-pub fn load_mc_tex(dir: &PathBuf) -> DynamicImage {
-    ImageReader::open(dir)
-        .unwrap()
-        .decode()
-        .unwrap_or_else(create_missing_tex)
-}
-
-pub const DEFAULT_RESOURCES: [(&str, &str); 83] = [
-    (
-        "terrain.png",
-        "terrain",
-    ),
-    (
-        "pack.png",
-        "pack",
-    ),
-    (
-        "font.txt",
-        "font",
-    ),
-    (
-        "pack.txt",
-        "pack",
-    ),
-    (
-        "particles.png",
-        "particles",
-    ),
-    (
-        "achievement/bg.png",
-        "bg",
-    ),
-    (
-        "achievement/icons.png",
-        "icons",
-    ),
-    (
-        "achievement/map.txt",
-        "map",
-    ),
-    (
-        "armor/chain_1.png",
-        "chain_1",
-    ),
-    (
-        "armor/chain_2.png",
-        "chain_2",
-    ),
-    (
-        "armor/cloth_1.png",
-        "cloth_1",
-    ),
-    (
-        "armor/cloth_2.png",
-        "cloth_2",
-    ),
-    (
-        "armor/diamond_1.png",
-        "diamond_1",
-    ),
-    (
-        "armor/diamond_2.png",
-        "diamond_2",
-    ),
-    (
-        "armor/gold_1.png",
-        "gold_1",
-    ),
-    (
-        "armor/gold_2.png",
-        "gold_2",
-    ),
-    (
-        "armor/iron_1.png",
-        "iron_1",
-    ),
-    (
-        "armor/iron_2.png",
-        "iron_2",
-    ),
-    (
-        "armor/power.png",
-        "power",
-    ),
-    (
-        "art/kz.png",
-        "kz",
-    ),
-    (
-        "environment/clouds.png",
-        "clouds",
-    ),
-    (
-        "environment/rain.png",
-        "rain",
-    ),
-    (
-        "environment/snow.png",
-        "snow",
-    ),
-    (
-        "font/default.png",
-        "default",
-    ),
-    (
-        "gui/background.png",
-        "background",
-    ),
-    (
-        "gui/container.png",
-        "container",
-    ),
-    (
-        "gui/crafting.png",
-        "crafting",
-    ),
-    (
-        "gui/furnace.png",
-        "furnace",
-    ),
-    (
-        "gui/gui.png",
-        "gui",
-    ),
-    (
-        "gui/icons.png",
-        "icons",
-    ),
-    (
-        "gui/inventory.png",
-        "inventory",
-    ),
-    (
-        "gui/items.png",
-        "items",
-    ),
-    (
-        "gui/logo.png",
-        "logo",
-    ),
-    (
-        "gui/particles.png",
-        "particles",
-    ),
-    (
-        "gui/slot.png",
-        "slot",
-    ),
-    (
-        "gui/trap.png",
-        "trap",
-    ),
-    (
-        "gui/unknown_pack.png",
-        "unknown_pack",
-    ),
-    (
-        "item/arrows.png",
-        "arrows",
-    ),
-    (
-        "item/boat.png",
-        "boat",
-    ),
-    (
-        "item/cart.png",
-        "cart",
-    ),
-    (
-        "item/door.png",
-        "door",
-    ),
-    (
-        "item/sign.png",
-        "sign",
-    ),
-    (
-        "lang/en_US.lang",
-        "en_US",
-    ),
-    (
-        "lang/stats_US.lang",
-        "stats_US",
-    ),
-    (
-        "misc/dial.png",
-        "dial",
-    ),
-    (
-        "misc/foliagecolor.png",
-        "foliagecolor",
-    ),
-    (
-        "misc/footprint.png",
-        "footprint",
-    ),
-    (
-        "misc/grasscolor.png",
-        "grasscolor",
-    ),
-    (
-        "misc/mapbg.png",
-        "mapbg",
-    ),
-    (
-        "misc/mapicons.png",
-        "mapicons",
-    ),
-    (
-        "misc/pumpkinblur.png",
-        "pumpkinblur",
-    ),
-    (
-        "misc/shadow.png",
-        "shadow",
-    ),
-    (
-        "misc/vignette.png",
-        "vignette",
-    ),
-    (
-        "misc/water.png",
-        "water",
-    ),
-    (
-        "misc/watercolor.png",
-        "watercolor",
-    ),
-    (
-        "mob/char.png",
-        "char",
-    ),
-    (
-        "mob/chicken.png",
-        "chicken",
-    ),
-    (
-        "mob/cow.png",
-        "cow",
-    ),
-    (
-        "mob/creeper.png",
-        "creeper",
-    ),
-    (
-        "mob/ghast.png",
-        "ghast",
-    ),
-    (
-        "mob/ghast_fire.png",
-        "ghast_fire",
-    ),
-    (
-        "mob/pig.png",
-        "pig",
-    ),
-    (
-        "mob/pigman.png",
-        "pigman",
-    ),
-    (
-        "mob/pigzombie.png",
-        "pigzombie",
-    ),
-    (
-        "mob/saddle.png",
-        "saddle",
-    ),
-    (
-        "mob/sheep.png",
-        "sheep",
-    ),
-    (
-        "mob/sheep_fur.png",
-        "sheep_fur",
-    ),
-    (
-        "mob/silverfish.png",
-        "silverfish",
-    ),
-    (
-        "mob/skeleton.png",
-        "skeleton",
-    ),
-    (
-        "mob/slime.png",
-        "slime",
-    ),
-    (
-        "mob/spider.png",
-        "spider",
-    ),
-    (
-        "mob/spider_eyes.png",
-        "spider_eyes",
-    ),
-    (
-        "mob/squid.png",
-        "squid",
-    ),
-    (
-        "mob/wolf.png",
-        "wolf",
-    ),
-    (
-        "mob/wolf_angry.png",
-        "wolf_angry",
-    ),
-    (
-        "mob/wolf_tame.png",
-        "wolf_tame",
-    ),
-    (
-        "mob/zombie.png",
-        "zombie",
-    ),
-    (
-        "terrain/moon.png",
-        "moon",
-    ),
-    (
-        "terrain/sun.png",
-        "sun",
-    ),
-    (
-        "title/black.png",
-        "black",
-    ),
-    (
-        "title/mclogo.png",
-        "mclogo",
-    ),
-    (
-        "title/mojang.png",
-        "mojang",
-    ),
-    (
-        "title/splashes.txt",
-        "splashes",
-    ),
-];

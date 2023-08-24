@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 
 /// Identitifer construct, a commonly seen concept in modern modded minecraft, also known as ResourceLocation in some earlier versions
 /// Used to easily reference specific objects and arbitrarily locate resources based on context
-#[derive(Clone, Eq)]
+#[derive(Clone, Eq, Debug)]
 pub struct Identifier {
     namespace: String,
     name: String,

@@ -1,34 +1,28 @@
 mod test_world;
 mod orange_options;
 mod cli_options;
+mod mc_resource_handler;
+mod game_version;
+mod client;
+mod game_client;
+mod rendering;
 
-use std::{collections::VecDeque, sync::{Arc, RwLock}, fs::File, io::{Write, Read}, net::{SocketAddr, Ipv4Addr}, str::FromStr, fmt::Display};
+use std::{collections::VecDeque, sync::{Arc, RwLock}, fs::File, io::Read, net::{SocketAddr, Ipv4Addr}, str::FromStr};
 use clap::Parser;
+use game_client::Client;
 use env_logger::Builder;
 use log::{LevelFilter, warn};
-use orange_rs::{
-    client::{
-        camera::CameraControllerMovement,
-        Client,
-        gui::screen::MainMenu,
-        minecraft_client::MinecraftClient,
+use mc_resource_handler::{TERRAIN_OPAQUE_PIPELINE, CAMERA_BIND_GROUP_NAME, LIGHTMAP_TEXTURE_NAME, TERRAIN_TRANSPARENT_PIPELINE, ATLAS_TEXTURE_NAME};
+use crate::{
         rendering::{
             ElapsedTime,
             tessellator::TerrainTessellator
-        }
-    },
-    entities::{EntityCamera, EntityController, EntityMotion, EntityTransform},
-    minecraft::mc_resource_handler,
-    packets::prot14::Packet,
-    util::{
-        pos::{
-            ChunkPos,
-            EntityPos,
-            Position
         },
-        workers::WorkerThread
-    }, game_version,
-
+    client::{
+        camera::CameraControllerMovement,
+        gui::screen::MainMenu,
+        minecraft_client::MinecraftClient,
+    },
 };
 
 use orange_networking::network_interface::NetworkThread;
@@ -36,8 +30,7 @@ use rine::RineApplication;
 use ultraviolet::{DVec3, IVec3, Vec3};
 use winit::event::{DeviceEvent, VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
-use orange_rs::minecraft::mc_resource_handler::{CAMERA_BIND_GROUP_NAME, LIGHTMAP_TEXTURE_NAME, TERRAIN_OPAQUE_PIPELINE, TERRAIN_TRANSPARENT_PIPELINE};
-use orange_rs::minecraft::registry::Registry;
+use orange_rs::{minecraft::registry::Registry, packets::prot14::Packet, entities::{EntityTransform, EntityMotion, EntityController, EntityCamera}, util::{pos::{EntityPos, ChunkPos, Position}, workers::WorkerThread}};
 use orange_rs::util::frustrum::Frustrum;
 use orange_rs::util::pos::NewChunkPosition;
 use orange_rs::world::ChunkStorageTrait;
@@ -305,14 +298,12 @@ impl RineApplication for OrangeClient {
         let registry = Arc::new(RwLock::new(Registry::new()));
         if let Ok(mut registry) = registry.write() {
             game_version::register_content(&mut registry);
-            game_version::load_resources(&mut registry, &orange_assets_path);
-        }
-        {
+            let asset_loader = game_version::load_resources(&orange_assets_path, cli.default_resources.clone());
             let device = window_client.device();
             let queue = window_client.queue();
             let config = window_client.config();
-            mc_resource_handler::create_resources(&mut client, device, queue, config);
-            mc_resource_handler::load_binary_resources(&mut client, device, queue);
+            mc_resource_handler::create_resources(&mut client, device, queue, config, &asset_loader);
+            game_version::bake_resources(&mut registry, &mut client, &asset_loader, device, queue);
         }
 
         // The tessellator to be used to mesh the chunks, intended for multithreaded usage (TODO)
@@ -386,8 +377,8 @@ impl RineApplication for OrangeClient {
 
                     render_pass.set_pipeline(client.get_pipeline(TERRAIN_OPAQUE_PIPELINE).unwrap());
                     render_pass.set_bind_group(0, client.get_bind_group(CAMERA_BIND_GROUP_NAME).unwrap(), &[]);
-                    render_pass.set_bind_group(1, client.get_texture("terrain.png").bind_group(), &[]);
-                    render_pass.set_bind_group(2, client.get_texture(LIGHTMAP_TEXTURE_NAME).bind_group(), &[]);
+                    render_pass.set_bind_group(1, client.get_texture(ATLAS_TEXTURE_NAME).expect("Couldnt load terrain texture").bind_group(), &[]);
+                    render_pass.set_bind_group(2, client.get_texture(LIGHTMAP_TEXTURE_NAME).expect("Couldn't load lightmap texture").bind_group(), &[]);
 
                     let directions = client.camera.vectors();
                     let aspect = client.projection.aspect;
@@ -438,7 +429,7 @@ impl RineApplication for OrangeClient {
                     let registry = self.registry.read().unwrap();
                     let blocks = registry.get_block_register();
                     let states = registry.get_blockstate_register();
-                    let textures = registry.get_texture_register();
+                    let textures = registry.get_sprite_register();
                     let models = registry.get_model_register();
                     // The maximum number of tessellations to be done every frame
                     let max_tessellations = 8;

@@ -1,4 +1,4 @@
-use std::{fs, io::Write, path::PathBuf};
+use std::{fs, io::{Write, Cursor}, path::PathBuf, error::Error};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -87,23 +87,19 @@ pub fn check_assets() -> bool {
 }
 
 /// Downloads the minecraft client and extracts the resources
-fn download_minecraft_client(dir: &PathBuf) {
-    let dir = PathBuf::from(dir); // Copy the dir
+fn download_minecraft_client(dir: &PathBuf) -> Result<(), Box<dyn Error>> {
+    // let dir = PathBuf::from(dir); // Copy the dir
     let manifest = pollster::block_on(get_manifest());
 
     let jar_url = pollster::block_on(get_jar_from_version(&manifest));
     let jar_data = pollster::block_on(get_jar(&jar_url));
+    let mut jar_zip = zip::ZipArchive::new(Cursor::new(jar_data))?;
 
-    // Write into a temporary file for zip archive purposes
-    let mut temp_jar_zip_handle = tempfile::tempfile().unwrap();
-    temp_jar_zip_handle.write(jar_data.as_slice()).unwrap();
-    let mut jar_zip = zip::ZipArchive::new(temp_jar_zip_handle).unwrap();
-
-    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir)?;
 
     // Extract assets
     for index in 0..jar_zip.len() {
-        let mut entry = jar_zip.by_index(index).unwrap();
+        let mut entry = jar_zip.by_index(index)?;
         let name = entry.name();
 
         let outpath = match entry.enclosed_name() {
@@ -111,30 +107,28 @@ fn download_minecraft_client(dir: &PathBuf) {
             None => continue,
         };
 
-        if name.ends_with('/') {
+        if entry.is_dir() || !name.ends_with('/') {
             // This is an empty folder for some reason, ignore it
+            continue;
+        }
+        
+        let name = if name.contains('/') {
+            &name[name.rfind('/').unwrap() + 1..]
         } else {
-            let mut file_path = dir.clone();
-            file_path.push(&outpath);
-            let name = if name.contains('/') {
-                &name[name.rfind('/').unwrap() + 1..]
-            } else {
-                name
-            };
-            if !VEC_ASSETS.contains(&name) {
-                continue;
-            }
+            name
+        };
+        if !VEC_ASSETS.contains(&name) {
+            continue;
+        }
 
-            // Create the folders to put the files in
-            if let Some(p) = file_path.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(&p).unwrap();
-                };
-            }
-
-            // Copy the image data into a file
-            let mut outfile = fs::File::create(&file_path).unwrap();
-            std::io::copy(&mut entry, &mut outfile).unwrap();
+        let file_path = dir.join(&outpath);
+        // Create the folders to put the files in
+        
+        std::fs::create_dir_all(&file_path.parent().ok_or("Could not create path to file")?)?;
+        // Copy the image data into a file
+        if let Ok(mut outfile) = fs::File::create(&file_path) {
+            std::io::copy(&mut entry, &mut outfile)?;
         }
     }
+    Ok(())
 }

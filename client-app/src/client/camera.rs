@@ -1,6 +1,6 @@
 use ultraviolet::{projection::perspective_wgpu_dx, Mat4, Vec3};
 
-use crate::{world::chunk::CHUNK_SECTION_AXIS_SIZE, math_helper::angle::Rad};
+use orange_rs::{world::chunk::CHUNK_SECTION_AXIS_SIZE, math_helper::angle::Rad};
 
 const SAFE_FRAC_PI_2: f32 = std::f32::consts::FRAC_PI_2 - 0.0001;
 

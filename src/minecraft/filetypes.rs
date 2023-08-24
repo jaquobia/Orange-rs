@@ -2,96 +2,268 @@ use rustc_hash::FxHashMap as HashMap;
 use serde_derive::{Serialize, Deserialize};
 use serde_json::Value;
 
-use crate::{client::models::model::{VoxelFace, VoxelRotation, VoxelElement}, direction::Direction};
+use crate::{models::model::{VoxelFace, VoxelRotation, VoxelElement}, direction::Direction};
 
-use super::identifier::Identifier;
+pub mod mcmeta {
+    use rustc_hash::FxHashMap as HashMap;
+    use serde_derive::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize)]
-pub struct MCAtlasTextureFile {
-    pub atlas: AtlasTextureFileType,
-}
+    use self::{pack::PackInformation, animation::Animation, atlas::SpriteAtlas, villager::Villager, properties::Propterties};
 
-impl MCAtlasTextureFile {
-    pub fn new(atlas: AtlasTextureFileType) -> Self {
-        Self { atlas, }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum MCMeta {
+        Pack {
+            pack: pack::PackInformation,
+            language: Option<HashMap<String, pack::PackLanguage>>,
+            filter: pack::PackFilter,
+        },
+        Animation {
+            animation: animation::Animation
+        },
+        /// Custom format by orange for dealing with the terrain.png
+        Atlas {
+            atlas: atlas::SpriteAtlas
+        },
+        Villager {
+            villager: villager::Villager
+        },
+        /// Use default values if missing
+        Properties {
+            texture: properties::Propterties
+        }
+    }
+
+    impl MCMeta {
+        pub fn as_pack(self) -> Option<PackInformation> {
+            match self { Self::Pack { pack, .. } => Some(pack), _ => { None } }
+        }
+        pub fn as_animation(self) -> Option<Animation> {
+            match self { Self::Animation { animation, .. } => Some(animation), _ => { None } }
+        }
+        pub fn as_atlas(self) -> Option<SpriteAtlas> {
+            match self { Self::Atlas { atlas, ..} => Some(atlas), _ => { None } }
+        }
+        pub fn as_villager(self) -> Option<Villager> {
+            match self { Self::Villager { villager } => Some(villager), _ => { None } }
+        }
+        pub fn as_properties(self) -> Option<Propterties> {
+            match self { Self::Properties { texture } => Some(texture), _ => { None } }
+        }
+    }
+
+    pub mod pack {
+        use serde_derive::{Serialize, Deserialize};
+        use serde_json::Value;
+
+        #[derive(Serialize, Deserialize)]
+        pub struct PackInformation {
+            pack_format: u32,
+            description: InformationDescription,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        #[serde(untagged)]
+        pub enum InformationDescription {
+            String(String),
+            Tag(Value),
+        }
+
+        #[derive(Serialize, Deserialize)]
+        pub struct PackLanguage {
+            name: String,
+            region: String,
+            bidirection: Option<bool>,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        pub struct PackFilter {
+            block: Vec<FilterPattern>
+        }
+
+        #[derive(Serialize, Deserialize)]
+        pub struct FilterPattern {
+            namespace: String,
+            path: String,
+        }
+
+    }
+
+    pub mod animation {
+        use serde_derive::{Serialize, Deserialize};
+        /// Needs to be gathered from an outside [Value]
+        #[derive(Serialize, Deserialize)]
+        pub struct Animation {
+            interpolate: Option<bool>,
+            width: Option<u32>,
+            height: Option<u32>,
+            frametime: Option<u32>,
+            frames: Option<Vec<Frame>>,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        #[serde(untagged)]
+        pub enum Frame {
+            Index(u32),
+            IndexTime(u32, u32),
+        }
+    }
+
+    pub mod atlas {
+        use serde_derive::{Serialize, Deserialize};
+
+        use crate::minecraft::identifier::Identifier;
+
+
+        #[derive(Serialize, Deserialize)]
+        pub enum SpriteAtlas {
+            /**
+             *  The atlas is a grid of regularly sized textures  
+             *  Does not expect all cells to be filled
+             */
+            #[serde(rename="uniform")]
+            Uniform {
+                /** The number of textures horizontally */
+                across: u32,
+                /** The number of textures vertically 
+                 *  If not provided, will be assumed the same as across
+                 */
+                down: Option<u32>,
+                textures: Vec<SpriteAtlasUniform>,
+            },
+            #[serde(rename="nonuniform")]
+            NonUniform {
+                textures: Vec<SpriteAtlasNonUniform>,
+            },
+        }
+
+        impl SpriteAtlas {
+            pub fn new_uniform(width: u32, height: Option<u32>) -> Self {
+                Self::Uniform { across: width, down: height, textures: Vec::new(), }
+            }
+
+            pub fn new_nonuniform() -> Self {
+                Self::NonUniform { textures: Vec::new(), }
+            }
+
+            pub fn insert_uniform_texture(&mut self, identifier: Identifier, slot: u32) {
+                if let Self::Uniform { textures, .. } = self {
+                    textures.push(SpriteAtlasUniform { identifier: identifier.to_string(), cell: slot });
+                }
+            }
+
+            pub fn insert_non_uniform_texture(&mut self, identifier: Identifier, uv: [f32; 4]) {
+                if let Self::NonUniform { textures, .. } = self {
+                    textures.push(SpriteAtlasNonUniform { identifier: identifier.to_string(), uv });
+                }
+            }
+
+            pub fn get_uniform_textures(&self) -> Vec<SpriteAtlasUniform> {
+                if let Self::Uniform { textures, .. } = self {
+                    textures.to_vec()
+                } else {
+                    Vec::new()
+                }
+            }
+
+            pub fn get_non_uniform_textures(&self) -> Vec<SpriteAtlasNonUniform> {
+                if let Self::NonUniform { textures, .. } = self {
+                    textures.to_vec()
+                } else {
+                    Vec::new()
+                }
+            }
+        }
+
+        #[derive(Serialize, Deserialize, Clone)]
+        pub struct SpriteAtlasUniform {
+            pub cell: u32,
+            pub identifier: String,
+        }
+
+        #[derive(Serialize, Deserialize, Clone)]
+        pub struct SpriteAtlasNonUniform {
+            /** The uv min and max 
+             *  [u_min, v_min, u_max, v_max]
+             */
+            pub uv: [f32; 4],
+            pub identifier: String,
+        }
+    }
+
+    pub mod villager {
+        use serde_derive::{Serialize, Deserialize};
+
+        #[derive(Serialize, Deserialize)]
+        pub struct Villager {
+            hat: Hat
+        }
+        #[derive(Serialize, Deserialize)]
+        pub enum Hat {
+            Full,
+            Partial,
+        }
+    }
+
+    pub mod properties {
+        use serde_derive::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize)]
+        pub struct Propterties {
+            /// Texture is blurred when close to the player, default false
+            blur: Option<bool>,
+            /// Texture is streatched instead of tiled, default false
+            clamp: Option<bool>,
+            mipmaps: Vec<u32>,
+        }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum AtlasTextureFileType {
-    /**
-     *  The atlas is a grid of regularly sized textures  
-     *  Does not expect all cells to be filled
-     */
-    Uniform {
-        /** The number of textures horizontally */
-        across: u32,
-        /** The number of textures vertically 
-         *  If not provided, will be assumed the same as across
-         */
-        down: Option<u32>,
-        textures: Vec<UniformAtlasTextureType>,
+pub struct MCAtlasConfig {
+    pub sources: Vec<MCAtlasSource>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum MCAtlasSource {
+    #[serde(rename="directory")]
+    Directory {
+        source: String,
+        prefix: String,
     },
-    NonUniform {
-       textures: Vec<NonUniformAtlasTextureType>,
+    #[serde(rename="single")]
+    Single {
+        resource: String,
+        sprite: String,
     },
-}
-
-impl AtlasTextureFileType {
-    pub fn new_uniform(width: u32, height: Option<u32>) -> Self {
-        Self::Uniform { across: width, down: height, textures: Vec::new(), }
-    }
-
-    pub fn new_nonuniform() -> Self {
-        Self::NonUniform { textures: Vec::new(), }
-    }
-
-    pub fn insert_uniform_texture(&mut self, identifier: Identifier, slot: u32) {
-        if let Self::Uniform { textures, .. } = self {
-            textures.push(UniformAtlasTextureType { identifier: identifier.to_string(), cell: slot });
-        }
-    }
-
-    pub fn insert_non_uniform_texture(&mut self, identifier: Identifier, uv: [f32; 4]) {
-        if let Self::NonUniform { textures, .. } = self {
-            textures.push(NonUniformAtlasTextureType { identifier: identifier.to_string(), uv });
-        }
-    }
-
-    pub fn get_uniform_textures(&self) -> Vec<UniformAtlasTextureType> {
-        if let Self::Uniform { textures, .. } = self {
-            textures.to_vec()
-        } else {
-            Vec::new()
-        }
-    }
-
-    pub fn get_non_uniform_textures(&self) -> Vec<NonUniformAtlasTextureType> {
-        if let Self::NonUniform { textures, .. } = self {
-            textures.to_vec()
-        } else {
-            Vec::new()
-        }
+    #[serde(rename="filter")]
+    Filter {
+        namespace: String,
+        path: String,
+    },
+    #[serde(rename="unstitch")]
+    Unstitch {
+        resource: String,
+        divisor_x: f32,
+        divisor_y: f32,
+        regions: Vec<MCAtlasUnstitchRegion>
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct UniformAtlasTextureType {
-    pub cell: u32,
-    pub identifier: String,
-}
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct NonUniformAtlasTextureType {
-    /** The uv min and max 
-     *  [u_min, v_min, u_max, v_max]
-     */
-    pub uv: [f32; 4],
-    pub identifier: String,
+#[derive(Serialize, Deserialize)]
+pub struct MCAtlasUnstitchRegion {
+    pub sprite: String,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct MCModelFile {
+pub struct MCModel {
     /** Identifier of a source model to load elements from, will be overriden if elements is also
      * defined
      */
@@ -111,7 +283,7 @@ pub struct MCModelFile {
     elements: Option<Vec<MCModelElement>>,
 }
 
-impl MCModelFile {
+impl MCModel {
     pub fn get_parent(&self) -> Option<String> {
         self.parent.clone()
     }
@@ -227,6 +399,8 @@ pub struct MCModelDisplay {
 
 #[derive(Serialize, Deserialize)]
 pub enum MCBlockstateType {
-    variants(HashMap<String, Value>),
-    multipart(Vec<Value>),
+    #[serde(rename="variants")]
+    Variants(HashMap<String, Value>),
+    #[serde(rename="multipart")]
+    Multipart(Vec<Value>),
 }

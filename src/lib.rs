@@ -1,6 +1,5 @@
 pub mod block;
 pub mod direction;
-pub mod game_version;
 pub mod world;
 pub mod math_helper;
 pub mod util;
@@ -9,9 +8,9 @@ pub mod packets;
 pub mod entities;
 pub mod resource_loader;
 
-#[cfg(feature = "client")]
-pub mod client;
+pub mod models;
 pub mod minecraft;
+pub mod sprites;
 
 use std::path::PathBuf;
 use winit::window::Icon;

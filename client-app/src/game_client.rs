@@ -1,23 +1,14 @@
-pub mod camera;
-pub mod minecraft_client;
-pub mod client_chunk;
-pub mod rendering;
-pub mod gui;
-pub mod models;
-pub mod textures;
 
 // use std::collections::HashMap;
 use rustc_hash::FxHashMap as HashMap;
 
-use camera::{Camera, CameraController, Projection};
-use crate::math_helper::angle;
-use rendering::
-    textures::{DepthTextureWrapper, DiffuseTextureWrapper}
-;
+use crate::client::camera::{Camera, CameraController, Projection};
+use orange_rs::math_helper::angle;
+use crate::rendering::textures::{DepthTextureWrapper, DiffuseTextureWrapper};
 use ultraviolet::Mat4;
 use wgpu::BindGroupLayout;
 use winit::{window::CursorGrabMode, dpi::PhysicalSize};
-use crate::minecraft::mc_resource_handler::CAMERA_BUFFER_NAME;
+use crate::mc_resource_handler::{CAMERA_BUFFER_NAME, TexMapType};
 
 pub struct Client {
     pub camera: Camera,
@@ -29,7 +20,7 @@ pub struct Client {
 
     cursor_visible: bool,
 
-    pub textures: crate::minecraft::mc_resource_handler::TexMapType,
+    pub textures: TexMapType,
     pub depth_texture: DepthTextureWrapper,
 
     pipelines: HashMap<String, wgpu::RenderPipeline>,
@@ -47,9 +38,9 @@ impl Client {
         // let gpu = WgpuData::new(&window);
 
         let (width, height) = size.into();
-        let camera = camera::Camera::new((0.0, 64.0, 10.0), (0.0, 1.0, 0.0), angle::Deg(-90.0), angle::Deg(-20.0));
-        let projection = camera::Projection::new(width, height, angle::Deg(60.0), 0.1, 100.0);
-        let camera_controller = camera::CameraController::new(10.0, 1.0);
+        let camera = Camera::new((0.0, 64.0, 10.0), (0.0, 1.0, 0.0), angle::Deg(-90.0), angle::Deg(-20.0));
+        let projection = Projection::new(width, height, angle::Deg(60.0), 0.1, 100.0);
+        let camera_controller = CameraController::new(10.0, 1.0);
 
         let proj_view = projection.calc_matrix() * camera.calc_matrix();
 
@@ -76,8 +67,8 @@ impl Client {
 
 
 
-    pub fn get_texture<T: AsRef<str>>(&self, id: T) -> &DiffuseTextureWrapper {
-        self.textures.get(id.as_ref()).unwrap()
+    pub fn get_texture<T: AsRef<str>>(&self, id: T) -> Option<&DiffuseTextureWrapper> {
+        self.textures.get(id.as_ref())
     }
 
     pub fn insert_texture<T: AsRef<str>>(&mut self, id: T, texture: DiffuseTextureWrapper) {

@@ -1,10 +1,9 @@
-use std::{cell::RefCell};
+use std::cell::RefCell;
 
-use super::{rendering::{mesh::Mesh}, gui::screen::Screen};
-use crate::{
-    util::pos::{ChunkPos},
-};
-use crate::world::{ChunkStorage, ChunkStoragePlanar};
+use crate::rendering::mesh::Mesh;
+use orange_rs::world::{ChunkStorage, ChunkStoragePlanar};
+
+use super::gui::screen::Screen;
 
 pub type ClientChunkStorage = Option<Mesh>;
 
@@ -64,13 +63,13 @@ impl MinecraftClient {
         self.player_level_id
     }
 
-    pub fn process_chunks(&mut self, min_extent: ChunkPos, max_extent: ChunkPos) {
-        // for chunk in self.client_chunk_storage.get_chunks() {
-        //     if !chunk.in_range(min_extent, max_extent) {
-        //         chunk.mark_for_removal();
-        //     }
-        // }
-        // self.client_chunk_storage.remove_marked_chunks();
-    }
+    // pub fn process_chunks(&mut self, min_extent: ChunkPos, max_extent: ChunkPos) {
+    //     // for chunk in self.client_chunk_storage.get_chunks() {
+    //     //     if !chunk.in_range(min_extent, max_extent) {
+    //     //         chunk.mark_for_removal();
+    //     //     }
+    //     // }
+    //     // self.client_chunk_storage.remove_marked_chunks();
+    // }
 
 }

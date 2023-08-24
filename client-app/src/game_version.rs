@@ -1,18 +1,21 @@
-use std::fs::{self, DirEntry};
 use std::path::PathBuf;
 
+use crunch::Rotation;
+use image::{GenericImage, GenericImageView};
+use crate::rendering::textures::DiffuseTextureWrapper;
 use rustc_hash::FxHashMap as HashMap;
 use ultraviolet::Vec2;
-use crate::block::Block;
-use crate::block::properties::PropertyDefinition;
-use crate::client::models::model::{BakedModel, VoxelModel};
-use crate::client::textures::TextureObject;
-use crate::client::textures::TextureObject::AtlasTexture;
-use crate::minecraft::{blocks, asset_loader};
-use crate::minecraft::filetypes::{MCAtlasTextureFile, UniformAtlasTextureType, MCModelFile, MCBlockstateType};
-use crate::minecraft::identifier::Identifier;
-use crate::minecraft::registry::Registry;
-use crate::resource_loader;
+use orange_rs::{block::Block, sprites::Sprite, models::{BlockstateParseError, self, generate_blockstate_model, model::{VoxelModel, BakedModel}}};
+use orange_rs::block::properties::PropertyDefinition;
+use orange_rs::minecraft::asset_loader::AssetLoader;
+use orange_rs::minecraft::{blocks, asset_loader};
+use orange_rs::minecraft::filetypes::{MCModel, MCAtlasSource};
+use orange_rs::minecraft::identifier::Identifier;
+use orange_rs::minecraft::registry::Registry;
+use orange_rs::resource_loader;
+
+use crate::game_client::Client;
+use crate::mc_resource_handler::{ATLAS_TEXTURE_NAME, ATLAS_LAYOUT_NAME};
 
 fn get_uv_from_atlas_index(texture_index: usize) -> [Vec2; 2] {
     let (u, v) = ((texture_index % 16) as f32 * 16., (texture_index / 16) as f32 * 16.,);
@@ -21,30 +24,9 @@ fn get_uv_from_atlas_index(texture_index: usize) -> [Vec2; 2] {
     [Vec2::new((u[0] * INV_ATLAS_SIZE) as f32, (u[1] * INV_ATLAS_SIZE) as f32), Vec2::new((v[0] * INV_ATLAS_SIZE) as f32, (v[1] * INV_ATLAS_SIZE) as f32)]
 }
 
-fn make_atlas_tex(texture_index: usize) -> TextureObject {
-    AtlasTexture { internal_uv: get_uv_from_atlas_index(texture_index) }
-}
-
-
-
-/** Apply a function to all files in dir and subdirs   
-Will crash if depth is greater than number of allowed open files per program 
-*/
-fn iter_files_recursive<F: FnMut(&DirEntry)>(path: PathBuf, file_funct: &mut F) {
-    if !path.is_dir() {
-        log::error!("Not a dir: {}", path.display());
-        return;
-    }
-
-    for f in fs::read_dir(path).unwrap() {
-        let entry = f.unwrap();
-        let entry_path = entry.path();
-        if entry_path.is_dir() {
-            iter_files_recursive(entry_path, file_funct);
-        } else {
-            file_funct(&entry);
-        }
-    }
+fn make_atlas_tex(texture_index: usize) -> Sprite {
+    let [uv_min, uv_max] = get_uv_from_atlas_index(texture_index);
+    Sprite { uv_min, uv_max, parent_texture: Identifier::from_str("game") }
 }
 
 fn register_properties(registry: &mut Registry) {
@@ -98,7 +80,7 @@ pub fn register_content(registry: &mut Registry) {
 }
 
 // TODO: Check for infinite recursion through already visited models
-fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMap<Identifier, MCModelFile>, voxel_models: &mut HashMap<Identifier, VoxelModel>) -> Option<VoxelModel> {
+fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMap<Identifier, MCModel>, voxel_models: &mut HashMap<Identifier, VoxelModel>) -> Option<VoxelModel> {
     let already_visited = false;
     if already_visited { return None; }
 
@@ -150,9 +132,9 @@ fn make_model(registry: &Registry, identifier: &Identifier, model_files: &HashMa
     })
 }
 
-pub fn load_resources(registry: &mut Registry, assets_directory: &PathBuf) {
-
-    let resource_locations = vec![assets_directory.to_owned()];
+pub fn load_resources(assets_directory: &PathBuf, default_resources: Option<PathBuf>) -> AssetLoader {
+    let default_resourcepack = default_resources.unwrap_or_else(|| assets_directory.join("b173.zip"));
+    let resource_locations = vec![default_resourcepack];
     let mut resource_loader = resource_loader::ResourceLoader::new();
     resource_loader.set_sources(&resource_locations);
 
@@ -160,20 +142,122 @@ pub fn load_resources(registry: &mut Registry, assets_directory: &PathBuf) {
     asset_loader.preload("b173", assets_directory);
     resource_loader.reload_system(&mut asset_loader);
 
+    asset_loader
+}
+
+pub fn bake_resources(registry: &mut Registry, client: &mut Client, asset_loader: &AssetLoader, device: &wgpu::Device, queue: &wgpu::Queue) {
+
+
     let model_files = asset_loader.models();
     let blockstate_files = asset_loader.blockstates();
 
-    let atlas_texture_json_str = fs::read_to_string(["../orange-mc-assets", "assets/minecraft/textures/block/terrain.mcatlas"].join("/"))
-        .expect("Should have been able to read the file");
-    let atlas_textures: MCAtlasTextureFile = serde_json::from_str(atlas_texture_json_str.as_str()).unwrap();
+    #[derive(Clone, Debug)]
+    struct Thingy {
+        pub source_id: Identifier,
+        pub target_id: Identifier,
+        pub start_x: usize,
+        pub start_y: usize,
+    }
 
-    {
-        let textures = registry.get_texture_register_mut();
-        for UniformAtlasTextureType { identifier, cell } in atlas_textures.atlas.get_uniform_textures() {
-            let tex = make_atlas_tex(cell as usize);
-            textures.insert(Identifier::from_str(identifier.as_str()), tex);
+    log::warn!("Does have missing sprite? {:?}", asset_loader.sprites().get(&Identifier::from_str("minecraft:block/missing")));
+    let mut items = vec![];
+    if let Some(atlas_source) = asset_loader.atlases().get(&Identifier::from_str("game")) {
+        for source in &atlas_source.sources {
+            match source {
+                MCAtlasSource::Directory { source, prefix } => {},
+                MCAtlasSource::Single { resource, sprite } => {},
+                MCAtlasSource::Filter { namespace, path } => {},
+                MCAtlasSource::Unstitch { resource, divisor_x, divisor_y, regions } => {
+                    let resource = if resource.starts_with("/") {
+                        resource.strip_prefix("/").unwrap()
+                    } else {
+                        resource
+                    };
+                    let source_id = Identifier::from_str(resource);
+                    for region in regions {
+                        let target_id =  Identifier::from_str(&region.sprite);
+                        let start_x = (region.x * divisor_x) as usize;
+                        let start_y = (region.y * divisor_y) as usize;
+                        let width = (region.width * divisor_x) as usize;
+                        let height = (region.height * divisor_y) as usize;
+                        let item = crunch::Item::new(Thingy { source_id: source_id.clone(), target_id, start_x, start_y }, width, height, Rotation::None);
+                        items.push(item);
+                    }
+                }
+            }
         }
     }
+    items.push(crunch::Item::new(Thingy { source_id: Identifier::from_str("block/missing"), target_id: Identifier::from_str("block/missing"), start_x: 0, start_y: 0 }, 2, 2, Rotation::None));
+    let result = crunch::pack_into_po2(4096, items).expect("Couldnt Pack Properly");
+    let mut game_texture = image::RgbaImage::new(result.w.try_into().unwrap(), result.h.try_into().unwrap());
+    let atlas_width = game_texture.width();
+    let atlas_height = game_texture.height();
+    // log::warn!("Texture Packing Result: {:?}", result.items);
+    // log::warn!("Packed Items: {}x{}", atlas_width, atlas_height);
+    for item in result.items {
+        let sprite_width = item.rect.w as u32;
+        let sprite_height = item.rect.h as u32;
+        let sprite_atlas_x = item.rect.x as u32;
+        let sprite_atlas_y = item.rect.y as u32;
+        let sprite_image_x = item.data.start_x as u32;
+        let sprite_image_y = item.data.start_y as u32;
+        // log::warn!("Item {} -> {}: {:?}", item.data.source_id, item.data.target_id, item.rect);
+        let other = asset_loader.sprites().get(&item.data.source_id).expect("Couldnt get source texture")
+            .view(sprite_image_x, sprite_image_y, sprite_width, sprite_height);
+        game_texture.copy_from(&*other, item.rect.x as u32, item.rect.y as u32);
+        let uv_min = Vec2::new((sprite_atlas_x as f32) / (atlas_width as f32), (sprite_atlas_y as f32) / (atlas_height as f32));
+        let uv_max = Vec2::new(((sprite_atlas_x + sprite_width) as f32) / (atlas_width as f32), ((sprite_atlas_y + sprite_height) as f32) / (atlas_height as f32));
+        registry.get_sprite_register_mut().insert(item.data.target_id.clone(), Sprite { uv_min, uv_max, parent_texture: item.data.source_id.clone() });
+    }
+
+
+    let tex_dims = wgpu::Extent3d {
+        width: atlas_width,
+        height: atlas_height,
+        depth_or_array_layers: 1,
+    };
+    let tex_format = wgpu::TextureFormat::Rgba8UnormSrgb;
+    let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+        size: tex_dims,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: tex_format,
+        view_formats: &[tex_format],
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        label: Some("diffuse_texture"),
+    });
+    queue.write_texture(
+        diffuse_texture.as_image_copy(),
+        game_texture.as_raw(),
+        wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * atlas_width),
+            rows_per_image: Some(atlas_height),
+        },
+        tex_dims,
+        );
+    let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        ..Default::default()
+    });
+
+    let texture = DiffuseTextureWrapper::new(
+        diffuse_texture,
+        (atlas_width, atlas_height).into(),
+        diffuse_texture_view,
+        sampler,
+        device,
+        client.get_layout(ATLAS_LAYOUT_NAME).unwrap(),
+        );
+    client.insert_texture(ATLAS_TEXTURE_NAME, texture);
 
     let mut voxel_models = HashMap::default();
     for model_file_id in model_files.keys() {
@@ -189,15 +273,15 @@ pub fn load_resources(registry: &mut Registry, assets_directory: &PathBuf) {
 
     let mut mapped_models: Vec<(Identifier, BakedModel)> = vec![];
 
-    let textures = registry.get_texture_register();
+    let textures = registry.get_sprite_register();
     for state in registry.get_blockstate_register().get_elements() {
         let identifier = state.get_state_identifier();
         let block_id = state.get_block_identifier();
 
         let a = blockstate_files.get(block_id)
-            .ok_or(crate::client::models::BlockstateParseError::NoBlockstateFile)
+            .ok_or(BlockstateParseError::NoBlockstateFile)
             .and_then(|blockstate_file| {
-                crate::client::models::generate_blockstate_model(&blockstate_file, identifier.get_identifier_string(), &voxel_models, textures)
+                generate_blockstate_model(&blockstate_file, identifier.get_identifier_string(), &voxel_models, textures)
             });
         let blockstate_model = match a {
             Ok(model) => model,

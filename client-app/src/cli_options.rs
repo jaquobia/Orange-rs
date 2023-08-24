@@ -11,4 +11,6 @@ pub struct OrangeCliArgs {
     pub orange_directory: Option<PathBuf>,
     #[arg(short, long, value_name = "DIR")]
     pub assets_directory: Option<PathBuf>,
+    #[arg(short, long, value_name = "DIR")]
+    pub default_resources: Option<PathBuf>,
 }

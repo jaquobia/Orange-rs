@@ -1,8 +1,14 @@
+use std::ffi::OsStr;
+
 // use ultraviolet::IVec3;
 pub mod pos;
 pub mod workers;
 pub mod frustrum;
 pub mod nibble;
+
+pub fn os_str_to_string(s: &OsStr) -> String {
+    s.to_string_lossy().to_string()
+}
 
 // pub struct IteratorYZX(IVec3, IVec3, u32);
 //

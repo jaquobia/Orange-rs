@@ -8,7 +8,7 @@ use crate::minecraft::{filetypes::MCBlockstateType, identifier::Identifier};
 
 use self::model::{VoxelModel, VoxelRotation};
 
-use super::textures::TextureObject;
+use super::sprites::Sprite;
 
 #[derive(thiserror::Error, Debug)]
 pub enum BlockstateParseError {
@@ -71,7 +71,7 @@ fn parse_variant_identifier_and_rotation(state_variants: &HashMap<String, Value>
     Err(BlockstateParseError::NoMatchedVariants)
 }
 
-fn generate_variant_blockstate_model(state_variants: &HashMap<String, Value>, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, TextureObject>)
+fn generate_variant_blockstate_model(state_variants: &HashMap<String, Value>, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, Sprite>)
     -> BlockstateParseResult<BakedModel> {
     let (model_identifier, variant_rotation) = parse_variant_identifier_and_rotation(state_variants, blockstate_identifier_string)?;
     let model = voxel_models.get(&model_identifier).cloned().ok_or(BlockstateParseError::ModelIdentifierNotValid(model_identifier.to_string()))?;
@@ -79,7 +79,7 @@ fn generate_variant_blockstate_model(state_variants: &HashMap<String, Value>, bl
     Ok(model.bake_with_rotate(rotation, &textures))
 }
 
-fn generate_multipart_blockstate_model(multiparts: &Vec<Value>, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, TextureObject>) 
+fn generate_multipart_blockstate_model(multiparts: &Vec<Value>, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, Sprite>) 
     -> BlockstateParseResult<BakedModel> {
     let mut applied_models: Vec<(Identifier, Option<VoxelRotation>)> = vec![];
     for part in multiparts {
@@ -112,12 +112,12 @@ fn generate_multipart_blockstate_model(multiparts: &Vec<Value>, blockstate_ident
 }
  
 
-pub fn generate_blockstate_model(blockstate_file: &MCBlockstateType, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, TextureObject>) -> BlockstateParseResult<BakedModel> {
+pub fn generate_blockstate_model(blockstate_file: &MCBlockstateType, blockstate_identifier_string: &String, voxel_models: &HashMap<Identifier, VoxelModel>, textures: &HashMap<Identifier, Sprite>) -> BlockstateParseResult<BakedModel> {
     match &blockstate_file {
-        MCBlockstateType::variants(state_variants) => {
+        MCBlockstateType::Variants(state_variants) => {
             generate_variant_blockstate_model(state_variants, blockstate_identifier_string, voxel_models, textures)
         },
-        MCBlockstateType::multipart(multiparts) => {
+        MCBlockstateType::Multipart(multiparts) => {
             generate_multipart_blockstate_model(multiparts, blockstate_identifier_string, voxel_models, textures)
         }
     }

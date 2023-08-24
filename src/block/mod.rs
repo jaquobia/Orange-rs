@@ -7,14 +7,12 @@ use std::rc::{Rc, Weak};
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::minecraft::identifier::Identifier;
-use crate::client::models::model::BakedModel;
 use crate::direction::Direction;
 use crate::minecraft::registry::{Registerable, Registry};
 
 use self::block_factory::BlockSettings;
 use self::properties::{PropertyValueType, PropertyDefinition};
 
-pub type ModelSupplierType = fn(u32) -> BakedModel;
 pub type SideCullFunctionType = fn(Direction) -> bool;
 
 /// Describes the properties of block in the world, how they look, how they interact with
